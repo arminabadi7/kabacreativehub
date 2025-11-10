@@ -25,7 +25,10 @@ import {
   X,
   ThumbsUp,
   MessageCircle,
-  Share2
+  Share2,
+  Check,
+  Zap,
+  Shield
 } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import heroImage from "@assets/generated_images/Content_creation_workspace_montage_8cb5e36f.png";
@@ -262,6 +265,79 @@ const portfolioItems = [
     },
     thumbnail: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
     description: "Cohesive content strategy with trend-forward editing and brand partnerships"
+  }
+];
+
+const pricingTiers = [
+  {
+    name: "Creator Launch",
+    price: "$1,500",
+    period: "/month",
+    description: "Perfect for creators just getting started with professional content",
+    features: [
+      "12 clips per month",
+      "72-hour turnaround",
+      "2 revisions per clip",
+      "Basic distribution strategy",
+      "Monthly performance report",
+      "Email support"
+    ],
+    cta: "Start Creating",
+    popular: false
+  },
+  {
+    name: "Growth Accelerator",
+    price: "$3,000",
+    period: "/month",
+    description: "For creators ready to scale their content and engagement",
+    features: [
+      "24 clips per month",
+      "48-hour turnaround",
+      "3 revisions per clip",
+      "Multi-platform distribution",
+      "Weekly analytics review",
+      "Monthly strategy call",
+      "Priority support"
+    ],
+    cta: "Book Growth Call",
+    popular: true
+  },
+  {
+    name: "Authority Builder",
+    price: "$5,000",
+    period: "/month",
+    description: "Establish yourself as an industry leader with premium content",
+    features: [
+      "40 clips per month",
+      "24-hour turnaround",
+      "5 revisions per clip",
+      "Full distribution management",
+      "Real-time analytics dashboard",
+      "Bi-weekly strategy sessions",
+      "Dedicated content strategist",
+      "Custom thumbnail design"
+    ],
+    cta: "Scale Now",
+    popular: false
+  },
+  {
+    name: "Enterprise Partner",
+    price: "Custom",
+    period: "pricing",
+    description: "White-glove service for brands and agencies at scale",
+    features: [
+      "60+ clips per month",
+      "Same-day turnaround available",
+      "Unlimited revisions",
+      "Complete channel management",
+      "Advanced analytics & insights",
+      "Weekly strategy sessions",
+      "Dedicated account manager",
+      "Custom workflow integration",
+      "Brand guidelines development"
+    ],
+    cta: "Contact Us",
+    popular: false
   }
 ];
 
@@ -748,6 +824,117 @@ export default function Home() {
               </ScrollReveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Pricing Tiers */}
+      <section className="py-16 md:py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-4">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Simple, Transparent Pricing</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-2">
+                Choose the plan that fits your content goals
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Cancel anytime after 90 days
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
+            {pricingTiers.map((tier, index) => (
+              <ScrollReveal key={tier.name} delay={index * 100}>
+                <Card 
+                  className={`h-full flex flex-col relative ${
+                    tier.popular 
+                      ? 'border-2 border-primary shadow-xl' 
+                      : 'border-2'
+                  }`}
+                  data-testid={`card-pricing-${index}`}
+                >
+                  {tier.popular && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                      <div className="px-4 py-1 bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold rounded-full flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        Most Popular
+                      </div>
+                    </div>
+                  )}
+
+                  <CardContent className="p-6 flex flex-col flex-1">
+                    <div className="mb-6">
+                      <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
+                      <div className="flex items-baseline gap-1 mb-3">
+                        <span className="text-4xl font-bold">{tier.price}</span>
+                        <span className="text-muted-foreground">{tier.period}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {tier.description}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 flex-1 mb-6">
+                      {tier.features.map((feature, featureIndex) => (
+                        <div 
+                          key={featureIndex} 
+                          className="flex items-start gap-3"
+                          data-testid={`feature-${index}-${featureIndex}`}
+                        >
+                          <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                          <span className="text-sm">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button
+                      size="lg"
+                      variant={tier.popular ? "default" : "outline"}
+                      className="w-full"
+                      onClick={scrollToBooking}
+                      data-testid={`button-pricing-${index}`}
+                    >
+                      {tier.cta}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </ScrollReveal>
+            ))}
+          </div>
+
+          <ScrollReveal delay={400}>
+            <div className="mt-12 p-6 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl border-2 border-primary/20">
+              <div className="flex flex-col md:flex-row items-center justify-center gap-8 text-center md:text-left">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-bold">90-Day Guarantee</div>
+                    <div className="text-sm text-muted-foreground">Flexible cancellation terms</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-bold">Fast Turnaround</div>
+                    <div className="text-sm text-muted-foreground">Up to 24hr on premium tiers</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-bold">Proven Results</div>
+                    <div className="text-sm text-muted-foreground">50M+ views generated</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 
