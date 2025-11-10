@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { 
   Video, 
   FileText, 
@@ -338,6 +344,57 @@ const pricingTiers = [
     ],
     cta: "Contact Us",
     popular: false
+  }
+];
+
+const faqs = [
+  {
+    question: "What types of content do you create?",
+    answer: "We specialize in short-form video content optimized for TikTok, Instagram Reels, YouTube Shorts, and other social platforms. Our services include video editing, scripting, ideation, thumbnail design, and complete social media management."
+  },
+  {
+    question: "How long does it take to get my content?",
+    answer: "Turnaround times vary by package: Creator Launch (72 hours), Growth Accelerator (48 hours), Authority Builder (24 hours), and Enterprise Partner (same-day available). All timelines start from when we receive your raw footage or content brief."
+  },
+  {
+    question: "Can I request revisions?",
+    answer: "Yes! Each package includes a set number of revisions per clip: Creator Launch (2 revisions), Growth Accelerator (3 revisions), Authority Builder (5 revisions), and Enterprise Partner (unlimited revisions). Additional revisions can be purchased if needed."
+  },
+  {
+    question: "What platforms do you optimize content for?",
+    answer: "We optimize for all major social platforms including TikTok, Instagram (Reels and Feed), YouTube (Shorts and main channel), Facebook, LinkedIn, Twitter/X, and Pinterest. We tailor aspect ratios, captions, and hooks for each platform's algorithm and audience."
+  },
+  {
+    question: "Do I retain full rights to my content?",
+    answer: "Absolutely! You own 100% of the rights to all content we create for you. We simply retain the right to showcase your content (with your permission) in our portfolio and case studies."
+  },
+  {
+    question: "How does the content creation process work?",
+    answer: "It's simple: (1) You provide raw footage or content ideas, (2) Our team edits and optimizes your content based on your brand guidelines and goals, (3) You review and request any revisions, (4) We deliver final files ready for posting. Plus, higher-tier packages include distribution directly to your accounts."
+  },
+  {
+    question: "What if I'm not satisfied with the results?",
+    answer: "We're committed to your success. All packages come with our 90-day guarantee—if you're not seeing results or aren't satisfied with our service, you can cancel after the initial 90-day commitment period. We also provide analytics and performance tracking to measure success."
+  },
+  {
+    question: "Can I upgrade or downgrade my plan?",
+    answer: "Yes! You can upgrade your plan at any time. Downgrades are available after your current billing cycle ends. We'll work with you to ensure a smooth transition and carry over any unused clips to your new plan where possible."
+  },
+  {
+    question: "Do you provide analytics and performance tracking?",
+    answer: "Yes! All packages include performance reporting. Creator Launch receives monthly reports, Growth Accelerator gets weekly analytics reviews, Authority Builder has real-time dashboard access, and Enterprise Partner includes advanced analytics with custom KPI tracking."
+  },
+  {
+    question: "What file formats do you deliver?",
+    answer: "We deliver content in the optimal formats for your chosen platforms (typically MP4 for video). We also provide source files and project files for higher-tier packages. All content is delivered via secure cloud storage with easy download links."
+  },
+  {
+    question: "How do monthly clip quotas work?",
+    answer: "Your monthly clip quota resets on your billing date. Unused clips don't roll over to the next month, but we can discuss banking clips for seasonal campaigns or special projects. Need more clips? You can purchase add-ons or upgrade your package anytime."
+  },
+  {
+    question: "Do you offer custom packages?",
+    answer: "Yes! Our Enterprise Partner tier is fully customizable to your needs. We can create bespoke packages for agencies, large brands, or creators with unique requirements. Book a strategy call to discuss your specific needs and we'll build a custom solution."
   }
 ];
 
@@ -1062,6 +1119,53 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* FAQ Section */}
+      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
+        <div className="max-w-4xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Frequently Asked Questions</h2>
+              <p className="text-lg md:text-xl text-muted-foreground">
+                Everything you need to know about our content creation services
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={200}>
+            <Accordion type="single" collapsible className="space-y-4" data-testid="accordion-faq">
+              {faqs.map((faq, index) => (
+                <AccordionItem
+                  key={index}
+                  value={`item-${index}`}
+                  className="bg-background border-2 rounded-xl px-6 py-2"
+                  data-testid={`faq-item-${index}`}
+                >
+                  <AccordionTrigger className="text-left font-semibold hover:no-underline">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground leading-relaxed">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </ScrollReveal>
+
+          <ScrollReveal delay={400}>
+            <div className="mt-12 text-center p-8 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl border-2 border-primary/20">
+              <h3 className="text-2xl font-bold mb-3">Still Have Questions?</h3>
+              <p className="text-muted-foreground mb-6">
+                Book a free strategy call and we'll answer all your questions about our services
+              </p>
+              <Button size="lg" onClick={scrollToBooking} data-testid="button-faq-cta">
+                <Calendar className="w-5 h-5 mr-2" />
+                Schedule Your Free Call
+              </Button>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
 
       {/* CTA Section with Calendly */}
       <section id="booking" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
