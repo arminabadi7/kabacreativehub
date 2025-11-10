@@ -54,7 +54,7 @@ const services = [
   {
     icon: Upload,
     title: "Content Distribution",
-    description: "Upload 500+ optimized clips per month to maximize your reach and engagement."
+    description: "Upload 1000+ optimized clips to maximize your reach and engagement."
   },
   {
     icon: TrendingUp,
@@ -64,9 +64,9 @@ const services = [
 ];
 
 const stats = [
-  { number: "500+", label: "Clips Per Month", suffix: "" },
+  { number: "1000+", label: "Clips Created", suffix: "" },
   { number: "50", label: "Million+ Views", suffix: "M+" },
-  { number: "50+", label: "Happy Clients", suffix: "+" },
+  { number: "10+", label: "Happy Clients", suffix: "+" },
   { number: "24", label: "Hour Turnaround", suffix: "hr" }
 ];
 
@@ -94,7 +94,7 @@ const process = [
 const testimonials = [
   {
     quote: "Kaba Content transformed our social media presence. Within 3 months, we went from 10K to 150K followers and 5x'd our revenue. Their content strategy is unmatched.",
-    author: "John Doe",
+    author: "",
     role: "Content Creator & Coach",
     initials: "JD",
     metrics: [
@@ -103,18 +103,18 @@ const testimonials = [
     ]
   },
   {
-    quote: "The quality and consistency of content from Kaba is incredible. They helped us scale from posting 3 times a week to daily content across all platforms without lifting a finger.",
-    author: "Sarah Johnson",
-    role: "E-commerce Brand Owner",
-    initials: "SJ",
+    quote: "Took me from 100 subscribers to 2,400+ with one video that did 300k+ views. The editing and strategy completely changed my channel's trajectory.",
+    author: "",
+    role: "YouTube Creator",
+    initials: "B",
     metrics: [
-      { icon: Upload, value: "500+", label: "Clips/Month" },
-      { icon: TrendingUp, value: "300%", label: "Engagement Rate" }
+      { icon: Eye, value: "300K+", label: "Views" },
+      { icon: Users, value: "2,300+", label: "New Subscribers" }
     ]
   },
   {
     quote: "Best investment we made for our brand. The team at Kaba understands viral content and delivers results month after month. Our views went from thousands to millions.",
-    author: "Michael Chen",
+    author: "",
     role: "Fitness Influencer",
     initials: "MC",
     metrics: [
@@ -380,7 +380,7 @@ export default function Home() {
             <ScrollReveal>
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full mb-8 border border-white/20">
                 <Target className="w-4 h-4" />
-                <span className="text-sm font-semibold">500+ Clips. 10M+ Views Generated.</span>
+                <span className="text-sm font-semibold">1000+ Clips. 50M+ Views Generated.</span>
               </div>
             </ScrollReveal>
 
@@ -397,7 +397,7 @@ export default function Home() {
             <ScrollReveal delay={200}>
               <p className="text-xl md:text-2xl mb-12 max-w-3xl mx-auto text-white/90 leading-relaxed">
                 Professional video editing, scripting, and content distribution services. 
-                We create <span className="font-bold text-secondary">500+ clips per month</span> to boost your views, followers, and sales.
+                We create <span className="font-bold text-secondary">1000+ clips</span> to boost your views, followers, and sales.
               </p>
             </ScrollReveal>
 
@@ -491,11 +491,11 @@ export default function Home() {
               <ScrollReveal key={stat.label} delay={index * 100}>
                 <div className="text-center" data-testid={`stat-${index}`}>
                   {index === 1 ? (
-                    <AnimatedCounter target={10} suffix="M+" />
+                    <AnimatedCounter target={50} suffix="M+" />
                   ) : index === 0 ? (
-                    <div className="font-mono text-5xl md:text-6xl lg:text-7xl font-bold">500+</div>
+                    <div className="font-mono text-5xl md:text-6xl lg:text-7xl font-bold">1000+</div>
                   ) : index === 2 ? (
-                    <AnimatedCounter target={50} suffix="+" />
+                    <AnimatedCounter target={10} suffix="+" />
                   ) : (
                     <div className="font-mono text-5xl md:text-6xl lg:text-7xl font-bold">24hr</div>
                   )}
@@ -556,7 +556,7 @@ export default function Home() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
-              <ScrollReveal key={testimonial.author} delay={index * 100}>
+              <ScrollReveal key={testimonial.initials} delay={index * 100}>
                 <Card className="h-full border-2 hover-elevate" data-testid={`card-testimonial-${index}`}>
                   <CardContent className="p-8 flex flex-col h-full">
                     <Quote className="w-10 h-10 text-primary/20 mb-4" />
@@ -582,7 +582,6 @@ export default function Home() {
                         {testimonial.initials}
                       </div>
                       <div>
-                        <div className="font-semibold">{testimonial.author}</div>
                         <div className="text-sm text-muted-foreground">{testimonial.role}</div>
                       </div>
                     </div>
@@ -856,7 +855,14 @@ export default function Home() {
                   </div>
 
                   <div className="flex items-center justify-center gap-4">
-                    <Button size="lg" onClick={scrollToBooking} data-testid="button-book-from-portfolio">
+                    <Button 
+                      size="lg" 
+                      onClick={() => {
+                        setSelectedPortfolioItem(null);
+                        setTimeout(scrollToBooking, 100);
+                      }} 
+                      data-testid="button-book-from-portfolio"
+                    >
                       <Calendar className="w-5 h-5 mr-2" />
                       Get Similar Results
                     </Button>
