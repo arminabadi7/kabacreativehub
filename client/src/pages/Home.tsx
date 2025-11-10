@@ -20,7 +20,12 @@ import {
   Users,
   Eye,
   Heart,
-  DollarSign
+  DollarSign,
+  Play,
+  X,
+  ThumbsUp,
+  MessageCircle,
+  Share2
 } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import heroImage from "@assets/generated_images/Content_creation_workspace_montage_8cb5e36f.png";
@@ -155,6 +160,111 @@ const caseStudies = [
   }
 ];
 
+const portfolioItems = [
+  {
+    id: 1,
+    title: "Fitness Creator Transformation",
+    category: "Health & Fitness",
+    before: {
+      views: "15K",
+      engagement: "2.3%",
+      followers: "8K"
+    },
+    after: {
+      views: "2.4M",
+      engagement: "12.8%",
+      followers: "185K"
+    },
+    thumbnail: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    description: "Complete content overhaul with strategic editing and distribution strategy"
+  },
+  {
+    id: 2,
+    title: "E-Commerce Product Showcase",
+    category: "E-Commerce",
+    before: {
+      views: "8K",
+      engagement: "1.8%",
+      followers: "12K"
+    },
+    after: {
+      views: "1.2M",
+      engagement: "9.4%",
+      followers: "95K"
+    },
+    thumbnail: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    description: "High-converting product videos with professional editing and hook optimization"
+  },
+  {
+    id: 3,
+    title: "Personal Brand Growth",
+    category: "Coaching",
+    before: {
+      views: "25K",
+      engagement: "3.1%",
+      followers: "18K"
+    },
+    after: {
+      views: "5.8M",
+      engagement: "15.2%",
+      followers: "320K"
+    },
+    thumbnail: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    description: "Authority-building content series with viral hooks and storytelling techniques"
+  },
+  {
+    id: 4,
+    title: "Restaurant Social Strategy",
+    category: "Food & Beverage",
+    before: {
+      views: "5K",
+      engagement: "1.2%",
+      followers: "6K"
+    },
+    after: {
+      views: "980K",
+      engagement: "11.5%",
+      followers: "78K"
+    },
+    thumbnail: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+    description: "Behind-the-scenes content and food showcase videos that drive foot traffic"
+  },
+  {
+    id: 5,
+    title: "Tech Review Channel",
+    category: "Technology",
+    before: {
+      views: "12K",
+      engagement: "2.5%",
+      followers: "9K"
+    },
+    after: {
+      views: "3.2M",
+      engagement: "13.7%",
+      followers: "210K"
+    },
+    thumbnail: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+    description: "Professional product reviews with cinematic editing and clear value propositions"
+  },
+  {
+    id: 6,
+    title: "Fashion Influencer Rebrand",
+    category: "Fashion & Lifestyle",
+    before: {
+      views: "20K",
+      engagement: "2.8%",
+      followers: "15K"
+    },
+    after: {
+      views: "4.5M",
+      engagement: "14.3%",
+      followers: "280K"
+    },
+    thumbnail: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+    description: "Cohesive content strategy with trend-forward editing and brand partnerships"
+  }
+];
+
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
   const [count, setCount] = useState(0);
   const [hasAnimated, setHasAnimated] = useState(false);
@@ -236,6 +346,7 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 
 export default function Home() {
   const [showCalendly, setShowCalendly] = useState(false);
+  const [selectedPortfolioItem, setSelectedPortfolioItem] = useState<number | null>(null);
 
   useEffect(() => {
     if (showCalendly) {
@@ -550,6 +661,214 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Portfolio Gallery Section */}
+      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Portfolio Showcase</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                Before & after transformations showing real results from our content strategies
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {portfolioItems.map((item, index) => (
+              <ScrollReveal key={item.id} delay={index * 100}>
+                <Card 
+                  className="h-full border-2 hover-elevate active-elevate-2 cursor-pointer overflow-hidden" 
+                  onClick={() => setSelectedPortfolioItem(item.id)}
+                  data-testid={`card-portfolio-${index}`}
+                >
+                  <div 
+                    className="h-48 flex items-center justify-center relative"
+                    style={{ background: item.thumbnail }}
+                  >
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                        <Play className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                    <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-sm font-semibold text-foreground">
+                      {item.category}
+                    </div>
+                  </div>
+                  
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-6">{item.description}</p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase">Before</div>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Eye className="w-4 h-4 text-muted-foreground" />
+                            <span>{item.before.views}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Heart className="w-4 h-4 text-muted-foreground" />
+                            <span>{item.before.engagement}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users className="w-4 h-4 text-muted-foreground" />
+                            <span>{item.before.followers}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="text-xs font-semibold text-primary uppercase">After</div>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                            <Eye className="w-4 h-4" />
+                            <span>{item.after.views}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                            <Heart className="w-4 h-4" />
+                            <span>{item.after.engagement}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                            <Users className="w-4 h-4" />
+                            <span>{item.after.followers}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t text-center">
+                      <div className="text-sm font-semibold text-primary flex items-center justify-center gap-2">
+                        <span>View Details</span>
+                        <ArrowUpRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Portfolio Modal */}
+      {selectedPortfolioItem !== null && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedPortfolioItem(null)}
+          data-testid="modal-portfolio"
+        >
+          <div 
+            className="bg-background rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedPortfolioItem(null)}
+              className="absolute top-4 right-4 w-10 h-10 bg-muted rounded-full flex items-center justify-center hover-elevate z-10"
+              data-testid="button-close-modal"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {portfolioItems
+              .filter(item => item.id === selectedPortfolioItem)
+              .map((item) => (
+                <div key={item.id} className="p-8 md:p-12">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold">
+                      {item.category}
+                    </div>
+                  </div>
+
+                  <h2 className="text-3xl md:text-4xl font-bold mb-4">{item.title}</h2>
+                  <p className="text-lg text-muted-foreground mb-8">{item.description}</p>
+
+                  <div 
+                    className="h-96 rounded-xl mb-8 flex items-center justify-center relative overflow-hidden"
+                    style={{ background: item.thumbnail }}
+                  >
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                        <Play className="w-12 h-12 text-white" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <Card className="border-2">
+                      <CardContent className="p-6">
+                        <h3 className="text-xl font-bold mb-4 text-muted-foreground">Before Our Work</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Eye className="w-5 h-5 text-muted-foreground" />
+                              <span className="text-sm font-semibold text-muted-foreground">Views</span>
+                            </div>
+                            <div className="text-3xl font-bold">{item.before.views}</div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Heart className="w-5 h-5 text-muted-foreground" />
+                              <span className="text-sm font-semibold text-muted-foreground">Engagement</span>
+                            </div>
+                            <div className="text-3xl font-bold">{item.before.engagement}</div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Users className="w-5 h-5 text-muted-foreground" />
+                              <span className="text-sm font-semibold text-muted-foreground">Followers</span>
+                            </div>
+                            <div className="text-3xl font-bold">{item.before.followers}</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-2 border-primary/50 bg-primary/5">
+                      <CardContent className="p-6">
+                        <h3 className="text-xl font-bold mb-4 text-primary">After Our Work</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Eye className="w-5 h-5 text-primary" />
+                              <span className="text-sm font-semibold text-primary">Views</span>
+                            </div>
+                            <div className="text-3xl font-bold text-primary">{item.after.views}</div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Heart className="w-5 h-5 text-primary" />
+                              <span className="text-sm font-semibold text-primary">Engagement</span>
+                            </div>
+                            <div className="text-3xl font-bold text-primary">{item.after.engagement}</div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Users className="w-5 h-5 text-primary" />
+                              <span className="text-sm font-semibold text-primary">Followers</span>
+                            </div>
+                            <div className="text-3xl font-bold text-primary">{item.after.followers}</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-4">
+                    <Button size="lg" onClick={scrollToBooking} data-testid="button-book-from-portfolio">
+                      <Calendar className="w-5 h-5 mr-2" />
+                      Get Similar Results
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={() => setSelectedPortfolioItem(null)} data-testid="button-close-portfolio">
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* CTA Section with Calendly */}
       <section id="booking" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
