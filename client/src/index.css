@@ -26,10 +26,10 @@
   --popover: 220 12% 94%;
   --popover-foreground: 220 15% 12%;
   --popover-border: 220 10% 90%;
-  --primary: 214 95% 48%;
+  --primary: 220 78% 33%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 220 12% 92%;
-  --secondary-foreground: 220 15% 12%;
+  --secondary: 187 95% 43%;
+  --secondary-foreground: 0 0% 98%;
   --muted: 220 15% 94%;
   --muted-foreground: 220 12% 35%;
   --accent: 220 18% 94%;
@@ -43,9 +43,9 @@
   --chart-3: 205 82% 35%;
   --chart-4: 200 75% 32%;
   --chart-5: 195 70% 28%;
-  --font-sans: Open Sans, sans-serif;
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Menlo, monospace;
+  --font-mono: Space Grotesk, monospace;
   --radius: .5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(220 10% 50% / 0.00);
   --shadow-xs: 0px 2px 0px 0px hsl(220 10% 50% / 0.00);
@@ -110,9 +110,9 @@
   --popover: 220 18% 14%;
   --popover-foreground: 0 0% 98%;
   --popover-border: 220 15% 18%;
-  --primary: 214 95% 48%;
+  --primary: 220 78% 40%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 220 18% 18%;
+  --secondary: 187 95% 50%;
   --secondary-foreground: 0 0% 98%;
   --muted: 220 18% 16%;
   --muted-foreground: 220 15% 70%;
