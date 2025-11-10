@@ -14,7 +14,13 @@ import {
   CheckCircle2,
   Sparkles,
   Target,
-  Rocket
+  Rocket,
+  Quote,
+  ArrowUpRight,
+  Users,
+  Eye,
+  Heart,
+  DollarSign
 } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import heroImage from "@assets/generated_images/Content_creation_workspace_montage_8cb5e36f.png";
@@ -77,6 +83,75 @@ const process = [
     title: "You Grow",
     description: "Watch your views, followers, and revenue multiply with consistent content.",
     icon: Rocket
+  }
+];
+
+const testimonials = [
+  {
+    quote: "Kaba Content transformed our social media presence. Within 3 months, we went from 10K to 150K followers and 5x'd our revenue. Their content strategy is unmatched.",
+    author: "John Doe",
+    role: "Content Creator & Coach",
+    initials: "JD",
+    metrics: [
+      { icon: Users, value: "140K+", label: "New Followers" },
+      { icon: DollarSign, value: "5x", label: "Revenue Growth" }
+    ]
+  },
+  {
+    quote: "The quality and consistency of content from Kaba is incredible. They helped us scale from posting 3 times a week to daily content across all platforms without lifting a finger.",
+    author: "Sarah Johnson",
+    role: "E-commerce Brand Owner",
+    initials: "SJ",
+    metrics: [
+      { icon: Upload, value: "500+", label: "Clips/Month" },
+      { icon: TrendingUp, value: "300%", label: "Engagement Rate" }
+    ]
+  },
+  {
+    quote: "Best investment we made for our brand. The team at Kaba understands viral content and delivers results month after month. Our views went from thousands to millions.",
+    author: "Michael Chen",
+    role: "Fitness Influencer",
+    initials: "MC",
+    metrics: [
+      { icon: Eye, value: "10M+", label: "Monthly Views" },
+      { icon: Heart, value: "2.5M", label: "Total Engagement" }
+    ]
+  }
+];
+
+const caseStudies = [
+  {
+    industry: "E-Commerce",
+    challenge: "Struggling to maintain consistent posting schedule while managing business operations",
+    solution: "500+ optimized short-form videos distributed across TikTok, Instagram Reels, and YouTube Shorts",
+    results: [
+      "320% increase in website traffic",
+      "4.8M total views in 90 days",
+      "$250K in attributed revenue"
+    ],
+    timeframe: "3 Months"
+  },
+  {
+    industry: "Coaching & Education",
+    challenge: "Low engagement despite having quality content ideas",
+    solution: "Professional scripting, editing, and strategic content distribution plan",
+    results: [
+      "From 12K to 180K followers",
+      "85% average watch-through rate",
+      "Sold out $10K coaching program"
+    ],
+    timeframe: "4 Months"
+  },
+  {
+    industry: "Health & Fitness",
+    challenge: "Needed to scale content production without sacrificing quality",
+    solution: "End-to-end content creation from ideation to distribution with analytics tracking",
+    results: [
+      "15M+ views across platforms",
+      "45K new email subscribers",
+      "Launched successful supplement line"
+    ],
+    timeframe: "6 Months"
   }
 ];
 
@@ -356,34 +431,123 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Social Proof */}
-      <section className="py-16 md:py-24 bg-muted/30">
+      {/* Testimonials Section */}
+      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <Card className="max-w-4xl mx-auto border-2">
-              <CardContent className="p-8 md:p-12">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="flex gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Sparkles key={i} className="w-6 h-6 text-secondary fill-secondary" />
-                    ))}
-                  </div>
-                </div>
-                <blockquote className="text-2xl md:text-3xl font-semibold mb-6 leading-relaxed">
-                  "Kaba Content transformed our social media presence. Within 3 months, we went from 10K to 150K followers and 5x'd our revenue. Their content strategy is unmatched."
-                </blockquote>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-xl">
-                    JD
-                  </div>
-                  <div>
-                    <div className="font-semibold text-lg">John Doe</div>
-                    <div className="text-muted-foreground">Content Creator & Coach</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">What Our Clients Say</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                Real results from content creators and brands we've helped scale
+              </p>
+            </div>
           </ScrollReveal>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <ScrollReveal key={testimonial.author} delay={index * 100}>
+                <Card className="h-full border-2 hover-elevate" data-testid={`card-testimonial-${index}`}>
+                  <CardContent className="p-8 flex flex-col h-full">
+                    <Quote className="w-10 h-10 text-primary/20 mb-4" />
+                    
+                    <blockquote className="text-lg font-medium mb-6 leading-relaxed flex-grow">
+                      "{testimonial.quote}"
+                    </blockquote>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6 pt-6 border-t">
+                      {testimonial.metrics.map((metric, idx) => (
+                        <div key={idx} className="text-center">
+                          <div className="flex items-center justify-center mb-2">
+                            <metric.icon className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="font-bold text-2xl text-primary">{metric.value}</div>
+                          <div className="text-sm text-muted-foreground">{metric.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        {testimonial.initials}
+                      </div>
+                      <div>
+                        <div className="font-semibold">{testimonial.author}</div>
+                        <div className="text-sm text-muted-foreground">{testimonial.role}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-1 mt-4">
+                      {[...Array(5)].map((_, i) => (
+                        <Sparkles key={i} className="w-4 h-4 text-secondary fill-secondary" />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Case Studies Section */}
+      <section className="py-16 md:py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Success Stories</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                Deep dive into how we've helped clients achieve transformative results
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {caseStudies.map((study, index) => (
+              <ScrollReveal key={study.industry} delay={index * 100}>
+                <Card className="h-full border-2 hover-elevate active-elevate-2" data-testid={`card-case-study-${index}`}>
+                  <CardContent className="p-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-semibold">
+                        {study.industry}
+                      </div>
+                      <div className="text-sm text-muted-foreground font-mono">{study.timeframe}</div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div>
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-2">Challenge</h4>
+                        <p className="text-base leading-relaxed">{study.challenge}</p>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-2">Solution</h4>
+                        <p className="text-base leading-relaxed">{study.solution}</p>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold text-sm text-muted-foreground mb-3">Results</h4>
+                        <ul className="space-y-2">
+                          {study.results.map((result, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <CheckCircle2 className="w-5 h-5 text-secondary mt-0.5 flex-shrink-0" />
+                              <span className="text-base">{result}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t">
+                      <div className="flex items-center gap-2 text-primary font-semibold hover-elevate rounded px-2 py-1 -mx-2 -my-1 cursor-pointer">
+                        <span className="text-sm">View Full Case Study</span>
+                        <ArrowUpRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </ScrollReveal>
+            ))}
+          </div>
         </div>
       </section>
 
