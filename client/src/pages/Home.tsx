@@ -65,7 +65,7 @@ const services = [
 
 const stats = [
   { number: "500+", label: "Clips Per Month", suffix: "" },
-  { number: "10", label: "Million+ Views", suffix: "M+" },
+  { number: "50", label: "Million+ Views", suffix: "M+" },
   { number: "50+", label: "Happy Clients", suffix: "+" },
   { number: "24", label: "Hour Turnaround", suffix: "hr" }
 ];
