@@ -1068,12 +1068,14 @@ export default function Home() {
                   </p>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl p-2 shadow-2xl">
-                  <div
-                    className="calendly-inline-widget"
-                    data-url="https://calendly.com/arminabadi7/30min"
-                    style={{ minWidth: "320px", height: "700px" }}
+                <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl">
+                  <iframe
+                    src="https://calendly.com/arminabadi7/30min"
+                    width="100%"
+                    height="700"
+                    frameBorder="0"
                     data-testid="calendly-widget"
+                    className="rounded-2xl"
                   />
                 </div>
               )}
