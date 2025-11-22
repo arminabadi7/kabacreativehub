@@ -76,7 +76,8 @@ Each step shows "What You Do" vs. "What We Do"
 - Contact information
 
 ## Contact Information
-- **Phone**: 604-626-9278
+- **Telegram**: https://t.me/arminkaba (@arminkaba)
+- **WhatsApp**: https://wa.me/16046269278 (604-626-9278)
 - **Email**: arminabadi7@gmail.com
 - **Instagram**: @kabacontent
 - **Domain**: kabacontent.com
@@ -142,6 +143,7 @@ Application runs on port 5000.
 - Implemented Calendly booking with iframe embed (https://calendly.com/arminabadi7/30min)
 - Created custom gradient blue lightning bolt favicon with white outline
 - Updated meta tags for SEO to reflect mass-content system positioning
+- Replaced phone number with Telegram (@arminkaba) and added WhatsApp contact option
 
 ## Content Strategy
 The page now follows a strategic sales narrative:
