@@ -21,7 +21,6 @@ import {
   Quote,
   ArrowUpRight,
   Mail,
-  Phone,
   X,
   Play,
   Heart,
@@ -37,7 +36,7 @@ import {
   AlertCircle,
   CheckCircle2
 } from "lucide-react";
-import { SiInstagram, SiTiktok, SiYoutube, SiFacebook } from "react-icons/si";
+import { SiInstagram, SiTiktok, SiYoutube, SiFacebook, SiTelegram, SiWhatsapp } from "react-icons/si";
 import heroImage from "@assets/generated_images/Content_creation_workspace_montage_8cb5e36f.png";
 
 // Pricing tiers
@@ -1064,7 +1063,7 @@ export default function Home() {
                     Book Your Free Strategy Call
                   </Button>
                   <p className="mt-8 text-white/80 text-lg">
-                    Or call us directly: <a href="tel:604-626-9278" className="underline font-semibold hover:text-white">604-626-9278</a>
+                    Or message us on Telegram: <a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="underline font-semibold hover:text-white">@arminkaba</a>
                   </p>
                 </div>
               ) : (
@@ -1084,11 +1083,16 @@ export default function Home() {
 
           <ScrollReveal delay={300}>
             <div className="mt-16 pt-12 border-t border-white/20">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
                 <div>
-                  <Phone className="w-10 h-10 mx-auto mb-3" />
-                  <div className="font-semibold mb-2">Phone</div>
-                  <a href="tel:604-626-9278" className="text-white/80 hover:text-white text-lg">604-626-9278</a>
+                  <SiTelegram className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">Telegram</div>
+                  <a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-lg">@arminkaba</a>
+                </div>
+                <div>
+                  <SiWhatsapp className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">WhatsApp</div>
+                  <a href="https://wa.me/16046269278" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-lg">Chat Now</a>
                 </div>
                 <div>
                   <Mail className="w-10 h-10 mx-auto mb-3" />
@@ -1125,7 +1129,8 @@ export default function Home() {
             <div>
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm text-white/60">
-                <li><a href="tel:604-626-9278" className="hover:text-white">604-626-9278</a></li>
+                <li><a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="hover:text-white">Telegram: @arminkaba</a></li>
+                <li><a href="https://wa.me/16046269278" target="_blank" rel="noopener noreferrer" className="hover:text-white">WhatsApp Chat</a></li>
                 <li><a href="mailto:arminabadi7@gmail.com" className="hover:text-white">arminabadi7@gmail.com</a></li>
                 <li><a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="hover:text-white">@kabacontent</a></li>
               </ul>
