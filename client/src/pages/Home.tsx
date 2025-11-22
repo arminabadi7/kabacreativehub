@@ -8,393 +8,255 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { 
-  Video, 
-  FileText, 
-  Lightbulb, 
-  BarChart3, 
-  Upload, 
+  Zap,
+  Check,
+  Shield,
   TrendingUp,
-  Phone,
-  Mail,
+  Video,
+  Users,
+  Eye,
   Calendar,
-  CheckCircle2,
   Sparkles,
-  Target,
   Rocket,
   Quote,
   ArrowUpRight,
-  Users,
-  Eye,
+  Mail,
+  Phone,
+  X,
+  Play,
   Heart,
   DollarSign,
-  Play,
-  X,
+  Target,
+  BarChart3,
+  FileText,
+  Lightbulb,
+  Upload,
   ThumbsUp,
   MessageCircle,
-  Share2,
-  Check,
-  Zap,
-  Shield
+  Share2
 } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import heroImage from "@assets/generated_images/Content_creation_workspace_montage_8cb5e36f.png";
 
-const services = [
+// System offerings - the three tiers for mass content
+const pricingTiers = [
   {
-    icon: Video,
-    title: "Video Editing",
-    description: "Professional editing that transforms raw footage into compelling content that captivates your audience."
+    name: "Growth Tier",
+    price: "$4,000",
+    period: "/month",
+    clips: "500+",
+    accounts: "10 accounts",
+    description: "Perfect for creators starting their mass-content journey",
+    features: [
+      "500+ edited clips per month",
+      "10 branded sub-accounts created",
+      "4 platform distribution (IG, TikTok, YT, FB)",
+      "Content ideation form & strategy",
+      "Full editing & optimization",
+      "Scheduled posting across all accounts",
+      "Monthly performance review",
+      "Email support"
+    ],
+    cta: "Start Explosive Growth",
+    popular: false
   },
   {
-    icon: FileText,
-    title: "Scripting",
-    description: "Engaging scripts crafted to tell your story and drive action from your viewers."
+    name: "Domination Tier",
+    price: "$7,000",
+    period: "/month",
+    clips: "1000+",
+    accounts: "15 accounts",
+    description: "Dominate your niche with aggressive scaling",
+    features: [
+      "1000+ edited clips per month",
+      "15 branded sub-accounts created",
+      "4 platform distribution (IG, TikTok, YT, FB)",
+      "Premium content ideation & research",
+      "Advanced editing with viral hooks",
+      "Strategic posting optimization",
+      "Weekly analytics & growth reviews",
+      "Bi-weekly strategy calls",
+      "Priority support",
+      "Algorithm insights & adjustments"
+    ],
+    cta: "Scale to Millions",
+    popular: true
   },
   {
-    icon: Lightbulb,
-    title: "Video Ideation",
-    description: "Creative concepts and strategies that set your content apart from the competition."
-  },
-  {
-    icon: BarChart3,
-    title: "Social Media Management",
-    description: "Complete account management to grow your presence across all platforms."
-  },
-  {
-    icon: Upload,
-    title: "Content Distribution",
-    description: "Upload 1000+ optimized clips to maximize your reach and engagement."
-  },
-  {
-    icon: TrendingUp,
-    title: "Analytics & Growth",
-    description: "Data-driven insights to continuously improve performance and scale results."
+    name: "Empire Tier",
+    price: "$13,475",
+    period: "/month",
+    clips: "2500+",
+    accounts: "27 accounts",
+    description: "Complete content domination across all platforms",
+    features: [
+      "2500+ edited clips per month",
+      "27 fully branded sub-accounts",
+      "4 platform distribution (IG, TikTok, YT, FB)",
+      "Complete ecosystem management",
+      "Premium content strategy & ideation",
+      "All variations fully optimized",
+      "Daily posting automation",
+      "Real-time analytics dashboard",
+      "Weekly strategy sessions",
+      "Dedicated account manager",
+      "A/B testing & optimization",
+      "Custom branding & positioning",
+      "Comment management",
+      "White-glove service"
+    ],
+    cta: "Build Your Empire",
+    popular: false
   }
 ];
 
-const stats = [
-  { number: "1000+", label: "Clips Created", suffix: "" },
-  { number: "50", label: "Million+ Views", suffix: "M+" },
-  { number: "10+", label: "Happy Clients", suffix: "+" },
-  { number: "24", label: "Hour Turnaround", suffix: "hr" }
-];
-
-const process = [
+// How it works - the 6-step process
+const processSteps = [
   {
     step: "1",
-    title: "Book Your Call",
-    description: "Schedule a free strategy session to discuss your goals and content needs.",
-    icon: Calendar
+    title: "Fill the Onboarding Form",
+    description: "Tell us about your niche, offer, personality, and goals. We gather everything needed to position your brand correctly.",
+    icon: FileText
   },
   {
     step: "2",
-    title: "We Create",
-    description: "Our team produces high-quality content tailored to your brand and audience.",
-    icon: Sparkles
+    title: "We Create Your Branded Accounts",
+    description: "10-27 custom sub-accounts created across Instagram, TikTok, YouTube, and Facebook with unique branding and positioning.",
+    icon: Target
   },
   {
     step: "3",
-    title: "You Grow",
-    description: "Watch your views, followers, and revenue multiply with consistent content.",
+    title: "You Film Once",
+    description: "Send us a long-form video, stream recording, or existing content. One piece of content is all you need.",
+    icon: Video
+  },
+  {
+    step: "4",
+    title: "We Create Hundreds of Variations",
+    description: "Extract clips, create 500-2500 variations, match each to account branding, optimize for hooks, captions, and retention.",
+    icon: Sparkles
+  },
+  {
+    step: "5",
+    title: "Automated Posting & Management",
+    description: "All videos scheduled and posted daily across all accounts. We handle captions, hashtags, CTAs, and optimal timing.",
+    icon: Upload
+  },
+  {
+    step: "6",
+    title: "Watch Your Growth Explode",
+    description: "1-2M+ views monthly, massive follower growth, authority building, and inbound leads flowing in automatically.",
     icon: Rocket
   }
 ];
 
-const testimonials = [
+// What makes it work - the core benefits
+const coreSystem = [
   {
-    quote: "Kaba Content transformed our social media presence. Within 3 months, we went from 10K to 150K followers and 5x'd our revenue. Their content strategy is unmatched.",
-    author: "",
-    role: "Content Creator & Coach",
-    initials: "JD",
+    icon: Eye,
+    title: "More Accounts = More Reach",
+    description: "10-27 accounts flooding the algorithm = millions more eyeballs on your content"
+  },
+  {
+    icon: Zap,
+    title: "More Variations = More Viral",
+    description: "Each clip edited 10-27 different ways = exponentially higher chance of viral hits"
+  },
+  {
+    icon: TrendingUp,
+    title: "More Volume = Domination",
+    description: "500-2500 clips monthly vs. competitors' 20-30 = you win by pure volume"
+  },
+  {
+    icon: Users,
+    title: "More Consistency = Authority",
+    description: "Posting daily across all platforms builds instant credibility and recognition"
+  }
+];
+
+// Results/testimonials showing the outcome
+const clientResults = [
+  {
+    name: "E-Commerce Owner",
+    initials: "EK",
+    result: "1.2M views in first month",
+    testimonial: "Went from 12K followers to 95K in 90 days. The sub-account system completely changed our reach.",
     metrics: [
-      { icon: Users, value: "140K+", label: "New Followers" },
-      { icon: DollarSign, value: "5x", label: "Revenue Growth" }
+      { label: "Views", value: "1.2M" },
+      { label: "Followers", value: "95K" }
     ]
   },
   {
-    quote: "Took me from 100 subscribers to 2,400+ with one video that did 300k+ views. The editing and strategy completely changed my channel's trajectory.",
-    author: "",
-    role: "YouTube Creator",
-    initials: "B",
-    metrics: [
-      { icon: Eye, value: "300K+", label: "Views" },
-      { icon: Users, value: "2,300+", label: "New Subscribers" }
-    ]
-  },
-  {
-    quote: "Best investment we made for our brand. The team at Kaba understands viral content and delivers results month after month. Our views went from thousands to millions.",
-    author: "",
-    role: "Fitness Influencer",
+    name: "Fitness Influencer",
     initials: "MC",
+    result: "2.8M+ views consistently",
+    testimonial: "The algorithm treats our 20+ accounts as separate entities. It's like having 20 channels growing simultaneously.",
     metrics: [
-      { icon: Eye, value: "10M+", label: "Monthly Views" },
-      { icon: Heart, value: "2.5M", label: "Total Engagement" }
+      { label: "Monthly Views", value: "2.8M+" },
+      { label: "Engagement", value: "14.3%" }
+    ]
+  },
+  {
+    name: "Coaching Business",
+    initials: "JD",
+    result: "850K+ leads generated",
+    testimonial: "The volume of content is insane. People see us everywhere. Our inbound inquiries went through the roof.",
+    metrics: [
+      { label: "Leads/Month", value: "850K+" },
+      { label: "Revenue Growth", value: "5x" }
     ]
   }
 ];
 
-const caseStudies = [
-  {
-    industry: "E-Commerce",
-    challenge: "Struggling to maintain consistent posting schedule while managing business operations",
-    solution: "500+ optimized short-form videos distributed across TikTok, Instagram Reels, and YouTube Shorts",
-    results: [
-      "320% increase in website traffic",
-      "4.8M total views in 90 days",
-      "$250K in attributed revenue"
-    ],
-    timeframe: "3 Months"
-  },
-  {
-    industry: "Coaching & Education",
-    challenge: "Low engagement despite having quality content ideas",
-    solution: "Professional scripting, editing, and strategic content distribution plan",
-    results: [
-      "From 12K to 180K followers",
-      "85% average watch-through rate",
-      "Sold out $10K coaching program"
-    ],
-    timeframe: "4 Months"
-  },
-  {
-    industry: "Health & Fitness",
-    challenge: "Needed to scale content production without sacrificing quality",
-    solution: "End-to-end content creation from ideation to distribution with analytics tracking",
-    results: [
-      "15M+ views across platforms",
-      "45K new email subscribers",
-      "Launched successful supplement line"
-    ],
-    timeframe: "6 Months"
-  }
-];
-
-const portfolioItems = [
-  {
-    id: 1,
-    title: "Fitness Creator Transformation",
-    category: "Health & Fitness",
-    before: {
-      views: "15K",
-      engagement: "2.3%",
-      followers: "8K"
-    },
-    after: {
-      views: "2.4M",
-      engagement: "12.8%",
-      followers: "185K"
-    },
-    thumbnail: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    description: "Complete content overhaul with strategic editing and distribution strategy"
-  },
-  {
-    id: 2,
-    title: "E-Commerce Product Showcase",
-    category: "E-Commerce",
-    before: {
-      views: "8K",
-      engagement: "1.8%",
-      followers: "12K"
-    },
-    after: {
-      views: "1.2M",
-      engagement: "9.4%",
-      followers: "95K"
-    },
-    thumbnail: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-    description: "High-converting product videos with professional editing and hook optimization"
-  },
-  {
-    id: 3,
-    title: "Personal Brand Growth",
-    category: "Coaching",
-    before: {
-      views: "25K",
-      engagement: "3.1%",
-      followers: "18K"
-    },
-    after: {
-      views: "5.8M",
-      engagement: "15.2%",
-      followers: "320K"
-    },
-    thumbnail: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-    description: "Authority-building content series with viral hooks and storytelling techniques"
-  },
-  {
-    id: 4,
-    title: "Restaurant Social Strategy",
-    category: "Food & Beverage",
-    before: {
-      views: "5K",
-      engagement: "1.2%",
-      followers: "6K"
-    },
-    after: {
-      views: "980K",
-      engagement: "11.5%",
-      followers: "78K"
-    },
-    thumbnail: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-    description: "Behind-the-scenes content and food showcase videos that drive foot traffic"
-  },
-  {
-    id: 5,
-    title: "Tech Review Channel",
-    category: "Technology",
-    before: {
-      views: "12K",
-      engagement: "2.5%",
-      followers: "9K"
-    },
-    after: {
-      views: "3.2M",
-      engagement: "13.7%",
-      followers: "210K"
-    },
-    thumbnail: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
-    description: "Professional product reviews with cinematic editing and clear value propositions"
-  },
-  {
-    id: 6,
-    title: "Fashion Influencer Rebrand",
-    category: "Fashion & Lifestyle",
-    before: {
-      views: "20K",
-      engagement: "2.8%",
-      followers: "15K"
-    },
-    after: {
-      views: "4.5M",
-      engagement: "14.3%",
-      followers: "280K"
-    },
-    thumbnail: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-    description: "Cohesive content strategy with trend-forward editing and brand partnerships"
-  }
-];
-
-const pricingTiers = [
-  {
-    name: "Creator Launch",
-    price: "$1,500",
-    period: "/month",
-    description: "Perfect for creators just getting started with professional content",
-    features: [
-      "12 clips per month",
-      "72-hour turnaround",
-      "2 revisions per clip",
-      "Basic distribution strategy",
-      "Monthly performance report",
-      "Email support"
-    ],
-    cta: "Start Creating",
-    popular: false
-  },
-  {
-    name: "Growth Accelerator",
-    price: "$3,000",
-    period: "/month",
-    description: "For creators ready to scale their content and engagement",
-    features: [
-      "24 clips per month",
-      "48-hour turnaround",
-      "3 revisions per clip",
-      "Multi-platform distribution",
-      "Weekly analytics review",
-      "Monthly strategy call",
-      "Priority support"
-    ],
-    cta: "Book Growth Call",
-    popular: true
-  },
-  {
-    name: "Authority Builder",
-    price: "$5,000",
-    period: "/month",
-    description: "Establish yourself as an industry leader with premium content",
-    features: [
-      "40 clips per month",
-      "24-hour turnaround",
-      "5 revisions per clip",
-      "Full distribution management",
-      "Real-time analytics dashboard",
-      "Bi-weekly strategy sessions",
-      "Dedicated content strategist",
-      "Custom thumbnail design"
-    ],
-    cta: "Scale Now",
-    popular: false
-  },
-  {
-    name: "Enterprise Partner",
-    price: "Custom",
-    period: "pricing",
-    description: "White-glove service for brands and agencies at scale",
-    features: [
-      "60+ clips per month",
-      "Same-day turnaround available",
-      "Unlimited revisions",
-      "Complete channel management",
-      "Advanced analytics & insights",
-      "Weekly strategy sessions",
-      "Dedicated account manager",
-      "Custom workflow integration",
-      "Brand guidelines development"
-    ],
-    cta: "Contact Us",
-    popular: false
-  }
-];
-
+// FAQ data
 const faqs = [
   {
-    question: "What types of content do you create?",
-    answer: "We specialize in short-form video content optimized for TikTok, Instagram Reels, YouTube Shorts, and other social platforms. Our services include video editing, scripting, ideation, thumbnail design, and complete social media management."
+    question: "How is this different from regular content creation services?",
+    answer: "Traditional services create content slowly. We use a mass-content system: one long-form video becomes 500-2500 clips posted across 10-27 branded accounts. You get volume, reach, and frequency that competitors can't match. That's why our clients hit 1-2M views in their first month."
   },
   {
-    question: "How long does it take to get my content?",
-    answer: "Turnaround times vary by package: Creator Launch (72 hours), Growth Accelerator (48 hours), Authority Builder (24 hours), and Enterprise Partner (same-day available). All timelines start from when we receive your raw footage or content brief."
+    question: "Do I need existing content to start?",
+    answer: "No. You can film fresh content, send us a stream recording, or use existing videos from your archive. We'll extract and optimize everything. The key is giving us the raw material—we handle all the heavy lifting."
   },
   {
-    question: "Can I request revisions?",
-    answer: "Yes! Each package includes a set number of revisions per clip: Creator Launch (2 revisions), Growth Accelerator (3 revisions), Authority Builder (5 revisions), and Enterprise Partner (unlimited revisions). Additional revisions can be purchased if needed."
+    question: "What if I'm not ready to film? Can you help with ideation?",
+    answer: "Absolutely. Fill out our onboarding form with info about your niche, offer, and personality. We'll generate video topics, questions, talking points, and storylines optimized for viral clips. You'll have a complete roadmap before you film."
   },
   {
-    question: "What platforms do you optimize content for?",
-    answer: "We optimize for all major social platforms including TikTok, Instagram (Reels and Feed), YouTube (Shorts and main channel), Facebook, LinkedIn, Twitter/X, and Pinterest. We tailor aspect ratios, captions, and hooks for each platform's algorithm and audience."
+    question: "How many accounts will I have, and what platforms?",
+    answer: "Depends on your tier. Growth (10 accounts), Domination (15), Empire (27). Each account is created on Instagram, TikTok, YouTube, and Facebook = 40-108 total profiles. Every account has custom branding, unique bios, and posting strategy."
   },
   {
-    question: "Do I retain full rights to my content?",
-    answer: "Absolutely! You own 100% of the rights to all content we create for you. We simply retain the right to showcase your content (with your permission) in our portfolio and case studies."
+    question: "How many clips do I get per month?",
+    answer: "Growth Tier: 500+ clips. Domination: 1000+. Empire: 2500+. All clips are fully edited, optimized, and scheduled. That's 2000-10,000 total uploads monthly across all platforms."
   },
   {
-    question: "How does the content creation process work?",
-    answer: "It's simple: (1) You provide raw footage or content ideas, (2) Our team edits and optimizes your content based on your brand guidelines and goals, (3) You review and request any revisions, (4) We deliver final files ready for posting. Plus, higher-tier packages include distribution directly to your accounts."
+    question: "What if I need revisions or want to change the strategy?",
+    answer: "Growth tier gets monthly reviews. Domination gets weekly reviews + bi-weekly calls. Empire gets real-time dashboard access + weekly strategy sessions + dedicated manager. We adjust content, posting times, and strategy based on what's working."
   },
   {
-    question: "What if I'm not satisfied with the results?",
-    answer: "We're committed to your success. All packages come with our 90-day guarantee—if you're not seeing results or aren't satisfied with our service, you can cancel after the initial 90-day commitment period. We also provide analytics and performance tracking to measure success."
+    question: "Who owns the accounts and content?",
+    answer: "You own everything. The accounts are created in your name, on your behalf. All content is yours. We simply manage them as your service provider. You can take over or pause anytime."
   },
   {
-    question: "Can I upgrade or downgrade my plan?",
-    answer: "Yes! You can upgrade your plan at any time. Downgrades are available after your current billing cycle ends. We'll work with you to ensure a smooth transition and carry over any unused clips to your new plan where possible."
+    question: "How long until I see results?",
+    answer: "Most clients see 1-2M views in their first 30 days purely from volume + multi-platform distribution. Follower growth starts immediately. By month 2-3, you'll have significant authority, more leads, and measurable business impact."
   },
   {
-    question: "Do you provide analytics and performance tracking?",
-    answer: "Yes! All packages include performance reporting. Creator Launch receives monthly reports, Growth Accelerator gets weekly analytics reviews, Authority Builder has real-time dashboard access, and Enterprise Partner includes advanced analytics with custom KPI tracking."
+    question: "What if my niche is underperforming?",
+    answer: "Volume fixes most issues. But we also analyze what's working in your content, adjust hooks, test different captions and thumbnails, and optimize posting times. Our Domination and Empire tiers include weekly and bi-weekly strategy calls to fine-tune everything."
   },
   {
-    question: "What file formats do you deliver?",
-    answer: "We deliver content in the optimal formats for your chosen platforms (typically MP4 for video). We also provide source files and project files for higher-tier packages. All content is delivered via secure cloud storage with easy download links."
+    question: "Can you help with my sales funnel or offer?",
+    answer: "We focus on content creation, distribution, and account management. Your CTAs, landing pages, and sales funnels are up to you. But with millions of views and followers we deliver, converting them becomes much easier."
   },
   {
-    question: "How do monthly clip quotas work?",
-    answer: "Your monthly clip quota resets on your billing date. Unused clips don't roll over to the next month, but we can discuss banking clips for seasonal campaigns or special projects. Need more clips? You can purchase add-ons or upgrade your package anytime."
+    question: "What if I have a smaller budget or want to test first?",
+    answer: "Start with Growth Tier at $4,000/month. You get 500+ clips, 10 accounts, and real results. Most clients upgrade after seeing the first month's impact. If growth isn't working, it's usually a content/positioning issue—not the system."
   },
   {
-    question: "Do you offer custom packages?",
-    answer: "Yes! Our Enterprise Partner tier is fully customizable to your needs. We can create bespoke packages for agencies, large brands, or creators with unique requirements. Book a strategy call to discuss your specific needs and we'll build a custom solution."
+    question: "Do you handle comment management and community?",
+    answer: "Growth and Domination tiers include basic analytics. Empire tier includes full comment management, community strategy, and engagement optimization. We can customize based on your needs."
   }
 ];
 
@@ -455,7 +317,7 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
           setTimeout(() => setIsVisible(true), delay);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.2 }
     );
 
     if (ref.current) {
@@ -469,7 +331,9 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
     <div
       ref={ref}
       className={`transition-all duration-1000 ${
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+        isVisible
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-10"
       }`}
     >
       {children}
@@ -478,132 +342,104 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 }
 
 export default function Home() {
-  const [showCalendly, setShowCalendly] = useState(false);
   const [selectedPortfolioItem, setSelectedPortfolioItem] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (showCalendly) {
-      const script = document.createElement("script");
-      script.src = "https://assets.calendly.com/assets/external/widget.js";
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, [showCalendly]);
+  const [showCalendly, setShowCalendly] = useState(false);
 
   const scrollToBooking = () => {
-    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+    const element = document.getElementById("booking");
+    element?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        {/* Animated Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-secondary">
-          <div className="absolute inset-0 opacity-30">
-            <div className="absolute top-0 -left-4 w-96 h-96 bg-secondary rounded-full mix-blend-multiply filter blur-3xl animate-pulse" />
-            <div className="absolute top-0 -right-4 w-96 h-96 bg-primary rounded-full mix-blend-multiply filter blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-            <div className="absolute -bottom-8 left-20 w-96 h-96 bg-secondary rounded-full mix-blend-multiply filter blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
-          </div>
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img 
+            src={heroImage} 
+            alt="Content creation" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/60" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="text-center lg:text-left text-white">
-            <ScrollReveal>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full mb-8 border border-white/20">
-                <Target className="w-4 h-4" />
-                <span className="text-sm font-semibold">1000+ Clips. 50M+ Views Generated.</span>
-              </div>
-            </ScrollReveal>
-
-            <ScrollReveal delay={100}>
-              <h1 className="text-5xl md:text-6xl lg:text-8xl font-bold mb-6 leading-tight">
-                Scale Your Content.
-                <br />
-                <span className="bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
-                  Multiply Your Reach.
-                </span>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-24 md:py-32 w-full">
+          <ScrollReveal>
+            <div className="max-w-3xl mb-8">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+                Turn One Video Into 2,500+ Clips
               </h1>
-            </ScrollReveal>
-
-            <ScrollReveal delay={200}>
-              <p className="text-xl md:text-2xl mb-12 max-w-3xl mx-auto text-white/90 leading-relaxed">
-                Professional video editing, scripting, and content distribution services. 
-                We create <span className="font-bold text-secondary">1000+ clips</span> to boost your views, followers, and sales.
+              <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
+                Post across 10-27 branded accounts. Hit 1-2M+ views monthly. Build your empire on autopilot.
               </p>
-            </ScrollReveal>
-
-            <ScrollReveal delay={300}>
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
                   size="lg" 
                   onClick={scrollToBooking}
-                  className="bg-white text-primary border-white shadow-2xl"
-                  data-testid="button-book-call-hero"
+                  className="bg-primary hover:bg-primary/90 text-white text-lg font-semibold"
+                  data-testid="button-hero-cta"
                 >
-                  <Calendar className="w-5 h-5 mr-2" />
-                  Book a Strategy Call
+                  <Calendar className="w-6 h-6 mr-2" />
+                  Book Strategy Call
                 </Button>
                 <Button 
                   size="lg" 
                   variant="outline"
-                  onClick={() => document.getElementById("services")?.scrollIntoView({ behavior: "smooth" })}
-                  className="border-2 border-white/50 bg-white/10 backdrop-blur-md text-white"
-                  data-testid="button-view-services"
+                  className="border-white text-white hover:bg-white/10"
+                  onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
+                  data-testid="button-see-pricing"
                 >
-                  View Our Services
+                  See Pricing
                 </Button>
               </div>
-            </ScrollReveal>
-          </div>
+            </div>
+          </ScrollReveal>
 
-          {/* Hero Image */}
-          <ScrollReveal delay={400}>
-            <div className="relative hidden lg:block">
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img 
-                  src={heroImage} 
-                  alt="Content creation workspace showing video editing and social media content" 
-                  className="w-full h-auto"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent" />
+          <ScrollReveal delay={200}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
+              <div>
+                <div className="text-3xl md:text-4xl font-bold text-white mb-2">2,500+</div>
+                <div className="text-sm text-white/80">Clips/Month Max</div>
+              </div>
+              <div>
+                <div className="text-3xl md:text-4xl font-bold text-white mb-2">2M+</div>
+                <div className="text-sm text-white/80">Views Possible</div>
+              </div>
+              <div>
+                <div className="text-3xl md:text-4xl font-bold text-white mb-2">27</div>
+                <div className="text-sm text-white/80">Sub-Accounts Max</div>
+              </div>
+              <div>
+                <div className="text-3xl md:text-4xl font-bold text-white mb-2">1</div>
+                <div className="text-sm text-white/80">Video to Film</div>
               </div>
             </div>
           </ScrollReveal>
         </div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 border-2 border-white/50 rounded-full p-1">
-            <div className="w-1.5 h-3 bg-white/50 rounded-full mx-auto animate-pulse" />
-          </div>
-        </div>
       </section>
 
-      {/* Services Section */}
-      <section id="services" className="py-16 md:py-24 lg:py-32">
+      {/* Why This Works */}
+      <section className="py-16 md:py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Our Services</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Why This System Destroys Competition</h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Comprehensive content creation solutions to elevate your brand
+                Most creators post 20-30 videos monthly. We post 500-2,500 across 4 platforms. That's the difference between struggling and dominating.
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {services.map((service, index) => (
-              <ScrollReveal key={service.title} delay={index * 100}>
-                <Card className="h-full hover-elevate active-elevate-2 border-2" data-testid={`card-service-${index}`}>
-                  <CardContent className="p-8">
-                    <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                      <service.icon className="w-8 h-8 text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {coreSystem.map((item, index) => (
+              <ScrollReveal key={item.title} delay={index * 100}>
+                <Card className="h-full border-2 hover-elevate" data-testid={`card-system-${index}`}>
+                  <CardContent className="p-6">
+                    <div className="w-14 h-14 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-4">
+                      <item.icon className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-2xl md:text-3xl font-bold mb-4">{service.title}</h3>
-                    <p className="text-lg text-muted-foreground leading-relaxed">{service.description}</p>
+                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">{item.description}</p>
                   </CardContent>
                 </Card>
               </ScrollReveal>
@@ -612,269 +448,70 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <ScrollReveal>
-            <h2 className="text-4xl md:text-5xl font-bold text-center mb-16">Results That Speak</h2>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
-            {stats.map((stat, index) => (
-              <ScrollReveal key={stat.label} delay={index * 100}>
-                <div className="text-center" data-testid={`stat-${index}`}>
-                  {index === 1 ? (
-                    <AnimatedCounter target={50} suffix="M+" />
-                  ) : index === 0 ? (
-                    <div className="font-mono text-5xl md:text-6xl lg:text-7xl font-bold">1000+</div>
-                  ) : index === 2 ? (
-                    <AnimatedCounter target={10} suffix="+" />
-                  ) : (
-                    <div className="font-mono text-5xl md:text-6xl lg:text-7xl font-bold">24hr</div>
-                  )}
-                  <p className="text-lg md:text-xl mt-4 text-white/80">{stat.label}</p>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="py-16 md:py-24 lg:py-32">
+      {/* The Process - 6 Steps */}
+      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-16">
               <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Three simple steps to transform your content strategy
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 relative">
-            {/* Connection Lines */}
-            <div className="hidden md:block absolute top-24 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-secondary to-primary opacity-20" />
-
-            {process.map((item, index) => (
-              <ScrollReveal key={item.step} delay={index * 150}>
-                <div className="relative text-center" data-testid={`process-step-${index}`}>
-                  <div className="relative inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-primary to-secondary rounded-full mb-6 shadow-lg mx-auto">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-full animate-pulse opacity-50" />
-                    <item.icon className="w-12 h-12 text-white relative z-10" />
-                  </div>
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <span className="font-mono text-2xl font-bold text-primary">{item.step}</span>
-                  </div>
-                  <h3 className="text-2xl md:text-3xl font-bold mb-4 mt-4">{item.title}</h3>
-                  <p className="text-lg text-muted-foreground leading-relaxed">{item.description}</p>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <ScrollReveal>
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">What Our Clients Say</h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Real results from content creators and brands we've helped scale
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <ScrollReveal key={testimonial.initials} delay={index * 100}>
-                <Card className="h-full border-2 hover-elevate" data-testid={`card-testimonial-${index}`}>
-                  <CardContent className="p-8 flex flex-col h-full">
-                    <Quote className="w-10 h-10 text-primary/20 mb-4" />
-                    
-                    <blockquote className="text-lg font-medium mb-6 leading-relaxed flex-grow">
-                      "{testimonial.quote}"
-                    </blockquote>
-
-                    <div className="grid grid-cols-2 gap-4 mb-6 pt-6 border-t">
-                      {testimonial.metrics.map((metric, idx) => (
-                        <div key={idx} className="text-center">
-                          <div className="flex items-center justify-center mb-2">
-                            <metric.icon className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="font-bold text-2xl text-primary">{metric.value}</div>
-                          <div className="text-sm text-muted-foreground">{metric.label}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {testimonial.initials}
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">{testimonial.role}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-1 mt-4">
-                      {[...Array(5)].map((_, i) => (
-                        <Sparkles key={i} className="w-4 h-4 text-secondary fill-secondary" />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Case Studies Section */}
-      <section className="py-16 md:py-24 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <ScrollReveal>
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Success Stories</h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Deep dive into how we've helped clients achieve transformative results
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {caseStudies.map((study, index) => (
-              <ScrollReveal key={study.industry} delay={index * 100}>
-                <Card className="h-full border-2 hover-elevate active-elevate-2" data-testid={`card-case-study-${index}`}>
-                  <CardContent className="p-8">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-semibold">
-                        {study.industry}
-                      </div>
-                      <div className="text-sm text-muted-foreground font-mono">{study.timeframe}</div>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div>
-                        <h4 className="font-semibold text-sm text-muted-foreground mb-2">Challenge</h4>
-                        <p className="text-base leading-relaxed">{study.challenge}</p>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold text-sm text-muted-foreground mb-2">Solution</h4>
-                        <p className="text-base leading-relaxed">{study.solution}</p>
-                      </div>
-
-                      <div>
-                        <h4 className="font-semibold text-sm text-muted-foreground mb-3">Results</h4>
-                        <ul className="space-y-2">
-                          {study.results.map((result, idx) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <CheckCircle2 className="w-5 h-5 text-secondary mt-0.5 flex-shrink-0" />
-                              <span className="text-base">{result}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 pt-6 border-t">
-                      <div className="flex items-center gap-2 text-primary font-semibold hover-elevate rounded px-2 py-1 -mx-2 -my-1 cursor-pointer">
-                        <span className="text-sm">View Full Case Study</span>
-                        <ArrowUpRight className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Portfolio Gallery Section */}
-      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <ScrollReveal>
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Portfolio Showcase</h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Before & after transformations showing real results from our content strategies
+                From your first video to 2,000+ monthly uploads. Here's the complete process.
               </p>
             </div>
           </ScrollReveal>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {portfolioItems.map((item, index) => (
-              <ScrollReveal key={item.id} delay={index * 100}>
-                <Card 
-                  className="h-full border-2 hover-elevate active-elevate-2 cursor-pointer overflow-hidden" 
-                  onClick={() => setSelectedPortfolioItem(item.id)}
-                  data-testid={`card-portfolio-${index}`}
-                >
-                  <div 
-                    className="h-48 flex items-center justify-center relative"
-                    style={{ background: item.thumbnail }}
-                  >
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                        <Play className="w-8 h-8 text-white" />
+            {processSteps.map((process, index) => (
+              <ScrollReveal key={process.step} delay={index * 100}>
+                <Card className="h-full border-2" data-testid={`card-process-${index}`}>
+                  <CardContent className="p-8">
+                    <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mb-4 text-white font-bold text-lg">
+                      {process.step}
+                    </div>
+                    <h3 className="text-2xl font-bold mb-3">{process.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">{process.description}</p>
+                  </CardContent>
+                </Card>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Results Section */}
+      <section className="py-16 md:py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Results Our Clients Get</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                These are real numbers from clients using the mass-content system
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {clientResults.map((result, index) => (
+              <ScrollReveal key={result.initials} delay={index * 100}>
+                <Card className="h-full border-2" data-testid={`card-result-${index}`}>
+                  <CardContent className="p-8">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        {result.initials}
+                      </div>
+                      <div>
+                        <div className="font-bold">{result.name}</div>
+                        <div className="text-sm text-primary font-semibold">{result.result}</div>
                       </div>
                     </div>
-                    <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-sm font-semibold text-foreground">
-                      {item.category}
-                    </div>
-                  </div>
-                  
-                  <CardContent className="p-6">
-                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-6">{item.description}</p>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-3">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase">Before</div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Eye className="w-4 h-4 text-muted-foreground" />
-                            <span>{item.before.views}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Heart className="w-4 h-4 text-muted-foreground" />
-                            <span>{item.before.engagement}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Users className="w-4 h-4 text-muted-foreground" />
-                            <span>{item.before.followers}</span>
-                          </div>
+                    <p className="text-muted-foreground mb-6 leading-relaxed italic">"{result.testimonial}"</p>
+                    <div className="space-y-3">
+                      {result.metrics.map((metric, idx) => (
+                        <div key={idx} className="flex justify-between items-center pb-3 border-b">
+                          <span className="text-sm text-muted-foreground">{metric.label}</span>
+                          <span className="font-bold text-primary">{metric.value}</span>
                         </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="text-xs font-semibold text-primary uppercase">After</div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                            <Eye className="w-4 h-4" />
-                            <span>{item.after.views}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                            <Heart className="w-4 h-4" />
-                            <span>{item.after.engagement}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                            <Users className="w-4 h-4" />
-                            <span>{item.after.followers}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t text-center">
-                      <div className="text-sm font-semibold text-primary flex items-center justify-center gap-2">
-                        <span>View Details</span>
-                        <ArrowUpRight className="w-4 h-4" />
-                      </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -884,47 +521,51 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Tiers */}
-      <section className="py-16 md:py-24 lg:py-32">
+      {/* Pricing Section */}
+      <section id="pricing" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-4">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Simple, Transparent Pricing</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Three Tiers of Growth</h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-2">
-                Choose the plan that fits your content goals
+                Choose how aggressive your growth strategy should be
               </p>
               <p className="text-sm text-muted-foreground">
-                Cancel anytime after 90 days
+                All plans include content ideation, full editing, multi-platform distribution, and account management
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
             {pricingTiers.map((tier, index) => (
               <ScrollReveal key={tier.name} delay={index * 100}>
                 <Card 
-                  className={`h-full flex flex-col relative ${
+                  className={`h-full flex flex-col relative border-2 ${
                     tier.popular 
-                      ? 'border-2 border-primary shadow-xl' 
-                      : 'border-2'
+                      ? 'border-primary shadow-2xl lg:scale-105' 
+                      : ''
                   }`}
                   data-testid={`card-pricing-${index}`}
                 >
                   {tier.popular && (
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                       <div className="px-4 py-1 bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold rounded-full flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        Most Popular
+                        <Zap className="w-4 h-4" />
+                        Recommended
                       </div>
                     </div>
                   )}
 
-                  <CardContent className="p-6 flex flex-col flex-1">
+                  <CardContent className="p-8 flex flex-col flex-1">
                     <div className="mb-6">
                       <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
-                      <div className="flex items-baseline gap-1 mb-3">
+                      <div className="flex items-baseline gap-1 mb-4">
                         <span className="text-4xl font-bold">{tier.price}</span>
                         <span className="text-muted-foreground">{tier.period}</span>
+                      </div>
+                      <div className="space-y-2 mb-4 text-sm">
+                        <div className="font-semibold text-primary">{tier.clips} clips monthly</div>
+                        <div className="text-muted-foreground">{tier.accounts}</div>
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">
                         {tier.description}
@@ -960,165 +601,29 @@ export default function Home() {
           </div>
 
           <ScrollReveal delay={400}>
-            <div className="mt-12 p-6 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl border-2 border-primary/20">
-              <div className="flex flex-col md:flex-row items-center justify-center gap-8 text-center md:text-left">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-bold">90-Day Guarantee</div>
-                    <div className="text-sm text-muted-foreground">Flexible cancellation terms</div>
-                  </div>
+            <div className="mt-12 p-8 bg-white dark:bg-slate-950 rounded-2xl border-2 border-primary/20">
+              <h3 className="text-2xl font-bold text-center mb-6">The Math Behind The System</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground mb-2">Growth Tier</div>
+                  <div className="text-3xl font-bold mb-2">2,000</div>
+                  <div className="text-sm text-muted-foreground">Monthly uploads<br/>(500 clips × 4 platforms)</div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Zap className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-bold">Fast Turnaround</div>
-                    <div className="text-sm text-muted-foreground">Up to 24hr on premium tiers</div>
-                  </div>
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground mb-2">Domination Tier</div>
+                  <div className="text-3xl font-bold mb-2">4,000</div>
+                  <div className="text-sm text-muted-foreground">Monthly uploads<br/>(1000 clips × 4 platforms)</div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-bold">Proven Results</div>
-                    <div className="text-sm text-muted-foreground">50M+ views generated</div>
-                  </div>
+                <div className="text-center">
+                  <div className="text-sm text-muted-foreground mb-2">Empire Tier</div>
+                  <div className="text-3xl font-bold mb-2">10,000</div>
+                  <div className="text-sm text-muted-foreground">Monthly uploads<br/>(2500 clips × 4 platforms)</div>
                 </div>
               </div>
             </div>
           </ScrollReveal>
         </div>
       </section>
-
-      {/* Portfolio Modal */}
-      {selectedPortfolioItem !== null && (
-        <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedPortfolioItem(null)}
-          data-testid="modal-portfolio"
-        >
-          <div 
-            className="bg-background rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setSelectedPortfolioItem(null)}
-              className="absolute top-4 right-4 w-10 h-10 bg-muted rounded-full flex items-center justify-center hover-elevate z-10"
-              data-testid="button-close-modal"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            {portfolioItems
-              .filter(item => item.id === selectedPortfolioItem)
-              .map((item) => (
-                <div key={item.id} className="p-8 md:p-12">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold">
-                      {item.category}
-                    </div>
-                  </div>
-
-                  <h2 className="text-3xl md:text-4xl font-bold mb-4">{item.title}</h2>
-                  <p className="text-lg text-muted-foreground mb-8">{item.description}</p>
-
-                  <div 
-                    className="h-96 rounded-xl mb-8 flex items-center justify-center relative overflow-hidden"
-                    style={{ background: item.thumbnail }}
-                  >
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                        <Play className="w-12 h-12 text-white" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                    <Card className="border-2">
-                      <CardContent className="p-6">
-                        <h3 className="text-xl font-bold mb-4 text-muted-foreground">Before Our Work</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Eye className="w-5 h-5 text-muted-foreground" />
-                              <span className="text-sm font-semibold text-muted-foreground">Views</span>
-                            </div>
-                            <div className="text-3xl font-bold">{item.before.views}</div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Heart className="w-5 h-5 text-muted-foreground" />
-                              <span className="text-sm font-semibold text-muted-foreground">Engagement</span>
-                            </div>
-                            <div className="text-3xl font-bold">{item.before.engagement}</div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Users className="w-5 h-5 text-muted-foreground" />
-                              <span className="text-sm font-semibold text-muted-foreground">Followers</span>
-                            </div>
-                            <div className="text-3xl font-bold">{item.before.followers}</div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="border-2 border-primary/50 bg-primary/5">
-                      <CardContent className="p-6">
-                        <h3 className="text-xl font-bold mb-4 text-primary">After Our Work</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Eye className="w-5 h-5 text-primary" />
-                              <span className="text-sm font-semibold text-primary">Views</span>
-                            </div>
-                            <div className="text-3xl font-bold text-primary">{item.after.views}</div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Heart className="w-5 h-5 text-primary" />
-                              <span className="text-sm font-semibold text-primary">Engagement</span>
-                            </div>
-                            <div className="text-3xl font-bold text-primary">{item.after.engagement}</div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Users className="w-5 h-5 text-primary" />
-                              <span className="text-sm font-semibold text-primary">Followers</span>
-                            </div>
-                            <div className="text-3xl font-bold text-primary">{item.after.followers}</div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-4">
-                    <Button 
-                      size="lg" 
-                      onClick={() => {
-                        setSelectedPortfolioItem(null);
-                        setTimeout(scrollToBooking, 100);
-                      }} 
-                      data-testid="button-book-from-portfolio"
-                    >
-                      <Calendar className="w-5 h-5 mr-2" />
-                      Get Similar Results
-                    </Button>
-                    <Button size="lg" variant="outline" onClick={() => setSelectedPortfolioItem(null)} data-testid="button-close-portfolio">
-                      Close
-                    </Button>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
 
       {/* FAQ Section */}
       <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
@@ -1127,7 +632,7 @@ export default function Home() {
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-bold mb-4">Frequently Asked Questions</h2>
               <p className="text-lg md:text-xl text-muted-foreground">
-                Everything you need to know about our content creation services
+                Everything you need to know about the mass-content system
               </p>
             </div>
           </ScrollReveal>
@@ -1154,9 +659,9 @@ export default function Home() {
 
           <ScrollReveal delay={400}>
             <div className="mt-12 text-center p-8 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl border-2 border-primary/20">
-              <h3 className="text-2xl font-bold mb-3">Still Have Questions?</h3>
-              <p className="text-muted-foreground mb-6">
-                Book a free strategy call and we'll answer all your questions about our services
+              <h3 className="text-2xl font-bold mb-3">Ready to Dominate Your Niche?</h3>
+              <p className="text-muted-foreground mb-6 text-lg">
+                Book a strategy call and let's discuss which tier is right for your growth goals
               </p>
               <Button size="lg" onClick={scrollToBooking} data-testid="button-faq-cta">
                 <Calendar className="w-5 h-5 mr-2" />
@@ -1172,9 +677,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Ready to Scale Your Content?</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Let's Build Your Empire</h2>
               <p className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                Book a free strategy call and let's discuss how we can multiply your reach
+                30-minute strategy call with our team. We'll show you exactly how the system works and which tier is right for you.
               </p>
             </div>
           </ScrollReveal>
@@ -1186,14 +691,14 @@ export default function Home() {
                   <Button 
                     size="lg"
                     onClick={() => setShowCalendly(true)}
-                    className="bg-white text-primary border-white shadow-2xl text-xl font-semibold"
+                    className="bg-white text-primary hover:bg-white/90 border-white shadow-2xl text-xl font-semibold"
                     data-testid="button-show-calendly"
                   >
                     <Calendar className="w-6 h-6 mr-2" />
                     Schedule Your Free Call
                   </Button>
                   <p className="mt-6 text-white/80">
-                    Or contact us directly below
+                    Or contact us directly at <a href="tel:604-626-9278" className="underline font-semibold hover:text-white">604-626-9278</a>
                   </p>
                 </div>
               ) : (
@@ -1205,7 +710,7 @@ export default function Home() {
                     data-testid="calendly-widget"
                   />
                   <p className="text-center text-muted-foreground text-sm mt-4 p-4">
-                    Note: Replace the Calendly URL above with your actual Calendly scheduling link
+                    Replace Calendly URL with your actual scheduling link
                   </p>
                 </div>
               )}
@@ -1213,136 +718,60 @@ export default function Home() {
           </ScrollReveal>
 
           <ScrollReveal delay={300}>
-            <div className="mt-16 flex flex-col md:flex-row items-center justify-center gap-8 text-lg">
-              <a 
-                href="tel:6046269278" 
-                className="flex items-center gap-3 hover-elevate rounded-lg px-4 py-2 -mx-4 -my-2"
-                data-testid="link-phone"
-              >
-                <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center">
-                  <Phone className="w-6 h-6" />
+            <div className="mt-12 pt-12 border-t border-white/20">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                <div>
+                  <Phone className="w-8 h-8 mx-auto mb-3" />
+                  <div className="font-semibold mb-1">Phone</div>
+                  <a href="tel:604-626-9278" className="text-white/80 hover:text-white">604-626-9278</a>
                 </div>
-                <span className="font-semibold">604-626-9278</span>
-              </a>
-              <a 
-                href="mailto:arminabadi7@gmail.com" 
-                className="flex items-center gap-3 hover-elevate rounded-lg px-4 py-2 -mx-4 -my-2"
-                data-testid="link-email"
-              >
-                <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center">
-                  <Mail className="w-6 h-6" />
+                <div>
+                  <Mail className="w-8 h-8 mx-auto mb-3" />
+                  <div className="font-semibold mb-1">Email</div>
+                  <a href="mailto:arminabadi7@gmail.com" className="text-white/80 hover:text-white">arminabadi7@gmail.com</a>
                 </div>
-                <span className="font-semibold">arminabadi7@gmail.com</span>
-              </a>
-              <a 
-                href="https://instagram.com/kabacontent" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 hover-elevate rounded-lg px-4 py-2 -mx-4 -my-2"
-                data-testid="link-instagram"
-              >
-                <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center">
-                  <SiInstagram className="w-6 h-6" />
+                <div>
+                  <SiInstagram className="w-8 h-8 mx-auto mb-3" />
+                  <div className="font-semibold mb-1">Instagram</div>
+                  <a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white">@kabacontent</a>
                 </div>
-                <span className="font-semibold">@kabacontent</span>
-              </a>
+              </div>
             </div>
           </ScrollReveal>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-card border-t py-12">
+      <footer className="bg-black text-white py-8 border-t border-primary/20">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            {/* Company Info */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Kaba Content
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                Professional content creation services that scale your social media presence and drive real results.
-              </p>
+              <h3 className="font-bold mb-4">Kaba Content</h3>
+              <p className="text-sm text-white/60">Mass-content system for creators, coaches, and gurus.</p>
             </div>
-
-            {/* Quick Links */}
             <div>
-              <h4 className="font-semibold text-lg mb-4">Quick Links</h4>
-              <ul className="space-y-2">
-                <li>
-                  <button 
-                    onClick={() => document.getElementById("services")?.scrollIntoView({ behavior: "smooth" })}
-                    className="text-muted-foreground hover-elevate rounded px-2 py-1 -mx-2 -my-1"
-                    data-testid="link-footer-services"
-                  >
-                    Services
-                  </button>
-                </li>
-                <li>
-                  <button 
-                    onClick={scrollToBooking}
-                    className="text-muted-foreground hover-elevate rounded px-2 py-1 -mx-2 -my-1"
-                    data-testid="link-footer-contact"
-                  >
-                    Contact
-                  </button>
-                </li>
-                <li>
-                  <a 
-                    href="https://instagram.com/kabacontent" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover-elevate rounded px-2 py-1 -mx-2 -my-1 inline-block"
-                    data-testid="link-footer-instagram"
-                  >
-                    Instagram
-                  </a>
-                </li>
+              <h4 className="font-semibold mb-3 text-sm">Services</h4>
+              <ul className="space-y-2 text-sm text-white/60">
+                <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
+                <li><a href="#" className="hover:text-white">How It Works</a></li>
+                <li><a href="#" className="hover:text-white">Our Results</a></li>
               </ul>
             </div>
-
-            {/* Contact & Social */}
             <div>
-              <h4 className="font-semibold text-lg mb-4">Get in Touch</h4>
-              <ul className="space-y-3">
-                <li>
-                  <a 
-                    href="tel:6046269278" 
-                    className="flex items-center gap-2 text-muted-foreground hover-elevate rounded px-2 py-1 -mx-2 -my-1"
-                    data-testid="link-footer-phone"
-                  >
-                    <Phone className="w-4 h-4" />
-                    604-626-9278
-                  </a>
-                </li>
-                <li>
-                  <a 
-                    href="mailto:arminabadi7@gmail.com" 
-                    className="flex items-center gap-2 text-muted-foreground hover-elevate rounded px-2 py-1 -mx-2 -my-1"
-                    data-testid="link-footer-email"
-                  >
-                    <Mail className="w-4 h-4" />
-                    arminabadi7@gmail.com
-                  </a>
-                </li>
-                <li>
-                  <a 
-                    href="https://instagram.com/kabacontent" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-muted-foreground hover-elevate rounded px-2 py-1 -mx-2 -my-1"
-                    data-testid="link-footer-instagram-icon"
-                  >
-                    <SiInstagram className="w-4 h-4" />
-                    @kabacontent
-                  </a>
-                </li>
+              <h4 className="font-semibold mb-3 text-sm">Contact</h4>
+              <ul className="space-y-2 text-sm text-white/60">
+                <li><a href="tel:604-626-9278" className="hover:text-white">604-626-9278</a></li>
+                <li><a href="mailto:arminabadi7@gmail.com" className="hover:text-white">Email</a></li>
+                <li><a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="hover:text-white">Instagram</a></li>
               </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-3 text-sm">Domain</h4>
+              <p className="text-sm text-white/60">kabacontent.com</p>
             </div>
           </div>
-
-          <div className="border-t pt-8 text-center text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} Kaba Content. All rights reserved.</p>
+          <div className="border-t border-white/10 pt-8 text-center text-sm text-white/40">
+            <p>&copy; 2025 Kaba Content. All rights reserved.</p>
           </div>
         </div>
       </footer>
