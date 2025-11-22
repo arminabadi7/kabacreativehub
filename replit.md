@@ -109,10 +109,15 @@ Turn one long-form video into 500-2,500 short-form clips posted across 10-27 bra
 - **Multiple CTAs**: Hero, after process, pricing, FAQ, final
 
 ## Calendly Setup
-Replace the placeholder Calendly URL in the booking section:
-```tsx
-data-url="https://calendly.com/your-actual-link"
+Using direct iframe embed with actual booking link:
+```html
+<iframe src="https://calendly.com/arminabadi7/30min" />
 ```
+
+## Branding
+- **Favicon**: Gradient blue lightning bolt with white outline
+- Visible in browser tabs and Google search results
+- Located at: `client/public/favicon.png`
 
 ## Running the Project
 ```bash
@@ -132,6 +137,11 @@ Application runs on port 5000.
 - Updated FAQ to address mass-content system questions
 - Removed individual service messaging
 - Added platform icons and visual hierarchy
+- Fixed clip extraction math: 50-250 original clips × 10 variations = 500-2,500 total clips
+- Updated all support tiers to "24/7 live support from the CEO"
+- Implemented Calendly booking with iframe embed (https://calendly.com/arminabadi7/30min)
+- Created custom gradient blue lightning bolt favicon with white outline
+- Updated meta tags for SEO to reflect mass-content system positioning
 
 ## Content Strategy
 The page now follows a strategic sales narrative:

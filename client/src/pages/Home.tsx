@@ -123,7 +123,7 @@ const clientResults = [
     quote: "I went from posting 20 videos a month to having 2,000 uploads across all platforms. The algorithm treats each account separately—it's like I have 20 channels all growing at once.",
     metrics: [
       { label: "Monthly Views", value: "10M+" },
-      { label: "Total Engagement", value: "2.5M" },
+      { label: "Total Engagement", value: "377K+" },
       { label: "Growth Rate", value: "400%" }
     ]
   },
@@ -319,10 +319,10 @@ export default function Home() {
                 The Mass-Content System for Creators, Coaches & Gurus
               </div>
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
-                Get 1-2 Million Views<br />Every Single Month
+                Get 2 Million+ Views<br />Every Single Month
               </h1>
               <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
-                We turn one long-form video into 500-2,500 clips, post them across 10-27 branded accounts, and flood the algorithm so you become unavoidable in your niche.
+                We turn one long-form video into 500-2,500 clips, post them across 10-27 branded sub accounts, and flood the algorithm so you become unavoidable in your niche.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <Button 
@@ -374,7 +374,7 @@ export default function Home() {
             <div className="text-center mb-16">
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">Imagine This...</h2>
               <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                You wake up to thousands of new views. Your phone is full of notifications. People recognize you everywhere on social media. Inbound leads are flooding in. You've become the undisputed authority in your niche.
+                You wake up to millions of new views. Your phone is full of notifications. People recognize you everywhere on social media. Inbound leads are flooding in. You've become the undisputed authority in your niche.
               </p>
             </div>
           </ScrollReveal>
@@ -388,7 +388,7 @@ export default function Home() {
                   </div>
                   <h3 className="text-2xl font-bold mb-3">Millions of Views</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    1-2 million views every single month. Your content is everywhere. The algorithm loves you because you're feeding it exactly what it wants: volume, consistency, and variations.
+                    2 million+ views every single month. Your content is everywhere. The algorithm loves you because you're feeding it exactly what it wants: volume, consistency, and variations.
                   </p>
                 </CardContent>
               </Card>
@@ -889,7 +889,7 @@ export default function Home() {
                 That's The Entire System
               </h3>
               <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
-                You film once. We turn it into 500-2,500 clips. We post 2,000-10,000 times across 40-108 accounts. You get 1-2M views monthly and become the dominant authority in your niche.
+                You film once. We turn it into 500-2,500 clips. We post 2,000-10,000 times across 40-108 accounts. You get 2M+ views monthly and become the dominant authority in your niche.
               </p>
               <Button size="lg" onClick={scrollToBooking} data-testid="button-how-it-works-cta">
                 <Calendar className="w-5 h-5 mr-2" />
