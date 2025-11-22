@@ -33,230 +33,172 @@ import {
   Upload,
   ThumbsUp,
   MessageCircle,
-  Share2
+  Share2,
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react";
-import { SiInstagram } from "react-icons/si";
+import { SiInstagram, SiTiktok, SiYoutube, SiFacebook } from "react-icons/si";
 import heroImage from "@assets/generated_images/Content_creation_workspace_montage_8cb5e36f.png";
 
-// System offerings - the three tiers for mass content
+// Pricing tiers
 const pricingTiers = [
   {
     name: "Growth Tier",
     price: "$4,000",
     period: "/month",
-    clips: "500+",
-    accounts: "10 accounts",
-    description: "Perfect for creators starting their mass-content journey",
+    clips: "500",
+    accounts: "10",
+    uploads: "2,000",
+    description: "Start flooding the algorithm with your content",
     features: [
-      "500+ edited clips per month",
-      "10 branded sub-accounts created",
-      "4 platform distribution (IG, TikTok, YT, FB)",
-      "Content ideation form & strategy",
-      "Full editing & optimization",
-      "Scheduled posting across all accounts",
-      "Monthly performance review",
+      "500 edited clips per month",
+      "10 branded sub-accounts (40 total profiles)",
+      "Posted across Instagram, TikTok, YouTube, Facebook",
+      "Content ideation & filming guide",
+      "Full editing & viral optimization",
+      "Automated daily posting",
+      "Monthly performance reports",
       "Email support"
     ],
-    cta: "Start Explosive Growth",
+    cta: "Start Growing",
     popular: false
   },
   {
     name: "Domination Tier",
     price: "$7,000",
     period: "/month",
-    clips: "1000+",
-    accounts: "15 accounts",
-    description: "Dominate your niche with aggressive scaling",
+    clips: "1,000",
+    accounts: "15",
+    uploads: "4,000",
+    description: "Recommended for aggressive niche domination",
     features: [
-      "1000+ edited clips per month",
-      "15 branded sub-accounts created",
-      "4 platform distribution (IG, TikTok, YT, FB)",
-      "Premium content ideation & research",
-      "Advanced editing with viral hooks",
-      "Strategic posting optimization",
-      "Weekly analytics & growth reviews",
+      "1,000 edited clips per month",
+      "15 branded sub-accounts (60 total profiles)",
+      "Posted across Instagram, TikTok, YouTube, Facebook",
+      "Advanced content strategy & ideation",
+      "Premium editing with viral hooks",
+      "Multi-variation testing",
+      "Weekly analytics reviews",
       "Bi-weekly strategy calls",
       "Priority support",
-      "Algorithm insights & adjustments"
+      "Algorithm optimization"
     ],
-    cta: "Scale to Millions",
+    cta: "Dominate Your Niche",
     popular: true
   },
   {
     name: "Empire Tier",
     price: "$13,475",
     period: "/month",
-    clips: "2500+",
-    accounts: "27 accounts",
-    description: "Complete content domination across all platforms",
+    clips: "2,500",
+    accounts: "27",
+    uploads: "10,000",
+    description: "For creators who want total market saturation",
     features: [
-      "2500+ edited clips per month",
-      "27 fully branded sub-accounts",
-      "4 platform distribution (IG, TikTok, YT, FB)",
-      "Complete ecosystem management",
-      "Premium content strategy & ideation",
-      "All variations fully optimized",
-      "Daily posting automation",
+      "2,500 edited clips per month",
+      "27 branded sub-accounts (108 total profiles)",
+      "Posted across Instagram, TikTok, YouTube, Facebook",
+      "Complete content ecosystem",
+      "Elite-level editing & optimization",
+      "Full A/B testing & iteration",
       "Real-time analytics dashboard",
       "Weekly strategy sessions",
       "Dedicated account manager",
-      "A/B testing & optimization",
-      "Custom branding & positioning",
-      "Comment management",
-      "White-glove service"
+      "Custom brand positioning",
+      "Comment & community management",
+      "White-glove concierge service"
     ],
     cta: "Build Your Empire",
     popular: false
   }
 ];
 
-// How it works - the 6-step process
-const processSteps = [
-  {
-    step: "1",
-    title: "Fill the Onboarding Form",
-    description: "Tell us about your niche, offer, personality, and goals. We gather everything needed to position your brand correctly.",
-    icon: FileText
-  },
-  {
-    step: "2",
-    title: "We Create Your Branded Accounts",
-    description: "10-27 custom sub-accounts created across Instagram, TikTok, YouTube, and Facebook with unique branding and positioning.",
-    icon: Target
-  },
-  {
-    step: "3",
-    title: "You Film Once",
-    description: "Send us a long-form video, stream recording, or existing content. One piece of content is all you need.",
-    icon: Video
-  },
-  {
-    step: "4",
-    title: "We Create Hundreds of Variations",
-    description: "Extract clips, create 500-2500 variations, match each to account branding, optimize for hooks, captions, and retention.",
-    icon: Sparkles
-  },
-  {
-    step: "5",
-    title: "Automated Posting & Management",
-    description: "All videos scheduled and posted daily across all accounts. We handle captions, hashtags, CTAs, and optimal timing.",
-    icon: Upload
-  },
-  {
-    step: "6",
-    title: "Watch Your Growth Explode",
-    description: "1-2M+ views monthly, massive follower growth, authority building, and inbound leads flowing in automatically.",
-    icon: Rocket
-  }
-];
-
-// What makes it work - the core benefits
-const coreSystem = [
-  {
-    icon: Eye,
-    title: "More Accounts = More Reach",
-    description: "10-27 accounts flooding the algorithm = millions more eyeballs on your content"
-  },
-  {
-    icon: Zap,
-    title: "More Variations = More Viral",
-    description: "Each clip edited 10-27 different ways = exponentially higher chance of viral hits"
-  },
-  {
-    icon: TrendingUp,
-    title: "More Volume = Domination",
-    description: "500-2500 clips monthly vs. competitors' 20-30 = you win by pure volume"
-  },
-  {
-    icon: Users,
-    title: "More Consistency = Authority",
-    description: "Posting daily across all platforms builds instant credibility and recognition"
-  }
-];
-
-// Results/testimonials showing the outcome
+// Client results
 const clientResults = [
   {
-    name: "E-Commerce Owner",
-    initials: "EK",
-    result: "1.2M views in first month",
-    testimonial: "Went from 12K followers to 95K in 90 days. The sub-account system completely changed our reach.",
-    metrics: [
-      { label: "Views", value: "1.2M" },
-      { label: "Followers", value: "95K" }
-    ]
-  },
-  {
-    name: "Fitness Influencer",
     initials: "MC",
-    result: "2.8M+ views consistently",
-    testimonial: "The algorithm treats our 20+ accounts as separate entities. It's like having 20 channels growing simultaneously.",
+    role: "Fitness Influencer",
+    result: "10M+ monthly views",
+    quote: "I went from posting 20 videos a month to having 2,000 uploads across all platforms. The algorithm treats each account separately—it's like I have 20 channels all growing at once.",
     metrics: [
-      { label: "Monthly Views", value: "2.8M+" },
-      { label: "Engagement", value: "14.3%" }
+      { label: "Monthly Views", value: "10M+" },
+      { label: "Total Engagement", value: "2.5M" },
+      { label: "Growth Rate", value: "400%" }
     ]
   },
   {
-    name: "Coaching Business",
     initials: "JD",
-    result: "850K+ leads generated",
-    testimonial: "The volume of content is insane. People see us everywhere. Our inbound inquiries went through the roof.",
+    role: "Content Creator & Coach",
+    result: "140K+ new followers in 90 days",
+    quote: "This system changed everything. I film once a week and they handle the rest. My reach went from thousands to millions, and my revenue grew 5x from all the inbound leads.",
     metrics: [
-      { label: "Leads/Month", value: "850K+" },
-      { label: "Revenue Growth", value: "5x" }
+      { label: "New Followers", value: "140K+" },
+      { label: "Revenue Growth", value: "5x" },
+      { label: "Inbound Leads", value: "850/mo" }
+    ]
+  },
+  {
+    initials: "B",
+    role: "YouTube Creator",
+    result: "300K+ views from one video",
+    quote: "Took me from 100 subscribers to 2,400+ with one viral video that hit 300K views. The editing and strategy completely transformed my channel's trajectory.",
+    metrics: [
+      { label: "Subscribers Gained", value: "2,300+" },
+      { label: "Best Video", value: "300K views" },
+      { label: "Time to Viral", value: "14 days" }
     ]
   }
 ];
 
-// FAQ data
+// FAQ
 const faqs = [
   {
-    question: "How is this different from regular content creation services?",
-    answer: "Traditional services create content slowly. We use a mass-content system: one long-form video becomes 500-2500 clips posted across 10-27 branded accounts. You get volume, reach, and frequency that competitors can't match. That's why our clients hit 1-2M views in their first month."
+    question: "How is this different from hiring a video editor?",
+    answer: "A video editor makes videos. We build a content machine. You get 10-27 branded accounts, 500-2,500 clips monthly, multi-platform distribution, and complete management. It's the difference between getting a few videos and having an entire content empire running on autopilot."
   },
   {
-    question: "Do I need existing content to start?",
-    answer: "No. You can film fresh content, send us a stream recording, or use existing videos from your archive. We'll extract and optimize everything. The key is giving us the raw material—we handle all the heavy lifting."
+    question: "Do I need to create new content or can I use existing videos?",
+    answer: "Both work. You can film fresh long-form content, send us stream recordings, or give us your existing video library. We'll extract every usable moment and turn it into hundreds of optimized clips. Most clients film one 60-minute video monthly and we generate 500-2,500 clips from it."
   },
   {
-    question: "What if I'm not ready to film? Can you help with ideation?",
-    answer: "Absolutely. Fill out our onboarding form with info about your niche, offer, and personality. We'll generate video topics, questions, talking points, and storylines optimized for viral clips. You'll have a complete roadmap before you film."
+    question: "What if I don't know what to talk about when filming?",
+    answer: "We handle that. After you fill out our onboarding form about your niche, offer, and audience, we'll give you a complete filming guide: topics, questions to answer, talking points, and storylines—all optimized for viral clip potential. You'll know exactly what to say before you hit record."
   },
   {
-    question: "How many accounts will I have, and what platforms?",
-    answer: "Depends on your tier. Growth (10 accounts), Domination (15), Empire (27). Each account is created on Instagram, TikTok, YouTube, and Facebook = 40-108 total profiles. Every account has custom branding, unique bios, and posting strategy."
+    question: "How many accounts will I have and on which platforms?",
+    answer: "Growth Tier: 10 accounts. Domination: 15 accounts. Empire: 27 accounts. Each account is created on Instagram, TikTok, YouTube, and Facebook. That's 40-108 total profiles. Every account gets custom branding, unique bios, and platform-specific optimization."
   },
   {
-    question: "How many clips do I get per month?",
-    answer: "Growth Tier: 500+ clips. Domination: 1000+. Empire: 2500+. All clips are fully edited, optimized, and scheduled. That's 2000-10,000 total uploads monthly across all platforms."
-  },
-  {
-    question: "What if I need revisions or want to change the strategy?",
-    answer: "Growth tier gets monthly reviews. Domination gets weekly reviews + bi-weekly calls. Empire gets real-time dashboard access + weekly strategy sessions + dedicated manager. We adjust content, posting times, and strategy based on what's working."
-  },
-  {
-    question: "Who owns the accounts and content?",
-    answer: "You own everything. The accounts are created in your name, on your behalf. All content is yours. We simply manage them as your service provider. You can take over or pause anytime."
+    question: "How many clips and uploads per month?",
+    answer: "Growth: 500 clips = 2,000 monthly uploads (500 × 4 platforms). Domination: 1,000 clips = 4,000 uploads. Empire: 2,500 clips = 10,000 uploads. For comparison, most creators post 20-30 videos monthly. We're posting 67-333x more content."
   },
   {
     question: "How long until I see results?",
-    answer: "Most clients see 1-2M views in their first 30 days purely from volume + multi-platform distribution. Follower growth starts immediately. By month 2-3, you'll have significant authority, more leads, and measurable business impact."
+    answer: "Most clients hit 1-2M views in the first 30 days. Why? Because we're flooding the algorithm with hundreds of clips daily across multiple accounts. Follower growth starts immediately. By month 2-3, you'll see measurable business impact: more authority, more recognition, more inbound leads."
   },
   {
-    question: "What if my niche is underperforming?",
-    answer: "Volume fixes most issues. But we also analyze what's working in your content, adjust hooks, test different captions and thumbnails, and optimize posting times. Our Domination and Empire tiers include weekly and bi-weekly strategy calls to fine-tune everything."
+    question: "Who owns the accounts and content?",
+    answer: "You own everything. The accounts are created for you, the content is yours, and you control it all. We're your service provider managing the system. You can take over the accounts, pause service, or export everything at any time."
   },
   {
-    question: "Can you help with my sales funnel or offer?",
-    answer: "We focus on content creation, distribution, and account management. Your CTAs, landing pages, and sales funnels are up to you. But with millions of views and followers we deliver, converting them becomes much easier."
+    question: "Can I make changes or request different editing styles?",
+    answer: "Yes. Growth tier gets monthly reviews to adjust strategy. Domination gets weekly analytics + bi-weekly calls to fine-tune everything. Empire tier gets real-time access, weekly strategy sessions, and a dedicated manager who optimizes constantly based on what's working."
   },
   {
-    question: "What if I have a smaller budget or want to test first?",
-    answer: "Start with Growth Tier at $4,000/month. You get 500+ clips, 10 accounts, and real results. Most clients upgrade after seeing the first month's impact. If growth isn't working, it's usually a content/positioning issue—not the system."
+    question: "What happens if a video doesn't perform well?",
+    answer: "That's why volume matters. Out of 500-2,500 clips monthly, some will hit, some won't. But we're constantly testing: different hooks, captions, thumbnails, posting times. The sheer volume guarantees winners. Plus, we analyze what works and double down on those patterns."
   },
   {
-    question: "Do you handle comment management and community?",
-    answer: "Growth and Domination tiers include basic analytics. Empire tier includes full comment management, community strategy, and engagement optimization. We can customize based on your needs."
+    question: "Do you help with my sales funnel or converting viewers to customers?",
+    answer: "We focus on content creation, distribution, and account management. Your CTAs, landing pages, and sales process are up to you. But here's the thing: with millions of views and massive follower growth, converting traffic becomes significantly easier."
+  },
+  {
+    question: "Can I start small and upgrade later?",
+    answer: "Absolutely. Most clients start with Growth Tier ($4,000/month) to test the system. Once they see the first month's results—views exploding, followers growing, leads coming in—they upgrade to Domination or Empire. You can scale up or down based on your goals and budget."
+  },
+  {
+    question: "What if I'm in a competitive niche?",
+    answer: "Perfect. Competitive niches are where this system dominates. While your competitors post 20-30 videos monthly on one account, you're posting 2,000-10,000 across 40-108 accounts. You become unavoidable. People will see you everywhere and assume you're the biggest authority in the space."
   }
 ];
 
@@ -342,7 +284,6 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 }
 
 export default function Home() {
-  const [selectedPortfolioItem, setSelectedPortfolioItem] = useState<number | null>(null);
   const [showCalendly, setShowCalendly] = useState(false);
 
   const scrollToBooking = () => {
@@ -350,166 +291,183 @@ export default function Home() {
     element?.scrollIntoView({ behavior: "smooth" });
   };
 
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://assets.calendly.com/assets/external/widget.js";
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Hero Section */}
+      {/* Hero Section - The Big Promise */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src={heroImage} 
-            alt="Content creation" 
+            alt="Content creation workspace" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70" />
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-24 md:py-32 w-full">
           <ScrollReveal>
-            <div className="max-w-3xl mb-8">
+            <div className="max-w-4xl">
+              <div className="inline-block px-4 py-2 bg-primary/20 border border-primary/50 rounded-full text-primary text-sm font-semibold mb-6">
+                The Mass-Content System for Creators, Coaches & Gurus
+              </div>
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
-                Turn One Video Into 2,500+ Clips
+                Get 1-2 Million Views<br />Every Single Month
               </h1>
               <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
-                Post across 10-27 branded accounts. Hit 1-2M+ views monthly. Build your empire on autopilot.
+                We turn one long-form video into 500-2,500 clips, post them across 10-27 branded accounts, and flood the algorithm so you become unavoidable in your niche.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <Button 
                   size="lg" 
                   onClick={scrollToBooking}
-                  className="bg-primary hover:bg-primary/90 text-white text-lg font-semibold"
+                  className="bg-primary hover:bg-primary/90 text-white text-lg font-semibold px-8 py-6"
                   data-testid="button-hero-cta"
                 >
                   <Calendar className="w-6 h-6 mr-2" />
-                  Book Strategy Call
+                  Book Your Strategy Call
                 </Button>
                 <Button 
                   size="lg" 
                   variant="outline"
-                  className="border-white text-white hover:bg-white/10"
-                  onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
-                  data-testid="button-see-pricing"
+                  className="border-2 border-white text-white hover:bg-white/10 text-lg font-semibold px-8 py-6"
+                  onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                  data-testid="button-see-how"
                 >
-                  See Pricing
+                  See How It Works
                 </Button>
               </div>
-            </div>
-          </ScrollReveal>
-
-          <ScrollReveal delay={200}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16">
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">2,500+</div>
-                <div className="text-sm text-white/80">Clips/Month Max</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">2M+</div>
-                <div className="text-sm text-white/80">Views Possible</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">27</div>
-                <div className="text-sm text-white/80">Sub-Accounts Max</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">1</div>
-                <div className="text-sm text-white/80">Video to Film</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center md:text-left">
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1">2,500</div>
+                  <div className="text-sm text-white/70">Clips per month (max)</div>
+                </div>
+                <div className="text-center md:text-left">
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1">10,000</div>
+                  <div className="text-sm text-white/70">Monthly uploads (max)</div>
+                </div>
+                <div className="text-center md:text-left">
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1">27</div>
+                  <div className="text-sm text-white/70">Branded accounts (max)</div>
+                </div>
+                <div className="text-center md:text-left">
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1">1-2M</div>
+                  <div className="text-sm text-white/70">Views monthly (typical)</div>
+                </div>
               </div>
             </div>
           </ScrollReveal>
         </div>
       </section>
 
-      {/* Why This Works */}
+      {/* The Dream/Vision - Paint the Picture */}
+      <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">Imagine This...</h2>
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+                You wake up to thousands of new views. Your phone is full of notifications. People recognize you everywhere on social media. Inbound leads are flooding in. You've become the undisputed authority in your niche.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+            <ScrollReveal delay={100}>
+              <Card className="border-2 hover-elevate">
+                <CardContent className="p-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mb-6">
+                    <Eye className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3">Millions of Views</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    1-2 million views every single month. Your content is everywhere. The algorithm loves you because you're feeding it exactly what it wants: volume, consistency, and variations.
+                  </p>
+                </CardContent>
+              </Card>
+            </ScrollReveal>
+
+            <ScrollReveal delay={200}>
+              <Card className="border-2 hover-elevate">
+                <CardContent className="p-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mb-6">
+                    <Users className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3">Unstoppable Authority</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    People see you on Instagram, TikTok, YouTube, and Facebook—constantly. You become the face of your niche. Competitors can't keep up. Clients assume you're the biggest name in the industry.
+                  </p>
+                </CardContent>
+              </Card>
+            </ScrollReveal>
+
+            <ScrollReveal delay={300}>
+              <Card className="border-2 hover-elevate">
+                <CardContent className="p-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mb-6">
+                    <Rocket className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3">Explosive Business Growth</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    More followers, more leads, more sales. Your inbox is full of opportunities. Your offers sell out. You've built a content machine that works 24/7 while you focus on serving clients and scaling revenue.
+                  </p>
+                </CardContent>
+              </Card>
+            </ScrollReveal>
+          </div>
+
+          <ScrollReveal delay={400}>
+            <div className="text-center">
+              <p className="text-2xl md:text-3xl font-bold mb-4">
+                This isn't a fantasy. This is what happens when you post 2,000-10,000 times per month instead of 20.
+              </p>
+              <p className="text-lg text-muted-foreground">
+                And you only have to film once.
+              </p>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Evidence/Results - Social Proof */}
       <section className="py-16 md:py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Why This System Destroys Competition</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Our Clients Are Getting These Results</h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Most creators post 20-30 videos monthly. We post 500-2,500 across 4 platforms. That's the difference between struggling and dominating.
+                Real numbers from real clients using the mass-content system
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {coreSystem.map((item, index) => (
-              <ScrollReveal key={item.title} delay={index * 100}>
-                <Card className="h-full border-2 hover-elevate" data-testid={`card-system-${index}`}>
-                  <CardContent className="p-6">
-                    <div className="w-14 h-14 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-4">
-                      <item.icon className="w-7 h-7 text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{item.description}</p>
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* The Process - 6 Steps */}
-      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <ScrollReveal>
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                From your first video to 2,000+ monthly uploads. Here's the complete process.
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {processSteps.map((process, index) => (
-              <ScrollReveal key={process.step} delay={index * 100}>
-                <Card className="h-full border-2" data-testid={`card-process-${index}`}>
-                  <CardContent className="p-8">
-                    <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center mb-4 text-white font-bold text-lg">
-                      {process.step}
-                    </div>
-                    <h3 className="text-2xl font-bold mb-3">{process.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">{process.description}</p>
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Results Section */}
-      <section className="py-16 md:py-24 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <ScrollReveal>
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Results Our Clients Get</h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-                These are real numbers from clients using the mass-content system
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {clientResults.map((result, index) => (
               <ScrollReveal key={result.initials} delay={index * 100}>
                 <Card className="h-full border-2" data-testid={`card-result-${index}`}>
                   <CardContent className="p-8">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-lg">
+                      <div className="w-14 h-14 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-xl">
                         {result.initials}
                       </div>
                       <div>
-                        <div className="font-bold">{result.name}</div>
+                        <div className="font-bold text-lg">{result.role}</div>
                         <div className="text-sm text-primary font-semibold">{result.result}</div>
                       </div>
                     </div>
-                    <p className="text-muted-foreground mb-6 leading-relaxed italic">"{result.testimonial}"</p>
-                    <div className="space-y-3">
+                    <Quote className="w-8 h-8 text-muted-foreground/30 mb-3" />
+                    <p className="text-muted-foreground mb-6 leading-relaxed italic">"{result.quote}"</p>
+                    <div className="space-y-3 pt-6 border-t">
                       {result.metrics.map((metric, idx) => (
-                        <div key={idx} className="flex justify-between items-center pb-3 border-b">
+                        <div key={idx} className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">{metric.label}</span>
-                          <span className="font-bold text-primary">{metric.value}</span>
+                          <span className="font-bold text-primary text-lg">{metric.value}</span>
                         </div>
                       ))}
                     </div>
@@ -521,22 +479,439 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
+      {/* The Problem - Why Normal Approach Fails */}
+      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-4">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Three Tiers of Growth</h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-2">
-                Choose how aggressive your growth strategy should be
-              </p>
-              <p className="text-sm text-muted-foreground">
-                All plans include content ideation, full editing, multi-platform distribution, and account management
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6">Here's Why You're Not Getting Results</h2>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                Most creators are playing a losing game. They post on one account, upload 20-30 videos monthly, and wonder why growth is slow.
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
+          <ScrollReveal delay={200}>
+            <div className="max-w-5xl mx-auto">
+              <Card className="border-2">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b-2">
+                          <th className="p-6 text-left font-bold">Metric</th>
+                          <th className="p-6 text-center font-bold text-muted-foreground">Traditional Approach</th>
+                          <th className="p-6 text-center font-bold text-primary">Our System</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b">
+                          <td className="p-6 font-semibold">Accounts Created</td>
+                          <td className="p-6 text-center text-muted-foreground">1 account</td>
+                          <td className="p-6 text-center text-primary font-bold">10-27 accounts</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="p-6 font-semibold">Monthly Uploads</td>
+                          <td className="p-6 text-center text-muted-foreground">20-30 videos</td>
+                          <td className="p-6 text-center text-primary font-bold">2,000-10,000 videos</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="p-6 font-semibold">Platform Reach</td>
+                          <td className="p-6 text-center text-muted-foreground">Usually 1-2 platforms</td>
+                          <td className="p-6 text-center text-primary font-bold">4 platforms simultaneously</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="p-6 font-semibold">Algorithm Advantage</td>
+                          <td className="p-6 text-center text-muted-foreground">Low (competing with millions)</td>
+                          <td className="p-6 text-center text-primary font-bold">High (flooding the algorithm)</td>
+                        </tr>
+                        <tr>
+                          <td className="p-6 font-semibold">Typical Monthly Views</td>
+                          <td className="p-6 text-center text-muted-foreground">10K-100K</td>
+                          <td className="p-6 text-center text-primary font-bold text-xl">1-2 Million+</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="mt-8 p-6 bg-destructive/10 border-2 border-destructive/30 rounded-xl">
+                <div className="flex items-start gap-4">
+                  <AlertCircle className="w-8 h-8 text-destructive flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="text-xl font-bold mb-2 text-destructive">The Truth About Single-Account Growth</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Posting 20-30 videos monthly on one account means you're competing with millions of other creators for limited algorithm visibility. Even with great content, you'll struggle to break through. The math simply doesn't work in your favor.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* The Solution - Overview */}
+      <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">The Solution: The Mass-Content System</h2>
+              <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed">
+                We build you a content empire. Multiple branded accounts. Hundreds of clips monthly. Full automation. Complete management.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16">
+            <ScrollReveal delay={100}>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">67-333x</div>
+                <div className="text-sm text-white/80">More content than competitors</div>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={200}>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">4</div>
+                <div className="text-sm text-white/80">Platforms simultaneously</div>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={300}>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">108</div>
+                <div className="text-sm text-white/80">Max profiles created (Empire)</div>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={400}>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">100%</div>
+                <div className="text-sm text-white/80">Managed for you</div>
+              </div>
+            </ScrollReveal>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works - Presentation Walkthrough */}
+      <section id="how-it-works" className="py-16 md:py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-16">
+              <div className="inline-block px-4 py-2 bg-primary/10 border border-primary/30 rounded-full text-primary text-sm font-semibold mb-4">
+                The Complete Process
+              </div>
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">How The System Works</h2>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                Let me walk you through exactly what happens from the moment you sign up to the moment you're getting millions of views
+              </p>
+            </div>
+          </ScrollReveal>
+
+          {/* Step 1 */}
+          <ScrollReveal delay={100}>
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold mb-4">Step 1: We Study Your Brand & Niche</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      First, you fill out our onboarding form. We learn everything about you: your niche, your offer, your personality, your target audience, your competitors, and your goals.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What You Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Fill out a simple form about your business, audience, and content goals</p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What We Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Analyze your niche, research your competitors, and create a complete content strategy tailored to your brand</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          {/* Step 2 */}
+          <ScrollReveal delay={200}>
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold mb-4">Step 2: We Build Your Account Network</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      We create 10-27 branded sub-accounts (depending on your tier) across Instagram, TikTok, YouTube, and Facebook. Each account gets custom branding, unique bios, specific positioning, and its own visual identity.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div className="text-center p-4 bg-gradient-to-br from-pink-500/10 to-purple-500/10 rounded-xl border border-pink-500/20">
+                        <SiInstagram className="w-10 h-10 mx-auto mb-2 text-pink-500" />
+                        <div className="font-bold text-sm">Instagram</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-black/10 to-cyan-500/10 rounded-xl border border-cyan-500/20">
+                        <SiTiktok className="w-10 h-10 mx-auto mb-2" />
+                        <div className="font-bold text-sm">TikTok</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-xl border border-red-500/20">
+                        <SiYoutube className="w-10 h-10 mx-auto mb-2 text-red-500" />
+                        <div className="font-bold text-sm">YouTube</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-xl border border-blue-500/20">
+                        <SiFacebook className="w-10 h-10 mx-auto mb-2 text-blue-500" />
+                        <div className="font-bold text-sm">Facebook</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What You Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Nothing. We handle everything.</p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What We Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Create 40-108 total profiles with unique branding, write all bios, set up posting infrastructure, optimize each for their platform</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          {/* Step 3 */}
+          <ScrollReveal delay={300}>
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold mb-4">Step 3: You Film Once</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      We give you a complete filming guide: topics, questions, talking points, storylines—all optimized for viral clip potential. You film one 60-90 minute video (or send us an existing video, stream recording, or podcast).
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What You Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Film one piece of long-form content. Or give us existing videos. That's it.</p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What We Provide
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Complete filming guide with proven topics, questions to answer, and talking points designed to generate maximum clip potential</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          {/* Step 4 */}
+          <ScrollReveal delay={400}>
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
+                    4
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold mb-4">Step 4: We Extract Every Usable Clip</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      Our team watches your video and extracts every single viral moment, valuable teaching point, quotable line, and engaging story. We identify 500-2,500 clips depending on your tier.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What You Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Nothing. You're done filming.</p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What We Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Watch every second, identify viral moments, extract clips, categorize by topic, and prepare each clip for editing and optimization</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          {/* Step 5 */}
+          <ScrollReveal delay={500}>
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
+                    5
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold mb-4">Step 5: We Create Branded Variations</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      Each clip gets edited into 10-27 different variations (one for each sub-account). Every variation is customized with that account's branding, has unique captions, different hooks, platform-specific optimization, and viral editing techniques.
+                    </p>
+                    <div className="mb-6 p-6 bg-primary/5 border-2 border-primary/20 rounded-xl">
+                      <h4 className="font-bold mb-4">What Goes Into Each Variation:</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Custom branding elements</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Viral hook restructuring</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Platform-specific formatting</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Unique captions & subtitles</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Attention retention edits</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>CTA placement</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What You Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Still nothing. We handle all editing.</p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What We Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Edit 500-2,500 unique clips with professional edits, viral hooks, captions, branding, and optimization for each platform and account</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          {/* Step 6 */}
+          <ScrollReveal delay={600}>
+            <Card className="mb-8 border-2 border-primary shadow-xl">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
+                    6
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-3xl font-bold mb-4">Step 6: We Schedule, Post & Manage Everything</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      All 2,000-10,000 videos are scheduled and posted across all accounts, all platforms, every single day. We write custom captions, add hashtags, optimize posting times, and manage the entire content calendar. You never touch an account.
+                    </p>
+                    <div className="mb-6 p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-xl">
+                      <h4 className="font-bold mb-4 text-xl">Then You Watch The Results Roll In:</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="text-center">
+                          <div className="text-4xl font-bold text-primary mb-2">1-2M</div>
+                          <div className="text-sm text-muted-foreground">Views per month</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-4xl font-bold text-primary mb-2">Thousands</div>
+                          <div className="text-sm text-muted-foreground">New followers weekly</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-4xl font-bold text-primary mb-2">Hundreds</div>
+                          <div className="text-sm text-muted-foreground">Inbound leads monthly</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What You Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Focus on serving clients, closing deals, and growing your business. The content machine runs itself.</p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          What We Do
+                        </h4>
+                        <p className="text-sm text-muted-foreground">Schedule all videos, write captions, manage all accounts, optimize posting times, monitor performance, provide analytics, adjust strategy</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          <ScrollReveal delay={700}>
+            <div className="text-center mt-12 p-8 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl border-2 border-primary/20">
+              <h3 className="text-2xl md:text-3xl font-bold mb-4">
+                That's The Entire System
+              </h3>
+              <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
+                You film once. We turn it into 500-2,500 clips. We post 2,000-10,000 times across 40-108 accounts. You get 1-2M views monthly and become the dominant authority in your niche.
+              </p>
+              <Button size="lg" onClick={scrollToBooking} data-testid="button-how-it-works-cta">
+                <Calendar className="w-5 h-5 mr-2" />
+                Book Your Strategy Call
+              </Button>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <ScrollReveal>
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Choose Your Growth Tier</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                All tiers include the complete system: account creation, content extraction, editing, posting, and management
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {pricingTiers.map((tier, index) => (
               <ScrollReveal key={tier.name} delay={index * 100}>
                 <Card 
@@ -551,21 +926,31 @@ export default function Home() {
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                       <div className="px-4 py-1 bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold rounded-full flex items-center gap-1">
                         <Zap className="w-4 h-4" />
-                        Recommended
+                        Most Popular
                       </div>
                     </div>
                   )}
 
                   <CardContent className="p-8 flex flex-col flex-1">
                     <div className="mb-6">
-                      <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
+                      <h3 className="text-2xl font-bold mb-3">{tier.name}</h3>
                       <div className="flex items-baseline gap-1 mb-4">
                         <span className="text-4xl font-bold">{tier.price}</span>
                         <span className="text-muted-foreground">{tier.period}</span>
                       </div>
-                      <div className="space-y-2 mb-4 text-sm">
-                        <div className="font-semibold text-primary">{tier.clips} clips monthly</div>
-                        <div className="text-muted-foreground">{tier.accounts}</div>
+                      <div className="space-y-2 mb-4 p-4 bg-primary/5 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">Clips per month:</span>
+                          <span className="text-lg font-bold text-primary">{tier.clips}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">Sub-accounts:</span>
+                          <span className="text-lg font-bold text-primary">{tier.accounts}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">Total uploads/month:</span>
+                          <span className="text-lg font-bold text-primary">{tier.uploads}</span>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">
                         {tier.description}
@@ -601,36 +986,26 @@ export default function Home() {
           </div>
 
           <ScrollReveal delay={400}>
-            <div className="mt-12 p-8 bg-white dark:bg-slate-950 rounded-2xl border-2 border-primary/20">
-              <h3 className="text-2xl font-bold text-center mb-6">The Math Behind The System</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-2">Growth Tier</div>
-                  <div className="text-3xl font-bold mb-2">2,000</div>
-                  <div className="text-sm text-muted-foreground">Monthly uploads<br/>(500 clips × 4 platforms)</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-2">Domination Tier</div>
-                  <div className="text-3xl font-bold mb-2">4,000</div>
-                  <div className="text-sm text-muted-foreground">Monthly uploads<br/>(1000 clips × 4 platforms)</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-2">Empire Tier</div>
-                  <div className="text-3xl font-bold mb-2">10,000</div>
-                  <div className="text-sm text-muted-foreground">Monthly uploads<br/>(2500 clips × 4 platforms)</div>
-                </div>
-              </div>
+            <div className="mt-12 text-center p-8 bg-white dark:bg-slate-950 rounded-2xl border-2">
+              <h3 className="text-2xl font-bold mb-6">Not sure which tier is right for you?</h3>
+              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+                Book a free strategy call. We'll analyze your niche, discuss your goals, and recommend the best plan for maximum ROI.
+              </p>
+              <Button size="lg" onClick={scrollToBooking}>
+                <Calendar className="w-5 h-5 mr-2" />
+                Schedule Free Strategy Call
+              </Button>
             </div>
           </ScrollReveal>
         </div>
       </section>
 
-      {/* FAQ Section */}
+      {/* FAQ */}
       <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-4xl mx-auto px-4 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Frequently Asked Questions</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Common Questions</h2>
               <p className="text-lg md:text-xl text-muted-foreground">
                 Everything you need to know about the mass-content system
               </p>
@@ -656,30 +1031,20 @@ export default function Home() {
               ))}
             </Accordion>
           </ScrollReveal>
-
-          <ScrollReveal delay={400}>
-            <div className="mt-12 text-center p-8 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl border-2 border-primary/20">
-              <h3 className="text-2xl font-bold mb-3">Ready to Dominate Your Niche?</h3>
-              <p className="text-muted-foreground mb-6 text-lg">
-                Book a strategy call and let's discuss which tier is right for your growth goals
-              </p>
-              <Button size="lg" onClick={scrollToBooking} data-testid="button-faq-cta">
-                <Calendar className="w-5 h-5 mr-2" />
-                Schedule Your Free Call
-              </Button>
-            </div>
-          </ScrollReveal>
         </div>
       </section>
 
-      {/* CTA Section with Calendly */}
+      {/* Final CTA */}
       <section id="booking" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
             <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Let's Build Your Empire</h2>
-              <p className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
-                30-minute strategy call with our team. We'll show you exactly how the system works and which tier is right for you.
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">Ready to Dominate Your Niche?</h2>
+              <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-4">
+                Book a free 30-minute strategy call. We'll walk you through the system, show you how it works for your specific niche, and help you choose the right tier.
+              </p>
+              <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                No pressure. No hard sell. Just a clear explanation of how we can help you get 1-2M views monthly and become the undisputed authority in your space.
               </p>
             </div>
           </ScrollReveal>
@@ -691,14 +1056,14 @@ export default function Home() {
                   <Button 
                     size="lg"
                     onClick={() => setShowCalendly(true)}
-                    className="bg-white text-primary hover:bg-white/90 border-white shadow-2xl text-xl font-semibold"
+                    className="bg-white text-primary hover:bg-white/90 shadow-2xl text-xl font-semibold px-12 py-8"
                     data-testid="button-show-calendly"
                   >
-                    <Calendar className="w-6 h-6 mr-2" />
-                    Schedule Your Free Call
+                    <Calendar className="w-7 h-7 mr-3" />
+                    Book Your Free Strategy Call
                   </Button>
-                  <p className="mt-6 text-white/80">
-                    Or contact us directly at <a href="tel:604-626-9278" className="underline font-semibold hover:text-white">604-626-9278</a>
+                  <p className="mt-8 text-white/80 text-lg">
+                    Or call us directly: <a href="tel:604-626-9278" className="underline font-semibold hover:text-white">604-626-9278</a>
                   </p>
                 </div>
               ) : (
@@ -710,7 +1075,7 @@ export default function Home() {
                     data-testid="calendly-widget"
                   />
                   <p className="text-center text-muted-foreground text-sm mt-4 p-4">
-                    Replace Calendly URL with your actual scheduling link
+                    Replace with your actual Calendly URL
                   </p>
                 </div>
               )}
@@ -718,21 +1083,21 @@ export default function Home() {
           </ScrollReveal>
 
           <ScrollReveal delay={300}>
-            <div className="mt-12 pt-12 border-t border-white/20">
+            <div className="mt-16 pt-12 border-t border-white/20">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
                 <div>
-                  <Phone className="w-8 h-8 mx-auto mb-3" />
-                  <div className="font-semibold mb-1">Phone</div>
-                  <a href="tel:604-626-9278" className="text-white/80 hover:text-white">604-626-9278</a>
+                  <Phone className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">Phone</div>
+                  <a href="tel:604-626-9278" className="text-white/80 hover:text-white text-lg">604-626-9278</a>
                 </div>
                 <div>
-                  <Mail className="w-8 h-8 mx-auto mb-3" />
-                  <div className="font-semibold mb-1">Email</div>
+                  <Mail className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">Email</div>
                   <a href="mailto:arminabadi7@gmail.com" className="text-white/80 hover:text-white">arminabadi7@gmail.com</a>
                 </div>
                 <div>
-                  <SiInstagram className="w-8 h-8 mx-auto mb-3" />
-                  <div className="font-semibold mb-1">Instagram</div>
+                  <SiInstagram className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">Instagram</div>
                   <a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white">@kabacontent</a>
                 </div>
               </div>
@@ -742,31 +1107,31 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-black text-white py-8 border-t border-primary/20">
+      <footer className="bg-black text-white py-12 border-t border-primary/20">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <h3 className="font-bold mb-4">Kaba Content</h3>
-              <p className="text-sm text-white/60">Mass-content system for creators, coaches, and gurus.</p>
+              <h3 className="font-bold text-xl mb-4">Kaba Content</h3>
+              <p className="text-sm text-white/60 leading-relaxed">The mass-content system for creators, coaches, and gurus who want to dominate their niche.</p>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 text-sm">Services</h4>
+              <h4 className="font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-white/60">
+                <li><a href="#how-it-works" className="hover:text-white">How It Works</a></li>
                 <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
-                <li><a href="#" className="hover:text-white">How It Works</a></li>
-                <li><a href="#" className="hover:text-white">Our Results</a></li>
+                <li><a href="#booking" className="hover:text-white">Book a Call</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 text-sm">Contact</h4>
+              <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm text-white/60">
                 <li><a href="tel:604-626-9278" className="hover:text-white">604-626-9278</a></li>
-                <li><a href="mailto:arminabadi7@gmail.com" className="hover:text-white">Email</a></li>
-                <li><a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="hover:text-white">Instagram</a></li>
+                <li><a href="mailto:arminabadi7@gmail.com" className="hover:text-white">arminabadi7@gmail.com</a></li>
+                <li><a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="hover:text-white">@kabacontent</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 text-sm">Domain</h4>
+              <h4 className="font-semibold mb-4">Domain</h4>
               <p className="text-sm text-white/60">kabacontent.com</p>
             </div>
           </div>
