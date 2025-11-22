@@ -51,14 +51,14 @@ const pricingTiers = [
     uploads: "2,000",
     description: "Start flooding the algorithm with your content",
     features: [
-      "500 edited clips per month",
+      "50 original clips × 10 variations = 500 total clips",
       "10 branded sub-accounts (40 total profiles)",
       "Posted across Instagram, TikTok, YouTube, Facebook",
       "Content ideation & filming guide",
       "Full editing & viral optimization",
       "Automated daily posting",
       "Monthly performance reports",
-      "Email support"
+      "24/7 live support from the CEO"
     ],
     cta: "Start Growing",
     popular: false
@@ -72,7 +72,7 @@ const pricingTiers = [
     uploads: "4,000",
     description: "Recommended for aggressive niche domination",
     features: [
-      "1,000 edited clips per month",
+      "100 original clips × 10 variations = 1,000 total clips",
       "15 branded sub-accounts (60 total profiles)",
       "Posted across Instagram, TikTok, YouTube, Facebook",
       "Advanced content strategy & ideation",
@@ -80,7 +80,7 @@ const pricingTiers = [
       "Multi-variation testing",
       "Weekly analytics reviews",
       "Bi-weekly strategy calls",
-      "Priority support",
+      "24/7 live support from the CEO",
       "Algorithm optimization"
     ],
     cta: "Dominate Your Niche",
@@ -95,7 +95,7 @@ const pricingTiers = [
     uploads: "10,000",
     description: "For creators who want total market saturation",
     features: [
-      "2,500 edited clips per month",
+      "250 original clips × 10 variations = 2,500 total clips",
       "27 branded sub-accounts (108 total profiles)",
       "Posted across Instagram, TikTok, YouTube, Facebook",
       "Complete content ecosystem",
@@ -104,6 +104,7 @@ const pricingTiers = [
       "Real-time analytics dashboard",
       "Weekly strategy sessions",
       "Dedicated account manager",
+      "24/7 live support from the CEO",
       "Custom brand positioning",
       "Comment & community management",
       "White-glove concierge service"
@@ -742,7 +743,7 @@ export default function Home() {
                   <div className="flex-1">
                     <h3 className="text-3xl font-bold mb-4">Step 4: We Extract Every Usable Clip</h3>
                     <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
-                      Our team watches your video and extracts every single viral moment, valuable teaching point, quotable line, and engaging story. We identify 500-2,500 clips depending on your tier.
+                      Our team watches your video and extracts every single viral moment, valuable teaching point, quotable line, and engaging story. We identify 50-250 original clips depending on your tier (Growth: 50 clips, Domination: 100 clips, Empire: 250 clips).
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
                       <div>
@@ -757,7 +758,7 @@ export default function Home() {
                           <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Do
                         </h4>
-                        <p className="text-sm text-muted-foreground">Watch every second, identify viral moments, extract clips, categorize by topic, and prepare each clip for editing and optimization</p>
+                        <p className="text-sm text-muted-foreground">Watch every second, identify 50-250 viral moments, extract the original clips, categorize by topic, and prepare each for multi-variation editing</p>
                       </div>
                     </div>
                   </div>
@@ -775,9 +776,9 @@ export default function Home() {
                     5
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-3xl font-bold mb-4">Step 5: We Create Branded Variations</h3>
+                    <h3 className="text-3xl font-bold mb-4">Step 5: We Create 10 Unique Variations of Each Clip</h3>
                     <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
-                      Each clip gets edited into 10-27 different variations (one for each sub-account). Every variation is customized with that account's branding, has unique captions, different hooks, platform-specific optimization, and viral editing techniques.
+                      Here's where the magic happens: we take each of those 50-250 original clips and edit them 10 different ways. So 50 clips × 10 variations = 500 total clips. 100 clips × 10 = 1,000. 250 clips × 10 = 2,500. Every variation gets unique branding, different hooks, custom captions, platform-specific optimization, and viral editing techniques.
                     </p>
                     <div className="mb-6 p-6 bg-primary/5 border-2 border-primary/20 rounded-xl">
                       <h4 className="font-bold mb-4">What Goes Into Each Variation:</h4>
@@ -821,7 +822,7 @@ export default function Home() {
                           <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Do
                         </h4>
-                        <p className="text-sm text-muted-foreground">Edit 500-2,500 unique clips with professional edits, viral hooks, captions, branding, and optimization for each platform and account</p>
+                        <p className="text-sm text-muted-foreground">Create 10 unique variations of each original clip with different branding, hooks, captions, and optimization—turning 50-250 clips into 500-2,500 ready-to-post videos</p>
                       </div>
                     </div>
                   </div>
@@ -1070,13 +1071,10 @@ export default function Home() {
                 <div className="bg-white rounded-2xl p-2 shadow-2xl">
                   <div
                     className="calendly-inline-widget"
-                    data-url="https://calendly.com"
+                    data-url="https://calendly.com/arminabadi7/30min"
                     style={{ minWidth: "320px", height: "700px" }}
                     data-testid="calendly-widget"
                   />
-                  <p className="text-center text-muted-foreground text-sm mt-4 p-4">
-                    Replace with your actual Calendly URL
-                  </p>
                 </div>
               )}
             </div>
