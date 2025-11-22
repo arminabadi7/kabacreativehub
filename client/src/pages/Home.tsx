@@ -1092,7 +1092,7 @@ export default function Home() {
                 <div>
                   <SiWhatsapp className="w-10 h-10 mx-auto mb-3" />
                   <div className="font-semibold mb-2">WhatsApp</div>
-                  <a href="https://wa.me/16046269278" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-lg">Chat Now</a>
+                  <a href="https://wa.me/16045054851" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-lg">Chat Now</a>
                 </div>
                 <div>
                   <Mail className="w-10 h-10 mx-auto mb-3" />
@@ -1130,7 +1130,7 @@ export default function Home() {
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm text-white/60">
                 <li><a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="hover:text-white">Telegram: @arminkaba</a></li>
-                <li><a href="https://wa.me/16046269278" target="_blank" rel="noopener noreferrer" className="hover:text-white">WhatsApp Chat</a></li>
+                <li><a href="https://wa.me/16045054851" target="_blank" rel="noopener noreferrer" className="hover:text-white">WhatsApp Chat</a></li>
                 <li><a href="mailto:arminabadi7@gmail.com" className="hover:text-white">arminabadi7@gmail.com</a></li>
                 <li><a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="hover:text-white">@kabacontent</a></li>
               </ul>

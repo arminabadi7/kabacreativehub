@@ -77,7 +77,7 @@ Each step shows "What You Do" vs. "What We Do"
 
 ## Contact Information
 - **Telegram**: https://t.me/arminkaba (@arminkaba)
-- **WhatsApp**: https://wa.me/16046269278 (604-626-9278)
+- **WhatsApp**: https://wa.me/16045054851 (604-505-4851)
 - **Email**: arminabadi7@gmail.com
 - **Instagram**: @kabacontent
 - **Domain**: kabacontent.com
