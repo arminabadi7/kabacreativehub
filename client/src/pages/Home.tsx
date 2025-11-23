@@ -399,7 +399,7 @@ export default function Home() {
                   <div className="text-sm text-white/70">Branded accounts (max)</div>
                 </div>
                 <div className="text-center md:text-left">
-                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start">2M+</div>
+                  <div className="md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start text-[48px]">2M+</div>
                   <div className="text-sm text-white/70">Views monthly (typical)</div>
                 </div>
               </div>
