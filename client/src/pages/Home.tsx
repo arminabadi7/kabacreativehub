@@ -370,7 +370,6 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
-
       {/* The Dream/Vision - Paint the Picture */}
       <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -439,7 +438,6 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
-
       {/* Evidence/Results - Social Proof */}
       <section className="py-16 md:py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -483,7 +481,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
       {/* The Problem - Why Normal Approach Fails */}
       <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -556,7 +553,6 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
-
       {/* The Solution - Overview */}
       <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -597,7 +593,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
       {/* How It Works - Presentation Walkthrough */}
       <section id="how-it-works" className="py-16 md:py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -852,7 +847,7 @@ export default function Home() {
                       <h4 className="font-bold mb-4 text-xl">Then You Watch The Results Roll In:</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="text-center">
-                          <div className="text-4xl font-bold text-primary mb-2">1-2M</div>
+                          <div className="text-4xl font-bold text-primary mb-2">2M+</div>
                           <div className="text-sm text-muted-foreground">Views per month</div>
                         </div>
                         <div className="text-center">
@@ -903,7 +898,6 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
-
       {/* Pricing */}
       <section id="pricing" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -1004,7 +998,6 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
-
       {/* FAQ */}
       <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-4xl mx-auto px-4 md:px-8">
@@ -1038,7 +1031,6 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
-
       {/* Final CTA */}
       <section id="booking" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -1114,7 +1106,6 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
-
       {/* Footer */}
       <footer className="bg-black text-white py-12 border-t border-primary/20">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
