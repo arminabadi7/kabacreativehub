@@ -337,7 +337,7 @@ export default function Home() {
         </div>
       </nav>
       {/* Hero Section - The Big Promise */}
-      <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-primary via-primary/85 to-secondary pt-20">
+      <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-primary via-primary/85 to-secondary pt-8">
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/85 to-secondary" />
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.1),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(255,255,255,0.05),transparent_50%)]" />
