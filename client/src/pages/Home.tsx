@@ -105,8 +105,7 @@ const pricingTiers = [
       "Dedicated account manager",
       "24/7 live support from the CEO",
       "Custom brand positioning",
-      "Comment & community management",
-      "White-glove concierge service"
+      "Comment & community management"
     ],
     cta: "Build Your Empire",
     popular: false
