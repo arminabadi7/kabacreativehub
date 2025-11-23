@@ -303,7 +303,7 @@ export default function Home() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary/90 via-primary/85 to-secondary/90 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-start gap-12">
           <div className="font-bold text-2xl text-white" data-testid="navbar-brand">
-            <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Kaba</span><span className="text-white">Content</span>
+            KabaContent
           </div>
           <div className="hidden md:flex items-center gap-6">
             <Button 
