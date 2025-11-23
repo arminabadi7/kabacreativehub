@@ -387,19 +387,19 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center md:text-left">
-                  <div className="text-3xl md:text-4xl font-bold text-white mb-1"><AnimatedCounter target={2500} suffix=""/></div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={2500} suffix=""/></div>
                   <div className="text-sm text-white/70">Clips per month (max)</div>
                 </div>
                 <div className="text-center md:text-left">
-                  <div className="text-3xl md:text-4xl font-bold text-white mb-1"><AnimatedCounter target={10000} suffix=""/></div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={10000} suffix=""/></div>
                   <div className="text-sm text-white/70">Monthly uploads (max)</div>
                 </div>
                 <div className="text-center md:text-left">
-                  <div className="text-3xl md:text-4xl font-bold text-white mb-1"><AnimatedCounter target={27} suffix=""/></div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={27} suffix=""/></div>
                   <div className="text-sm text-white/70">Branded accounts (max)</div>
                 </div>
                 <div className="text-center md:text-left">
-                  <div className="text-3xl md:text-4xl font-bold text-white mb-1">2M+</div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start">2M+</div>
                   <div className="text-sm text-white/70">Views monthly (typical)</div>
                 </div>
               </div>
