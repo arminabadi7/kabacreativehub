@@ -1077,9 +1077,7 @@ export default function Home() {
               <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-4">
                 Book a free 30-minute strategy call. We'll walk you through the system, show you how it works for your specific niche, and help you choose the right tier.
               </p>
-              <p className="text-lg text-white/80 max-w-2xl mx-auto">
-                No pressure. No hard sell. Just a clear explanation of how we can help you get 1-2M views monthly and become the undisputed authority in your space.
-              </p>
+              <p className="text-lg text-white/80 max-w-2xl mx-auto">No pressure. No hard sell. Just a clear explanation of how we can help you get 2M+ views monthly and become the undisputed authority in your space.</p>
             </div>
           </ScrollReveal>
 
