@@ -2,13 +2,16 @@ import {
   users,
   affiliates,
   referrals,
+  bookings,
   type User, 
   type InsertUser,
   type Affiliate,
   type InsertAffiliate,
   type Referral,
   type InsertReferral,
-  type UpdatePayment
+  type UpdatePayment,
+  type Booking,
+  type InsertBooking
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -32,6 +35,10 @@ export interface IStorage {
     totalConversions: number;
     totalCommission: number;
   }>;
+  
+  createBooking(booking: InsertBooking): Promise<Booking>;
+  getBookings(status?: string): Promise<Booking[]>;
+  confirmBooking(bookingId: string, tier: string): Promise<Booking | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -135,6 +142,38 @@ export class DatabaseStorage implements IStorage {
 
   async getAllAffiliates(): Promise<Affiliate[]> {
     return await db.select().from(affiliates).orderBy(desc(affiliates.createdAt));
+  }
+
+  async createBooking(insertBooking: InsertBooking): Promise<Booking> {
+    const [booking] = await db
+      .insert(bookings)
+      .values(insertBooking)
+      .returning();
+    return booking;
+  }
+
+  async getBookings(status?: string): Promise<Booking[]> {
+    if (status) {
+      return await db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.status, status))
+        .orderBy(desc(bookings.createdAt));
+    }
+    return await db.select().from(bookings).orderBy(desc(bookings.createdAt));
+  }
+
+  async confirmBooking(bookingId: string, tier: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({
+        status: "confirmed",
+        tier: tier,
+        confirmedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+    return booking || undefined;
   }
 }
 

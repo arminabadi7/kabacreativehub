@@ -87,3 +87,35 @@ export const affiliateStatsSchema = z.object({
   totalConversions: z.number(),
   totalCommission: z.number(),
 });
+
+export const bookings = pgTable("bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  attendeeName: text("attendee_name").notNull(),
+  attendeeEmail: text("attendee_email").notNull(),
+  eventTime: timestamp("event_time").notNull(),
+  referralId: varchar("referral_id"),
+  affiliateUsername: text("affiliate_username"),
+  tier: text("tier"),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  confirmedAt: timestamp("confirmed_at"),
+});
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({
+  id: true,
+  createdAt: true,
+  confirmedAt: true,
+  status: true,
+}).extend({
+  attendeeName: z.string().min(1, "Attendee name is required"),
+  attendeeEmail: z.string().email(),
+  eventTime: z.coerce.date(),
+});
+
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type Booking = typeof bookings.$inferSelect;
+
+export const confirmBookingSchema = z.object({
+  bookingId: z.string().min(1, "Booking ID is required"),
+  tier: z.enum(["Growth", "Domination", "Empire"]),
+});

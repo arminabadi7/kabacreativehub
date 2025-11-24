@@ -8,6 +8,8 @@ import {
   updatePaymentSchema,
   registerAffiliateSchema,
   loginAffiliateSchema,
+  insertBookingSchema,
+  confirmBookingSchema,
   type Affiliate
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
@@ -218,6 +220,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.clearCookie("connect.sid");
       return res.json({ success: true });
     });
+  });
+
+  app.post("/api/founder/bookings", requireFounderAuth, async (req, res) => {
+    try {
+      const validatedData = insertBookingSchema.parse(req.body);
+      const booking = await storage.createBooking(validatedData);
+      return res.status(201).json(booking);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      console.error("Error creating booking:", error);
+      return res.status(500).json({ error: "Failed to create booking" });
+    }
+  });
+
+  app.get("/api/founder/bookings", requireFounderAuth, async (req, res) => {
+    try {
+      const { status } = req.query;
+      const allBookings = await storage.getBookings(status as string | undefined);
+      return res.json(allBookings);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+      return res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  });
+
+  app.post("/api/founder/bookings/:bookingId/confirm", requireFounderAuth, async (req, res) => {
+    try {
+      const { bookingId } = req.params;
+      const validatedData = confirmBookingSchema.parse({ ...req.body, bookingId });
+      
+      const booking = await storage.confirmBooking(bookingId, validatedData.tier);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      
+      return res.json(booking);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      console.error("Error confirming booking:", error);
+      return res.status(500).json({ error: "Failed to confirm booking" });
+    }
   });
   
   app.get("/api/auth/session", async (req, res) => {
