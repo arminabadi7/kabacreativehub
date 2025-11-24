@@ -585,6 +585,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/affiliates/:username/appointments", async (req, res) => {
+    try {
+      const { username } = req.params;
+      const appointments = await storage.getAppointments();
+      const affiliateAppointments = appointments.filter(apt => apt.affiliateUsername === username);
+      return res.json(affiliateAppointments);
+    } catch (error) {
+      console.error("Error fetching affiliate appointments:", error);
+      return res.status(500).json({ error: "Failed to fetch appointments" });
+    }
+  });
+
   app.get("/api/founder/scheduling/settings", requireFounderAuth, async (req, res) => {
     try {
       const settings = await storage.getFounderSettings();
