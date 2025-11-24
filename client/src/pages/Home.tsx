@@ -285,7 +285,7 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 
 export default function Home() {
   const [showCalendly, setShowCalendly] = useState(false);
-  const [calendlyUrl, setCalendlyUrl] = useState("https://calendly.com/arminabadi7/30min");
+  const [calendlyUrl, setCalendlyUrl] = useState("https://calendly.com/kabacontent/30min");
 
   const scrollToBooking = () => {
     const element = document.getElementById("booking");
@@ -293,7 +293,7 @@ export default function Home() {
   };
 
   const getCalendlyUrlWithUTM = () => {
-    const baseUrl = "https://calendly.com/arminabadi7/30min";
+    const baseUrl = "https://calendly.com/kabacontent/30min";
     const storedReferral = localStorage.getItem('kaba_referrer');
     
     if (storedReferral) {
