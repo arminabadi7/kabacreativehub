@@ -120,6 +120,15 @@ export default function Affiliate() {
                 <p className="text-white/70 mt-2">On the first month's subscription only</p>
               </div>
             </div>
+            <div className="text-center">
+              <Link href="/affiliate-dashboard">
+                <Button size="lg" className="bg-white text-primary hover:bg-white/90 shadow-2xl text-xl font-semibold px-12 py-8" data-testid="button-dashboard">
+                  <DollarSign className="w-7 h-7 mr-3" />
+                  Access Affiliate Dashboard
+                </Button>
+              </Link>
+              <p className="mt-4 text-white/70">Get your referral link and track your earnings</p>
+            </div>
           </div>
         </div>
       </section>
