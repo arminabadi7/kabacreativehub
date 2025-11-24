@@ -87,7 +87,7 @@ export default function Affiliate() {
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-start gap-12">
           <Link href="/">
             <button className="font-bold text-2xl flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <span className="bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">Kaba</span><span className="text-white">Content</span>
+              <span className="inline-block"><span className="bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">Kaba</span><span className="text-white">Content</span></span>
             </button>
           </Link>
         </div>
