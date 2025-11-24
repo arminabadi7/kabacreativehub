@@ -619,7 +619,7 @@ export default function FounderDashboard() {
             <Card className="overflow-hidden">
               <CardContent className="p-0">
                 <iframe
-                  src="https://calendar.google.com/calendar/embed?src=917c18cec506eb1481e1deb5156a6d561900a80fdea4b234e72820460c74fc4230c%40group.calendar.google.com&ctz=America%2FToronto"
+                  src="https://calendar.google.com/calendar/embed?src=OTE3MThjZWM1MDZlYjE0ODFlMWRlYjUxNTZhNmQ1NjE5MGE4MGZkZWE0YjIzNGU3MjgyMDQ2Yzc0ZmM0MjMwY0Bncm91cC5jYWxlbmRhci5nb29nbGUuY29t&ctz=America%2FToronto"
                   style={{
                     border: 0,
                     width: "100%",
