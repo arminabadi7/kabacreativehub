@@ -15,6 +15,7 @@ declare module 'express-session' {
   interface SessionData {
     affiliateId?: string;
     username?: string;
+    isFounder?: boolean;
   }
 }
 

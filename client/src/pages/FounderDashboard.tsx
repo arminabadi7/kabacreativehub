@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { ArrowLeft, LogOut, Plus } from "lucide-react";
 import { Link } from "wouter";
 
 type AffiliateWithStats = {
@@ -25,8 +26,28 @@ type AffiliateWithStats = {
   totalCommission: number;
 };
 
+type Booking = {
+  id: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  eventTime: string;
+  referralId?: string;
+  affiliateUsername?: string;
+  tier?: string;
+  status: string;
+  createdAt: string;
+  confirmedAt?: string;
+};
+
 const founderLoginSchema = z.object({
   password: z.string().min(1, "Password is required"),
+});
+
+const createBookingSchema = z.object({
+  attendeeName: z.string().min(1, "Name is required"),
+  attendeeEmail: z.string().email("Invalid email"),
+  eventTime: z.string().min(1, "Event time is required"),
+  affiliateUsername: z.string().optional(),
 });
 
 export default function FounderDashboard() {
@@ -63,6 +84,23 @@ export default function FounderDashboard() {
     queryKey: ["/api/founder/affiliates"],
     enabled: !!founderSession,
   });
+
+  const { data: bookings, isLoading: bookingsLoading } = useQuery<Booking[]>({
+    queryKey: ["/api/founder/bookings"],
+    enabled: !!founderSession,
+  });
+
+  const createBookingForm = useForm({
+    resolver: zodResolver(createBookingSchema),
+    defaultValues: {
+      attendeeName: "",
+      attendeeEmail: "",
+      eventTime: "",
+      affiliateUsername: "",
+    },
+  });
+
+  const [selectedTiers, setSelectedTiers] = useState<Record<string, string>>({});
 
   const founderLoginMutation = useMutation({
     mutationFn: async (data: z.infer<typeof founderLoginSchema>) => {
@@ -105,12 +143,75 @@ export default function FounderDashboard() {
     },
   });
 
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof createBookingSchema>) => {
+      const response = await apiRequest("POST", "/api/founder/bookings", data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/bookings"] });
+      createBookingForm.reset();
+      toast({
+        title: "Success!",
+        description: "Booking created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const confirmBookingMutation = useMutation({
+    mutationFn: async ({ bookingId, tier }: { bookingId: string; tier: string }) => {
+      const response = await apiRequest("POST", `/api/founder/bookings/${bookingId}/confirm`, {
+        tier,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/bookings"] });
+      setSelectedTiers({});
+      toast({
+        title: "Success!",
+        description: "Booking confirmed and sale recorded.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to confirm booking",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     logoutMutation.mutate();
   };
 
   const onLoginSubmit = (data: z.infer<typeof founderLoginSchema>) => {
     founderLoginMutation.mutate(data);
+  };
+
+  const onCreateBookingSubmit = (data: z.infer<typeof createBookingSchema>) => {
+    createBookingMutation.mutate(data);
+  };
+
+  const handleConfirmBooking = (bookingId: string) => {
+    const tier = selectedTiers[bookingId];
+    if (!tier) {
+      toast({
+        title: "Error",
+        description: "Please select a tier",
+        variant: "destructive",
+      });
+      return;
+    }
+    confirmBookingMutation.mutate({ bookingId, tier });
   };
 
   if (!founderSession && !sessionLoading) {
@@ -290,6 +391,152 @@ export default function FounderDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">Pending Bookings</h2>
+              <Button 
+                onClick={() => {
+                  const form = createBookingForm;
+                  if (!form.getValues("attendeeName")) {
+                    form.setFocus("attendeeName");
+                  }
+                }}
+                size="sm"
+                variant="outline"
+                data-testid="button-add-booking"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Log Booking
+              </Button>
+            </div>
+
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="text-lg">New Booking</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...createBookingForm}>
+                  <form onSubmit={createBookingForm.handleSubmit(onCreateBookingSubmit)} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={createBookingForm.control}
+                        name="attendeeName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="John Doe" {...field} data-testid="input-booking-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={createBookingForm.control}
+                        name="attendeeEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="john@example.com" {...field} data-testid="input-booking-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={createBookingForm.control}
+                        name="eventTime"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Event Time</FormLabel>
+                            <FormControl>
+                              <Input type="datetime-local" {...field} data-testid="input-booking-time" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={createBookingForm.control}
+                        name="affiliateUsername"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Affiliate (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="affiliate_username" {...field} data-testid="input-booking-affiliate" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <Button type="submit" disabled={createBookingMutation.isPending} data-testid="button-submit-booking">
+                      {createBookingMutation.isPending ? "Creating..." : "Log Booking"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-3">
+              {(bookings || []).filter(b => b.status === "pending").map((booking) => (
+                <Card key={booking.id} className="border-l-4 border-l-yellow-500" data-testid={`card-booking-${booking.id}`}>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Name</p>
+                        <p className="font-semibold" data-testid={`text-booking-name-${booking.id}`}>{booking.attendeeName}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="text-sm" data-testid={`text-booking-email-${booking.id}`}>{booking.attendeeEmail}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Booking Time</p>
+                        <p className="text-sm" data-testid={`text-booking-time-${booking.id}`}>
+                          {new Date(booking.eventTime).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 items-end">
+                      <div className="flex-1">
+                        <label className="text-sm text-muted-foreground mb-2 block">Select Tier</label>
+                        <Select 
+                          value={selectedTiers[booking.id] || ""} 
+                          onValueChange={(value) => setSelectedTiers({ ...selectedTiers, [booking.id]: value })}
+                        >
+                          <SelectTrigger data-testid={`select-tier-${booking.id}`}>
+                            <SelectValue placeholder="Choose tier..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Growth">Growth ($4,000/mo)</SelectItem>
+                            <SelectItem value="Domination">Domination ($7,000/mo)</SelectItem>
+                            <SelectItem value="Empire">Empire ($13,475/mo)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button 
+                        onClick={() => handleConfirmBooking(booking.id)}
+                        disabled={confirmBookingMutation.isPending}
+                        data-testid={`button-confirm-booking-${booking.id}`}
+                      >
+                        {confirmBookingMutation.isPending ? "Confirming..." : "Confirm Sale"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {(bookings || []).filter(b => b.status === "pending").length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No pending bookings
+                </div>
+              )}
+            </div>
           </div>
 
           <Card>
