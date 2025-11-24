@@ -112,7 +112,7 @@ Turn one long-form video into 500-2,500 short-form clips posted across 10-27 bra
 ## Calendly Setup
 Using direct iframe embed with actual booking link:
 ```html
-<iframe src="https://calendly.com/arminabadi7/30min" />
+<iframe src="https://calendly.com/kabacontent/30min" />
 ```
 
 ## Branding
@@ -140,7 +140,8 @@ Application runs on port 5000.
 - Added platform icons and visual hierarchy
 - Fixed clip extraction math: 50-250 original clips × 10 variations = 500-2,500 total clips
 - Updated all support tiers to "24/7 live support from the CEO"
-- Implemented Calendly booking with iframe embed (https://calendly.com/arminabadi7/30min)
+- Implemented Calendly booking with iframe embed (https://calendly.com/kabacontent/30min)
+- Updated Calendly link to kabacontent account (November 24, 2025)
 - Created custom gradient blue lightning bolt favicon with white outline
 - Updated meta tags for SEO to reflect mass-content system positioning
 - Replaced phone number with Telegram (@arminkaba) and added WhatsApp contact option
