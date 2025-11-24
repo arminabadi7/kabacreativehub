@@ -126,7 +126,52 @@ npm run dev
 ```
 Application runs on port 5000.
 
-## Recent Changes (November 22, 2025)
+## Founder Dashboard
+**Route**: `/founder`  
+**Password**: `Mohi2002`
+
+### Features
+- **Affiliates Tab**: View all affiliates with stats (clicks, conversions, commission earned)
+- **Bookings & Events Tab**: 
+  - Displays all Calendly bookings automatically synced
+  - Shows all Google Calendar events from KabaContent calendar
+  - Edit each booking to assign affiliate, tier, and status
+  - Real-time updates across dashboard
+- **Google Calendar Embed**: Full calendar view below bookings tab
+
+### Booking Management Workflow
+1. Calendly bookings and Google Calendar events automatically populate in the Bookings tab
+2. Click "Edit Details" on any booking to expand edit form
+3. Select affiliate (if referred by someone)
+4. Choose pricing tier (Growth/Domination/Empire)
+5. Update status using dropdown (Call Scheduled, No Show, Follow Up, No Interest, Sale)
+6. Click "Save" to persist changes or "Cancel" to discard
+
+### API Endpoints (Founder Only)
+- `GET /api/founder/session` - Check founder authentication
+- `POST /api/founder/login` - Authenticate with password
+- `POST /api/founder/logout` - Destroy session
+- `GET /api/founder/affiliates` - Get all affiliates with stats
+- `GET /api/founder/bookings` - Get all bookings (synced from Calendly)
+- `PATCH /api/founder/bookings/:bookingId` - Update booking details
+- `GET /api/founder/calendar-events` - Get calendar events (next 30 days)
+
+## Recent Changes (November 24, 2025)
+
+### Founder Dashboard Updates
+- **Removed in-house scheduling system** - Now displays only Calendly bookings and Google Calendar events
+- **Fixed Calendly API integration** - Updated to use correct `/scheduled_events` endpoint with proper pagination
+- **Fixed Google Calendar sync** - Integrated KabaContent calendar ID to pull all events
+- **Added booking management UI** - Each booking now has "Edit Details" button with expandable form
+- **Booking edit features**:
+  - Select affiliate from dropdown (links booking to specific referrer)
+  - Choose pricing tier (Growth, Domination, Empire)
+  - Update booking status via dropdown (Call Scheduled, No Show, Follow Up, No Interest, Sale)
+  - Save or cancel changes with visual feedback
+- **Backend API endpoint** - New PATCH `/api/founder/bookings/:bookingId` for updating booking details
+- **Real-time updates** - Bookings refresh immediately after changes are saved
+
+### Previous Changes (November 22, 2025)
 - Complete restructure from service packages to mass-content system
 - Rebuilt page to flow like sales presentation
 - Added "Imagine This" dream/vision section
@@ -141,7 +186,7 @@ Application runs on port 5000.
 - Fixed clip extraction math: 50-250 original clips × 10 variations = 500-2,500 total clips
 - Updated all support tiers to "24/7 live support from the CEO"
 - Implemented Calendly booking with iframe embed (https://calendly.com/kabacontent/30min)
-- Updated Calendly link to kabacontent account (November 24, 2025)
+- Updated Calendly link to kabacontent account
 - Created custom gradient blue lightning bolt favicon with white outline
 - Updated meta tags for SEO to reflect mass-content system positioning
 - Replaced phone number with Telegram (@arminkaba) and added WhatsApp contact option

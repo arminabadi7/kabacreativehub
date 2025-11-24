@@ -465,17 +465,17 @@ export default function FounderDashboard() {
                               <div>
                                 <Label className="text-xs">Affiliate</Label>
                                 <Select
-                                  value={bookingEdits[booking.id]?.affiliateUsername || booking.affiliateUsername || ""}
+                                  value={bookingEdits[booking.id]?.affiliateUsername || booking.affiliateUsername || "none"}
                                   onValueChange={(value) => setBookingEdits({
                                     ...bookingEdits,
-                                    [booking.id]: { ...bookingEdits[booking.id], affiliateUsername: value }
+                                    [booking.id]: { ...bookingEdits[booking.id], affiliateUsername: value === "none" ? undefined : value }
                                   })}
                                 >
                                   <SelectTrigger className="text-sm" data-testid={`select-affiliate-${booking.id}`}>
                                     <SelectValue placeholder="Select affiliate..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">None</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
                                     {(affiliates || []).map((aff) => (
                                       <SelectItem key={aff.id} value={aff.username}>
                                         {aff.username}
