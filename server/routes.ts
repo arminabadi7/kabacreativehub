@@ -1,6 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { emailService } from "./email";
+import { googleCalendarClient, googleSheetsClient } from "./integrations";
 import { 
   insertAffiliateSchema, 
   trackReferralSchema,
@@ -536,6 +538,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/scheduling/appointments", async (req, res) => {
     try {
       const appointment = await storage.createAppointment(req.body);
+      const settings = await storage.getFounderSettings();
+
+      // Send confirmation email
+      await emailService.sendConfirmationEmail(
+        appointment.attendeeName,
+        appointment.attendeeEmail,
+        new Date(appointment.appointmentTime),
+        settings?.timezone || "America/Toronto"
+      );
+
+      // Create Google Calendar event
+      const calendarEventId = await googleCalendarClient.createEvent(
+        appointment,
+        settings?.timezone || "America/Toronto"
+      );
+      if (calendarEventId) {
+        await storage.updateAppointment(appointment.id, { googleCalendarEventId: calendarEventId });
+      }
+
+      // Append to Google Sheets
+      const formResponses = appointment.formResponses ? JSON.parse(appointment.formResponses) : {};
+      const sheetRowId = await googleSheetsClient.appendBooking(appointment, formResponses);
+      if (sheetRowId) {
+        await storage.updateAppointment(appointment.id, { googleSheetRowId: sheetRowId });
+      }
+
+      // Schedule 24-hour reminder
+      const reminderTime = new Date(appointment.appointmentTime).getTime() - 24 * 60 * 60 * 1000;
+      const timeUntilReminder = reminderTime - Date.now();
+      if (timeUntilReminder > 0) {
+        setTimeout(async () => {
+          await emailService.sendReminderEmail(
+            appointment.attendeeName,
+            appointment.attendeeEmail,
+            new Date(appointment.appointmentTime),
+            settings?.timezone || "America/Toronto"
+          );
+        }, timeUntilReminder);
+      }
+
       return res.status(201).json(appointment);
     } catch (error) {
       console.error("Error creating appointment:", error);
