@@ -1,13 +1,17 @@
-import type { Express, Request } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertAffiliateSchema, 
   trackReferralSchema,
   insertReferralSchema,
-  updatePaymentSchema 
+  updatePaymentSchema,
+  registerAffiliateSchema,
+  loginAffiliateSchema,
+  type Affiliate
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
+import bcrypt from "bcrypt";
 
 const referralTrackingStore = new Map<string, { count: number; timestamp: number }>();
 
@@ -35,7 +39,7 @@ function checkRateLimit(key: string, maxRequests = 10, windowMs = 60000): boolea
 }
 
 function cleanupExpiredRateLimits(now: number, windowMs: number): void {
-  for (const [key, record] of referralTrackingStore.entries()) {
+  for (const [key, record] of Array.from(referralTrackingStore.entries())) {
     if (now - record.timestamp > windowMs) {
       referralTrackingStore.delete(key);
     }
@@ -52,7 +56,108 @@ function sanitizeInput(input: string): string {
     .replace(/\//g, '&#x2F;');
 }
 
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.affiliateId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const validatedData = registerAffiliateSchema.parse(req.body);
+      
+      const existingAffiliate = await storage.getAffiliateByUsername(validatedData.username);
+      if (existingAffiliate) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+      
+      const passwordHash = await bcrypt.hash(validatedData.password, 10);
+      
+      const affiliateData = {
+        username: validatedData.username,
+        email: validatedData.email,
+        passwordHash: passwordHash,
+      };
+      
+      const affiliate = await storage.createAffiliate(affiliateData);
+      
+      req.session.affiliateId = affiliate.id;
+      req.session.username = affiliate.username;
+      
+      const { passwordHash: _, ...affiliateWithoutPassword } = affiliate;
+      return res.status(201).json(affiliateWithoutPassword);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      console.error("Error registering affiliate:", error);
+      return res.status(500).json({ error: "Failed to register affiliate" });
+    }
+  });
+  
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const validatedData = loginAffiliateSchema.parse(req.body);
+      
+      const affiliate = await storage.getAffiliateByUsername(validatedData.username);
+      if (!affiliate || !affiliate.passwordHash) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+      
+      const validPassword = await bcrypt.compare(validatedData.password, affiliate.passwordHash);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Invalid username or password" });
+      }
+      
+      req.session.affiliateId = affiliate.id;
+      req.session.username = affiliate.username;
+      
+      const { passwordHash: _, ...affiliateWithoutPassword } = affiliate;
+      return res.json(affiliateWithoutPassword);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      console.error("Error logging in:", error);
+      return res.status(500).json({ error: "Failed to login" });
+    }
+  });
+  
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err: any) => {
+      if (err) {
+        console.error("Error destroying session:", err);
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.clearCookie("connect.sid");
+      return res.json({ success: true });
+    });
+  });
+  
+  app.get("/api/auth/session", async (req, res) => {
+    if (!req.session?.affiliateId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    try {
+      const affiliate = await storage.getAffiliate(req.session.affiliateId);
+      if (!affiliate) {
+        req.session.destroy(() => {});
+        return res.status(401).json({ error: "Session invalid" });
+      }
+      
+      const { passwordHash: _, ...affiliateWithoutPassword } = affiliate;
+      return res.json(affiliateWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching session:", error);
+      return res.status(500).json({ error: "Failed to fetch session" });
+    }
+  });
   
   app.post("/api/affiliates", async (req, res) => {
     try {
