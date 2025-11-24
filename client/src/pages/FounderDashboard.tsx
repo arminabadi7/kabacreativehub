@@ -15,7 +15,6 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, LogOut, Plus } from "lucide-react";
 import { Link } from "wouter";
-import SchedulingCalendar from "@/components/SchedulingCalendar";
 
 type AffiliateWithStats = {
   id: string;
@@ -351,10 +350,9 @@ export default function FounderDashboard() {
           </div>
 
           <Tabs defaultValue="affiliates" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
               <TabsTrigger value="bookings">Bookings</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="affiliates">
@@ -611,11 +609,31 @@ export default function FounderDashboard() {
                 </div>
               </div>
             </TabsContent>
-
-            <TabsContent value="calendar">
-              <SchedulingCalendar />
-            </TabsContent>
           </Tabs>
+
+          <div className="mt-12 mb-8">
+            <h2 className="text-2xl font-bold mb-4">Your Google Calendar</h2>
+            <p className="text-muted-foreground mb-6">
+              All your bookings and appointments are synced here.
+            </p>
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <iframe
+                  src="https://calendar.google.com/calendar/embed?src=917c18cec506eb1481e1deb5156a6d561900a80fdea4b234e72820460c74fc4230c%40group.calendar.google.com&ctz=America%2FToronto"
+                  style={{
+                    border: 0,
+                    width: "100%",
+                    height: "600px",
+                    borderRadius: "0.5rem"
+                  }}
+                  frameBorder="0"
+                  scrolling="no"
+                  title="Google Calendar"
+                  data-testid="embed-google-calendar"
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
