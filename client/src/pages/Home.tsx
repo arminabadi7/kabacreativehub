@@ -1155,6 +1155,7 @@ export default function Home() {
               <ul className="space-y-2 text-sm text-white/60">
                 <li><a href="#how-it-works" className="hover:text-white">How It Works</a></li>
                 <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
+                <li><a href="/affiliate" className="hover:text-white">Affiliate</a></li>
                 <li><a href="#booking" className="hover:text-white">Book a Call</a></li>
               </ul>
             </div>
