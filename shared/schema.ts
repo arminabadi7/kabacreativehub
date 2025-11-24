@@ -21,6 +21,7 @@ export const affiliates = pgTable("affiliates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   email: text("email").notNull(),
+  passwordHash: text("password_hash"),
   paymentMethod: text("payment_method"),
   paymentDetails: text("payment_details"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -29,12 +30,24 @@ export const affiliates = pgTable("affiliates", {
 export const insertAffiliateSchema = createInsertSchema(affiliates).omit({
   id: true,
   createdAt: true,
+  passwordHash: true,
 }).extend({
   username: z.string().regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores").min(3).max(30),
   email: z.string().email(),
 });
 
+export const registerAffiliateSchema = insertAffiliateSchema.extend({
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const loginAffiliateSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
 export type InsertAffiliate = z.infer<typeof insertAffiliateSchema>;
+export type RegisterAffiliate = z.infer<typeof registerAffiliateSchema>;
+export type LoginAffiliate = z.infer<typeof loginAffiliateSchema>;
 export type Affiliate = typeof affiliates.$inferSelect;
 
 export const referrals = pgTable("referrals", {
