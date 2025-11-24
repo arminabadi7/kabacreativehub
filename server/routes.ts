@@ -63,6 +63,19 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function requireOwnership(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.username) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  
+  const { username } = req.params;
+  if (req.session.username !== username) {
+    return res.status(403).json({ error: "Access denied" });
+  }
+  
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/auth/register", async (req, res) => {
@@ -181,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/affiliates/:username", async (req, res) => {
+  app.get("/api/affiliates/:username", requireOwnership, async (req, res) => {
     try {
       const { username } = req.params;
       
@@ -191,14 +204,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Affiliate not found" });
       }
       
-      return res.json(affiliate);
+      const { passwordHash: _, ...affiliateWithoutPassword } = affiliate;
+      return res.json(affiliateWithoutPassword);
     } catch (error) {
       console.error("Error fetching affiliate:", error);
       return res.status(500).json({ error: "Failed to fetch affiliate" });
     }
   });
   
-  app.put("/api/affiliates/:username/payment", async (req, res) => {
+  app.put("/api/affiliates/:username/payment", requireOwnership, async (req, res) => {
     try {
       const { username } = req.params;
       const validatedData = updatePaymentSchema.parse(req.body);
@@ -286,7 +300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/affiliates/:username/stats", async (req, res) => {
+  app.get("/api/affiliates/:username/stats", requireOwnership, async (req, res) => {
     try {
       const { username } = req.params;
       
@@ -305,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/affiliates/:username/referrals", async (req, res) => {
+  app.get("/api/affiliates/:username/referrals", requireOwnership, async (req, res) => {
     try {
       const { username } = req.params;
       
