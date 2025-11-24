@@ -5,14 +5,17 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, LogOut, Plus } from "lucide-react";
 import { Link } from "wouter";
+import SchedulingCalendar from "@/components/SchedulingCalendar";
 
 type AffiliateWithStats = {
   id: string;
@@ -343,10 +346,18 @@ export default function FounderDashboard() {
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2">Founder Dashboard</h1>
             <p className="text-muted-foreground">
-              View and manage all affiliate accounts and their performance
+              Manage affiliates, bookings, and scheduling
             </p>
           </div>
 
+          <Tabs defaultValue="affiliates" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
+              <TabsTrigger value="bookings">Bookings</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="affiliates">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -391,152 +402,6 @@ export default function FounderDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">Pending Bookings</h2>
-              <Button 
-                onClick={() => {
-                  const form = createBookingForm;
-                  if (!form.getValues("attendeeName")) {
-                    form.setFocus("attendeeName");
-                  }
-                }}
-                size="sm"
-                variant="outline"
-                data-testid="button-add-booking"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Log Booking
-              </Button>
-            </div>
-
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle className="text-lg">New Booking</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Form {...createBookingForm}>
-                  <form onSubmit={createBookingForm.handleSubmit(onCreateBookingSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={createBookingForm.control}
-                        name="attendeeName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="John Doe" {...field} data-testid="input-booking-name" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={createBookingForm.control}
-                        name="attendeeEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="john@example.com" {...field} data-testid="input-booking-email" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={createBookingForm.control}
-                        name="eventTime"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Event Time</FormLabel>
-                            <FormControl>
-                              <Input type="datetime-local" {...field} data-testid="input-booking-time" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={createBookingForm.control}
-                        name="affiliateUsername"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Affiliate (Optional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="affiliate_username" {...field} data-testid="input-booking-affiliate" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <Button type="submit" disabled={createBookingMutation.isPending} data-testid="button-submit-booking">
-                      {createBookingMutation.isPending ? "Creating..." : "Log Booking"}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-3">
-              {(bookings || []).filter(b => b.status === "pending").map((booking) => (
-                <Card key={booking.id} className="border-l-4 border-l-yellow-500" data-testid={`card-booking-${booking.id}`}>
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Name</p>
-                        <p className="font-semibold" data-testid={`text-booking-name-${booking.id}`}>{booking.attendeeName}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="text-sm" data-testid={`text-booking-email-${booking.id}`}>{booking.attendeeEmail}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Booking Time</p>
-                        <p className="text-sm" data-testid={`text-booking-time-${booking.id}`}>
-                          {new Date(booking.eventTime).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 items-end">
-                      <div className="flex-1">
-                        <label className="text-sm text-muted-foreground mb-2 block">Select Tier</label>
-                        <Select 
-                          value={selectedTiers[booking.id] || ""} 
-                          onValueChange={(value) => setSelectedTiers({ ...selectedTiers, [booking.id]: value })}
-                        >
-                          <SelectTrigger data-testid={`select-tier-${booking.id}`}>
-                            <SelectValue placeholder="Choose tier..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Growth">Growth ($4,000/mo)</SelectItem>
-                            <SelectItem value="Domination">Domination ($7,000/mo)</SelectItem>
-                            <SelectItem value="Empire">Empire ($13,475/mo)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button 
-                        onClick={() => handleConfirmBooking(booking.id)}
-                        disabled={confirmBookingMutation.isPending}
-                        data-testid={`button-confirm-booking-${booking.id}`}
-                      >
-                        {confirmBookingMutation.isPending ? "Confirming..." : "Confirm Sale"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {(bookings || []).filter(b => b.status === "pending").length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No pending bookings
-                </div>
-              )}
-            </div>
           </div>
 
           <Card>
@@ -601,6 +466,156 @@ export default function FounderDashboard() {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+
+            <TabsContent value="bookings">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold">Pending Bookings</h2>
+                  <Button 
+                    onClick={() => {
+                      const form = createBookingForm;
+                      if (!form.getValues("attendeeName")) {
+                        form.setFocus("attendeeName");
+                      }
+                    }}
+                    size="sm"
+                    variant="outline"
+                    data-testid="button-add-booking"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Log Booking
+                  </Button>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">New Booking</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...createBookingForm}>
+                      <form onSubmit={createBookingForm.handleSubmit(onCreateBookingSubmit)} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={createBookingForm.control}
+                            name="attendeeName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Attendee Name</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-attendee-name" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={createBookingForm.control}
+                            name="attendeeEmail"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Attendee Email</FormLabel>
+                                <FormControl>
+                                  <Input {...field} type="email" data-testid="input-attendee-email" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={createBookingForm.control}
+                            name="eventTime"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Event Time</FormLabel>
+                                <FormControl>
+                                  <Input {...field} type="datetime-local" data-testid="input-event-time" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={createBookingForm.control}
+                            name="affiliateUsername"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Affiliate Username (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="If referred by affiliate" data-testid="input-affiliate-username" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <Button type="submit" disabled={createBookingMutation.isPending} data-testid="button-submit-booking">
+                          {createBookingMutation.isPending ? "Creating..." : "Create Booking"}
+                        </Button>
+                      </form>
+                    </Form>
+                  </CardContent>
+                </Card>
+
+                <div className="space-y-4">
+                  {(bookings || []).filter(b => b.status === "pending").map((booking) => (
+                    <Card key={booking.id} data-testid={`booking-card-${booking.id}`}>
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div>
+                            <p className="font-semibold text-lg">{booking.attendeeName}</p>
+                            <p className="text-sm text-muted-foreground">{booking.attendeeEmail}</p>
+                            <p className="text-sm mt-1">
+                              {new Date(booking.eventTime).toLocaleString()}
+                            </p>
+                            {booking.affiliateUsername && (
+                              <p className="text-sm text-primary mt-1">
+                                Referred by: {booking.affiliateUsername}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                              <Label>Select Tier</Label>
+                              <Select
+                                value={selectedTiers[booking.id] || ""}
+                                onValueChange={(value) => setSelectedTiers({ ...selectedTiers, [booking.id]: value })}
+                              >
+                                <SelectTrigger data-testid={`select-tier-${booking.id}`}>
+                                  <SelectValue placeholder="Choose tier..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Growth">Growth ($4,000/mo)</SelectItem>
+                                  <SelectItem value="Domination">Domination ($7,000/mo)</SelectItem>
+                                  <SelectItem value="Empire">Empire ($13,475/mo)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button 
+                              onClick={() => handleConfirmBooking(booking.id)}
+                              disabled={confirmBookingMutation.isPending}
+                              data-testid={`button-confirm-booking-${booking.id}`}
+                            >
+                              {confirmBookingMutation.isPending ? "Confirming..." : "Confirm Sale"}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {(bookings || []).filter(b => b.status === "pending").length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No pending bookings
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="calendar">
+              <SchedulingCalendar />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
