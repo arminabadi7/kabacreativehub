@@ -86,7 +86,7 @@ async function getSheetsAccessToken() {
   }
 }
 
-async function getGoogleCalendarClient() {
+export async function getGoogleCalendarClient() {
   const accessToken = await getCalendarAccessToken();
   if (!accessToken) return null;
 
