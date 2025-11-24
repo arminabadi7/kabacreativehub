@@ -3,10 +3,14 @@ import { storage } from "./storage";
 export async function seedInitialData() {
   try {
     // Check if availability already exists
-    const existing = await storage.getAvailability();
-    if (existing.length > 0) {
-      console.log("Availability already seeded");
-      return;
+    try {
+      const existing = await storage.getAvailability();
+      if (existing.length > 0) {
+        console.log("Availability already seeded");
+        return;
+      }
+    } catch (error) {
+      console.warn("Could not check existing availability, proceeding with seed");
     }
 
     // Seed 7 days of availability (00:00 - 23:45)
