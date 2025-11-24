@@ -158,6 +158,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ success: true });
     });
   });
+
+  app.post("/api/founder/login", async (req, res) => {
+    try {
+      const { password } = req.body;
+      const founderPassword = process.env.FOUNDER_PASSWORD;
+      
+      if (!founderPassword) {
+        return res.status(500).json({ error: "Founder authentication not configured" });
+      }
+      
+      if (password !== founderPassword) {
+        return res.status(401).json({ error: "Invalid founder password" });
+      }
+      
+      req.session.isFounder = true;
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error logging in as founder:", error);
+      return res.status(500).json({ error: "Failed to authenticate" });
+    }
+  });
+
+  app.get("/api/founder/session", (req, res) => {
+    if (!req.session?.isFounder) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    return res.json({ isFounder: true });
+  });
+
+  app.get("/api/founder/affiliates", requireFounderAuth, async (req, res) => {
+    try {
+      const allAffiliates = await storage.getAllAffiliates();
+      
+      const affiliatesWithStats = await Promise.all(
+        allAffiliates.map(async (affiliate) => {
+          const stats = await storage.getAffiliateStats(affiliate.id);
+          const { passwordHash: _, ...affiliateWithoutPassword } = affiliate;
+          return {
+            ...affiliateWithoutPassword,
+            ...stats,
+          };
+        })
+      );
+      
+      return res.json(affiliatesWithStats);
+    } catch (error) {
+      console.error("Error fetching affiliates:", error);
+      return res.status(500).json({ error: "Failed to fetch affiliates" });
+    }
+  });
+
+  app.post("/api/founder/logout", (req, res) => {
+    req.session.destroy((err: any) => {
+      if (err) {
+        console.error("Error destroying founder session:", err);
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.clearCookie("connect.sid");
+      return res.json({ success: true });
+    });
+  });
   
   app.get("/api/auth/session", async (req, res) => {
     if (!req.session?.affiliateId) {
