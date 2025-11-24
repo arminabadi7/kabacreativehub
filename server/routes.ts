@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { emailService } from "./email";
 import { googleCalendarClient, googleSheetsClient } from "./integrations";
+import { registerCalendlyRoutes } from "./calendly-routes";
 import { 
   insertAffiliateSchema, 
   trackReferralSchema,
