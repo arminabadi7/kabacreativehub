@@ -97,6 +97,36 @@ export default function FounderDashboard() {
     enabled: !!founderSession,
   });
 
+  const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
+  const [bookingEdits, setBookingEdits] = useState<Record<string, { affiliateUsername?: string; tier?: string; status?: string }>>({});
+
+  const updateBookingMutation = useMutation({
+    mutationFn: async (data: { bookingId: string; affiliateUsername?: string; tier?: string; status?: string }) => {
+      const response = await apiRequest("PATCH", `/api/founder/bookings/${data.bookingId}`, {
+        affiliateUsername: data.affiliateUsername,
+        tier: data.tier,
+        status: data.status,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/bookings"] });
+      setExpandedBooking(null);
+      setBookingEdits({});
+      toast({
+        title: "Success!",
+        description: "Booking updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update booking",
+        variant: "destructive",
+      });
+    },
+  });
+
 
   const founderLoginMutation = useMutation({
     mutationFn: async (data: z.infer<typeof founderLoginSchema>) => {
@@ -406,16 +436,137 @@ export default function FounderDashboard() {
                   {(bookings || []).map((booking) => (
                     <Card key={booking.id} data-testid={`booking-card-${booking.id}`}>
                       <CardContent className="pt-6">
-                        <div className="space-y-2">
-                          <p className="font-semibold text-lg">{booking.attendeeName}</p>
-                          <p className="text-sm text-muted-foreground">{booking.attendeeEmail}</p>
-                          <p className="text-sm mt-2">
-                            {new Date(booking.eventTime).toLocaleString()}
-                          </p>
-                          {booking.affiliateUsername && (
-                            <p className="text-sm text-primary mt-2">
-                              Referred by: {booking.affiliateUsername}
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <p className="font-semibold text-lg">{booking.attendeeName}</p>
+                            <p className="text-sm text-muted-foreground">{booking.attendeeEmail}</p>
+                            <p className="text-sm mt-2">
+                              {new Date(booking.eventTime).toLocaleString()}
                             </p>
+                            {booking.affiliateUsername && (
+                              <p className="text-sm text-primary mt-2">
+                                Referred by: {booking.affiliateUsername}
+                              </p>
+                            )}
+                            {booking.tier && (
+                              <p className="text-sm text-primary mt-2">
+                                Tier: {booking.tier}
+                              </p>
+                            )}
+                            {booking.status && (
+                              <p className="text-sm text-secondary mt-2">
+                                Status: {booking.status}
+                              </p>
+                            )}
+                          </div>
+
+                          {expandedBooking === booking.id && (
+                            <div className="space-y-3 pt-4 border-t">
+                              <div>
+                                <Label className="text-xs">Affiliate</Label>
+                                <Select
+                                  value={bookingEdits[booking.id]?.affiliateUsername || booking.affiliateUsername || ""}
+                                  onValueChange={(value) => setBookingEdits({
+                                    ...bookingEdits,
+                                    [booking.id]: { ...bookingEdits[booking.id], affiliateUsername: value }
+                                  })}
+                                >
+                                  <SelectTrigger className="text-sm" data-testid={`select-affiliate-${booking.id}`}>
+                                    <SelectValue placeholder="Select affiliate..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">None</SelectItem>
+                                    {(affiliates || []).map((aff) => (
+                                      <SelectItem key={aff.id} value={aff.username}>
+                                        {aff.username}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <Label className="text-xs">Pricing Tier</Label>
+                                <Select
+                                  value={bookingEdits[booking.id]?.tier || booking.tier || ""}
+                                  onValueChange={(value) => setBookingEdits({
+                                    ...bookingEdits,
+                                    [booking.id]: { ...bookingEdits[booking.id], tier: value }
+                                  })}
+                                >
+                                  <SelectTrigger className="text-sm" data-testid={`select-tier-${booking.id}`}>
+                                    <SelectValue placeholder="Select tier..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Growth">Growth ($4,000/mo)</SelectItem>
+                                    <SelectItem value="Domination">Domination ($7,000/mo)</SelectItem>
+                                    <SelectItem value="Empire">Empire ($13,475/mo)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <Label className="text-xs">Status</Label>
+                                <Select
+                                  value={bookingEdits[booking.id]?.status || booking.status || ""}
+                                  onValueChange={(value) => setBookingEdits({
+                                    ...bookingEdits,
+                                    [booking.id]: { ...bookingEdits[booking.id], status: value }
+                                  })}
+                                >
+                                  <SelectTrigger className="text-sm" data-testid={`select-status-${booking.id}`}>
+                                    <SelectValue placeholder="Select status..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="call_scheduled">Call Scheduled</SelectItem>
+                                    <SelectItem value="no_show">No Show</SelectItem>
+                                    <SelectItem value="follow_up">Follow Up</SelectItem>
+                                    <SelectItem value="no_interest">No Interest</SelectItem>
+                                    <SelectItem value="sale">Sale</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="flex gap-2 pt-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => updateBookingMutation.mutate({
+                                    bookingId: booking.id,
+                                    ...bookingEdits[booking.id],
+                                  })}
+                                  disabled={updateBookingMutation.isPending}
+                                  data-testid={`button-save-booking-${booking.id}`}
+                                >
+                                  {updateBookingMutation.isPending ? "Saving..." : "Save"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setExpandedBooking(null);
+                                    setBookingEdits((prev) => {
+                                      const newEdits = { ...prev };
+                                      delete newEdits[booking.id];
+                                      return newEdits;
+                                    });
+                                  }}
+                                  data-testid={`button-cancel-booking-${booking.id}`}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {expandedBooking !== booking.id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setExpandedBooking(booking.id)}
+                              data-testid={`button-edit-booking-${booking.id}`}
+                            >
+                              Edit Details
+                            </Button>
                           )}
                         </div>
                       </CardContent>
