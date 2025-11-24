@@ -17,7 +17,7 @@ function Router() {
       <Route path="/book" component={BookingPage} />
       <Route path="/affiliate" component={Affiliate} />
       <Route path="/affiliate-dashboard" component={AffiliateDashboard} />
-      <Route path="/founder-dashboard" component={FounderDashboard} />
+      <Route path="/founder" component={FounderDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
