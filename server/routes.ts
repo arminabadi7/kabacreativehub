@@ -76,6 +76,13 @@ function requireOwnership(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function requireFounderAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.isFounder) {
+    return res.status(401).json({ error: "Founder authentication required" });
+  }
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/auth/register", async (req, res) => {

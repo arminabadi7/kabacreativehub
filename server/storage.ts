@@ -22,6 +22,7 @@ export interface IStorage {
   getAffiliateByUsername(username: string): Promise<Affiliate | undefined>;
   createAffiliate(affiliate: InsertAffiliate): Promise<Affiliate>;
   updateAffiliatePayment(username: string, payment: UpdatePayment): Promise<Affiliate | undefined>;
+  getAllAffiliates(): Promise<Affiliate[]>;
   
   createReferral(referral: InsertReferral): Promise<Referral>;
   getReferralsByAffiliate(affiliateId: string): Promise<Referral[]>;
@@ -130,6 +131,10 @@ export class DatabaseStorage implements IStorage {
       totalConversions,
       totalCommission,
     };
+  }
+
+  async getAllAffiliates(): Promise<Affiliate[]> {
+    return await db.select().from(affiliates).orderBy(desc(affiliates.createdAt));
   }
 }
 
