@@ -111,13 +111,13 @@ export default function Affiliate() {
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6">Affiliate Program</h1>
             <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8 leading-relaxed">
-              Earn 25% commission on every referral you send to Kaba Content. Promote the mass-content system and get paid recurring commissions for each client you bring in.
+              Earn 25% commission on every sale you make. When someone clicks your link and subscribes, you earn 25% of their first month's payment instantly.
             </p>
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 max-w-2xl mx-auto mb-12">
               <div className="text-center">
                 <p className="text-white/80 text-lg mb-2">Your Commission Rate</p>
                 <p className="text-5xl font-bold text-white">25%</p>
-                <p className="text-white/70 mt-2">Of every monthly subscription your referral pays</p>
+                <p className="text-white/70 mt-2">On the first month's subscription only</p>
               </div>
             </div>
           </div>
@@ -163,7 +163,7 @@ export default function Affiliate() {
                 </div>
                 <h3 className="text-2xl font-bold mb-4">Earn 25% Commission</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  Every month they stay subscribed, you earn 25% of their subscription fee. Recurring commissions, recurring income.
+                  You earn 25% of their first month's subscription immediately when they sign up. It's a one-time commission per referral.
                 </p>
               </CardContent>
             </Card>
@@ -199,7 +199,7 @@ export default function Affiliate() {
                     <div className="mb-6 p-4 bg-primary/10 border-2 border-primary/20 rounded-xl">
                       <p className="text-sm text-muted-foreground mb-1">Your Commission Per Referral</p>
                       <p className="text-3xl font-bold text-primary">{tier.commission}</p>
-                      <p className="text-xs text-muted-foreground mt-2">25% of {tier.price}{tier.period}</p>
+                      <p className="text-xs text-muted-foreground mt-2">25% of first month ({tier.price})</p>
                     </div>
 
                     <div className="mb-6">
@@ -267,9 +267,9 @@ export default function Affiliate() {
 
             <Card className="border-2">
               <CardContent className="p-6">
-                <h3 className="text-xl font-bold mb-3">How long do I earn commissions?</h3>
+                <h3 className="text-xl font-bold mb-3">Is this recurring or one-time?</h3>
                 <p className="text-muted-foreground">
-                  As long as your referral stays subscribed, you earn 25% of their monthly subscription. If they cancel, commissions stop. If they re-subscribe later, you earn commissions again.
+                  It's one-time. You earn 25% commission on the first month's subscription only. After that, you don't earn any additional commissions on their account—even if they continue their subscription.
                 </p>
               </CardContent>
             </Card>
@@ -287,7 +287,7 @@ export default function Affiliate() {
               <CardContent className="p-6">
                 <h3 className="text-xl font-bold mb-3">When do I get paid?</h3>
                 <p className="text-muted-foreground">
-                  Commissions are paid monthly via bank transfer or payment method of your choice. Minimum payout is $50. We process payments within 7 days of the end of the month.
+                  Commissions are paid within 7 days of your referral's first payment via bank transfer or payment method of your choice. Minimum payout is $50. If your total commissions don't reach $50, we'll hold them until the next month.
                 </p>
               </CardContent>
             </Card>
@@ -296,7 +296,7 @@ export default function Affiliate() {
               <CardContent className="p-6">
                 <h3 className="text-xl font-bold mb-3">Is there a referral cap?</h3>
                 <p className="text-muted-foreground">
-                  No. There's no limit to how many clients you can refer or how much you can earn. Some of our top affiliates earn $10,000+ per month.
+                  No. There's no limit to how many clients you can refer or how much you can earn. More sales = more first-month commissions.
                 </p>
               </CardContent>
             </Card>
