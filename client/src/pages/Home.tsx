@@ -1153,7 +1153,9 @@ export default function Home() {
             <div>
               <h4 className="font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-white/60">
-                <li><Link href="/affiliate" className="hover:text-white">Affiliate Program</Link></li>
+                <li><a href="#how-it-works" className="hover:text-white">How It Works</a></li>
+                <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
+                <li><a href="#booking" className="hover:text-white">Book a Call</a></li>
               </ul>
             </div>
             <div>
