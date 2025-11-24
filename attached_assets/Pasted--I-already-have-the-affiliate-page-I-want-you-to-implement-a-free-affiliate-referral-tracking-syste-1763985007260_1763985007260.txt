@@ -1,0 +1,95 @@
+
+I already have the affiliate page
+
+I want you to implement a free affiliate referral tracking system into my website.  Do NOT use paid affiliate platforms—build everything manually Here is exactly what I need you to build:
+
+1. Referral Links
+Generate unique URLs like:
+https://mywebsite.com/?ref=username
+
+Where username is the affiliate's chosen ID.
+This referral ID must be:
+Captured on page load
+
+
+Saved in localStorage as referrer
+
+
+Persistent for 30 days
+
+
+Overwritten only if a new ?ref= value appears
+
+
+
+2. Tracking the Referral
+On the Book a Call page (my Calendly booking page):
+Pass the stored referrer value into Calendly using UTM parameters
+
+
+Example:
+
+
+https://calendly.com/mycalendlylink?utm_source=affiliate&utm_medium=ref&utm_campaign=referrerID
+
+If I already have a Calendly embed, append these UTM params dynamically.
+
+3. Capture Referral Data
+Before the user goes to Calendly, store referral data in a small backend:
+Save { referrer, timestamp }
+
+
+Also save the visitor’s IP address (if possible)
+
+
+Tech stack can be simple: JSON file, Replit database, or SQLite (free).
+
+
+This is so I can later verify:
+If a referred person booked a call
+
+
+If they became a paying client
+
+
+
+4. Create a Simple Affiliate Dashboard Page
+Build a basic /affiliate page that includes:
+A field where the affiliate enters their username
+
+
+Auto-generated referral link shown on screen
+
+
+Instructions on how to promote it
+
+
+Example output:
+Your referral link:
+https://mywebsite.com/?ref=johnsmith
+
+Make the page look clean and professional.
+
+5. Make It Secure
+Validate referral IDs (only letters, numbers, underscore)
+
+
+Prevent script injection
+
+
+Prevent spam
+
+
+
+6. File Output
+You must output:
+Updated for the homepage (referrer tracking code)
+
+
+Updated for the booking page (Calendly/UTM code)
+
+
+Backend code 
+Affiliate dashboard page code (/affiliate)
+
+I also want users to have their dashboard to be able to see all of their data and analytics and to also to be able to input the form of payment they want their payouts to be. Paypal, etransfer, banktransfer, etc 

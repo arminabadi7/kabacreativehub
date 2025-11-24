@@ -285,10 +285,31 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 
 export default function Home() {
   const [showCalendly, setShowCalendly] = useState(false);
+  const [calendlyUrl, setCalendlyUrl] = useState("https://calendly.com/arminabadi7/30min");
 
   const scrollToBooking = () => {
     const element = document.getElementById("booking");
     element?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const getCalendlyUrlWithUTM = () => {
+    const baseUrl = "https://calendly.com/arminabadi7/30min";
+    const storedReferral = localStorage.getItem('kaba_referrer');
+    
+    if (storedReferral) {
+      try {
+        const { referrer, expiry } = JSON.parse(storedReferral);
+        const expiryDate = new Date(expiry);
+        
+        if (expiryDate > new Date()) {
+          return `${baseUrl}?utm_source=affiliate&utm_medium=ref&utm_campaign=${referrer}`;
+        }
+      } catch (error) {
+        console.error('Failed to parse referral data:', error);
+      }
+    }
+    
+    return baseUrl;
   };
 
   useEffect(() => {
@@ -297,6 +318,47 @@ export default function Home() {
     script.async = true;
     document.body.appendChild(script);
   }, []);
+
+  useEffect(() => {
+    const captureReferral = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refParam = urlParams.get('ref');
+      
+      if (refParam && /^[a-zA-Z0-9_]+$/.test(refParam)) {
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        
+        const referralData = {
+          referrer: refParam,
+          expiry: expiryDate.toISOString()
+        };
+        
+        localStorage.setItem('kaba_referrer', JSON.stringify(referralData));
+        
+        try {
+          await fetch('/api/referrals/track', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              referrerUsername: refParam,
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to track referral:', error);
+        }
+      }
+    };
+    
+    captureReferral();
+  }, []);
+
+  useEffect(() => {
+    if (showCalendly) {
+      setCalendlyUrl(getCalendlyUrlWithUTM());
+    }
+  }, [showCalendly]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -1102,7 +1164,7 @@ export default function Home() {
               ) : (
                 <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl">
                   <iframe
-                    src="https://calendly.com/arminabadi7/30min"
+                    src={calendlyUrl}
                     width="100%"
                     height="700"
                     frameBorder="0"
