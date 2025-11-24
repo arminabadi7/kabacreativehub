@@ -93,10 +93,8 @@ export default function AffiliateDashboard() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: z.infer<typeof registerSchema>) => {
-      return await apiRequest<Affiliate>("/api/affiliates", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      const response = await apiRequest("POST", "/api/affiliates", data);
+      return await response.json();
     },
     onSuccess: (data) => {
       localStorage.setItem("kaba_affiliate_username", data.username);
@@ -118,13 +116,12 @@ export default function AffiliateDashboard() {
 
   const paymentMutation = useMutation({
     mutationFn: async (data: z.infer<typeof paymentSchema>) => {
-      return await apiRequest<Affiliate>(
+      const response = await apiRequest(
+        "PUT",
         `/api/affiliates/${currentAffiliate}/payment`,
-        {
-          method: "PUT",
-          body: JSON.stringify(data),
-        }
+        data
       );
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/affiliates", currentAffiliate] });
