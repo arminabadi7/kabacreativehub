@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { emailService } from "./email";
 import { googleCalendarClient, googleSheetsClient } from "./integrations";
 import { registerCalendlyRoutes } from "./calendly-routes";
+import { getCalendlyService } from "./calendly-service";
 import { 
   insertAffiliateSchema, 
   trackReferralSchema,
@@ -242,6 +243,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/founder/bookings", requireFounderAuth, async (req, res) => {
     try {
+      const calendly = getCalendlyService();
+      if (calendly) {
+        // Fetch from Calendly API
+        const bookings = await calendly.syncBookings();
+        return res.json(bookings);
+      }
+      
+      // Fallback to database bookings if Calendly not configured
       const { status } = req.query;
       const allBookings = await storage.getBookings(status as string | undefined);
       return res.json(allBookings);
