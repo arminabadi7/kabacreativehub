@@ -43,6 +43,12 @@ const registerSchema = z.object({
     .min(3, "Username must be at least 3 characters")
     .max(30, "Username must be less than 30 characters"),
   email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 const paymentSchema = z.object({
@@ -51,16 +57,28 @@ const paymentSchema = z.object({
 });
 
 export default function AffiliateDashboard() {
-  const [currentAffiliate, setCurrentAffiliate] = useState<string | null>(
-    localStorage.getItem("kaba_affiliate_username")
-  );
+  const [isLogin, setIsLogin] = useState(true);
   const { toast } = useToast();
+
+  const { data: affiliate, isLoading: affiliateLoading, refetch: refetchSession } = useQuery<Affiliate>({
+    queryKey: ["/api/auth/session"],
+    retry: false,
+  });
 
   const registerForm = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       username: "",
       email: "",
+      password: "",
+    },
+  });
+
+  const loginForm = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
     },
   });
 
@@ -72,34 +90,27 @@ export default function AffiliateDashboard() {
     },
   });
 
-  const { data: affiliate, isLoading: affiliateLoading } = useQuery<Affiliate>({
-    queryKey: ["/api/affiliates", currentAffiliate],
-    enabled: !!currentAffiliate,
-  });
-
   const { data: stats } = useQuery<{
     totalClicks: number;
     totalConversions: number;
     totalCommission: number;
   }>({
-    queryKey: ["/api/affiliates", currentAffiliate, "stats"],
-    enabled: !!currentAffiliate,
+    queryKey: ["/api/affiliates", affiliate?.username, "stats"],
+    enabled: !!affiliate?.username,
   });
 
   const { data: referrals } = useQuery<Referral[]>({
-    queryKey: ["/api/affiliates", currentAffiliate, "referrals"],
-    enabled: !!currentAffiliate,
+    queryKey: ["/api/affiliates", affiliate?.username, "referrals"],
+    enabled: !!affiliate?.username,
   });
 
   const registerMutation = useMutation({
     mutationFn: async (data: z.infer<typeof registerSchema>) => {
-      const response = await apiRequest("POST", "/api/affiliates", data);
+      const response = await apiRequest("POST", "/api/auth/register", data);
       return await response.json();
     },
-    onSuccess: (data) => {
-      localStorage.setItem("kaba_affiliate_username", data.username);
-      setCurrentAffiliate(data.username);
-      queryClient.invalidateQueries({ queryKey: ["/api/affiliates", data.username] });
+    onSuccess: async () => {
+      await refetchSession();
       toast({
         title: "Success!",
         description: "Your affiliate account has been created.",
@@ -114,17 +125,38 @@ export default function AffiliateDashboard() {
     },
   });
 
+  const loginMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof loginSchema>) => {
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      return await response.json();
+    },
+    onSuccess: async () => {
+      await refetchSession();
+      toast({
+        title: "Success!",
+        description: "You've been logged in.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Login failed",
+        description: error.message || "Invalid username or password",
+        variant: "destructive",
+      });
+    },
+  });
+
   const paymentMutation = useMutation({
     mutationFn: async (data: z.infer<typeof paymentSchema>) => {
       const response = await apiRequest(
         "PUT",
-        `/api/affiliates/${currentAffiliate}/payment`,
+        `/api/affiliates/${affiliate?.username}/payment`,
         data
       );
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/affiliates", currentAffiliate] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
       toast({
         title: "Success!",
         description: "Payment information has been updated.",
@@ -143,13 +175,17 @@ export default function AffiliateDashboard() {
     registerMutation.mutate(data);
   };
 
+  const onLoginSubmit = (data: z.infer<typeof loginSchema>) => {
+    loginMutation.mutate(data);
+  };
+
   const onPaymentSubmit = (data: z.infer<typeof paymentSchema>) => {
     paymentMutation.mutate(data);
   };
 
   const copyReferralLink = () => {
-    if (currentAffiliate) {
-      const link = `${window.location.origin}/?ref=${currentAffiliate}`;
+    if (affiliate?.username) {
+      const link = `${window.location.origin}/?ref=${affiliate.username}`;
       navigator.clipboard.writeText(link);
       toast({
         title: "Copied!",
@@ -158,12 +194,21 @@ export default function AffiliateDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("kaba_affiliate_username");
-    setCurrentAffiliate(null);
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/auth/logout", {});
+      queryClient.clear();
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to logout",
+        variant: "destructive",
+      });
+    }
   };
 
-  if (!currentAffiliate) {
+  if (!affiliate && !affiliateLoading) {
     return (
       <div className="min-h-screen bg-background">
         <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary/90 via-primary/85 to-secondary/90 backdrop-blur-md border-b border-white/10">
@@ -192,61 +237,145 @@ export default function AffiliateDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-3xl">Join Our Affiliate Program</CardTitle>
+                <CardTitle className="text-3xl">{isLogin ? "Login" : "Join Our Affiliate Program"}</CardTitle>
                 <p className="text-muted-foreground mt-2">
-                  Earn 25% commission on every sale you refer. Register below to get your unique referral link.
+                  {isLogin
+                    ? "Login to access your affiliate dashboard."
+                    : "Earn 25% commission on every sale you refer. Register below to get your unique referral link."}
                 </p>
               </CardHeader>
-              <CardContent>
-                <Form {...registerForm}>
-                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-6">
-                    <FormField
-                      control={registerForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="johnsmith"
-                              {...field}
-                              data-testid="input-username"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+              <CardContent className="space-y-6">
+                {isLogin ? (
+                  <Form {...loginForm}>
+                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-6">
+                      <FormField
+                        control={loginForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="johnsmith"
+                                {...field}
+                                data-testid="input-login-username"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                    <FormField
-                      control={registerForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="email"
-                              placeholder="john@example.com"
-                              {...field}
-                              data-testid="input-email"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      <FormField
+                        control={loginForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                {...field}
+                                data-testid="input-login-password"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={registerMutation.isPending}
-                      data-testid="button-register"
-                    >
-                      {registerMutation.isPending ? "Creating account..." : "Create Affiliate Account"}
-                    </Button>
-                  </form>
-                </Form>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={loginMutation.isPending}
+                        data-testid="button-login"
+                      >
+                        {loginMutation.isPending ? "Logging in..." : "Login"}
+                      </Button>
+                    </form>
+                  </Form>
+                ) : (
+                  <Form {...registerForm}>
+                    <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-6">
+                      <FormField
+                        control={registerForm.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="johnsmith"
+                                {...field}
+                                data-testid="input-username"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                placeholder="john@example.com"
+                                {...field}
+                                data-testid="input-email"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={registerForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="••••••••"
+                                {...field}
+                                data-testid="input-password"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={registerMutation.isPending}
+                        data-testid="button-register"
+                      >
+                        {registerMutation.isPending ? "Creating account..." : "Create Affiliate Account"}
+                      </Button>
+                    </form>
+                  </Form>
+                )}
+
+                <div className="text-center text-sm text-muted-foreground">
+                  {isLogin ? "Don't have an account? " : "Already have an account? "}
+                  <button
+                    onClick={() => setIsLogin(!isLogin)}
+                    className="text-primary hover:underline"
+                    data-testid="button-toggle-auth"
+                  >
+                    {isLogin ? "Sign up" : "Login"}
+                  </button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -347,7 +476,7 @@ export default function AffiliateDashboard() {
                   <Label>Share this link to earn commissions</Label>
                   <div className="flex gap-2 mt-2">
                     <Input
-                      value={`${window.location.origin}/?ref=${currentAffiliate}`}
+                      value={`${window.location.origin}/?ref=${affiliate?.username}`}
                       readOnly
                       data-testid="input-referral-link"
                     />
