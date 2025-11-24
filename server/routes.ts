@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { emailService } from "./email";
-import { googleCalendarClient, googleSheetsClient } from "./integrations";
+import { googleCalendarClient, googleSheetsClient, getGoogleCalendarClient } from "./integrations";
 import { registerCalendlyRoutes } from "./calendly-routes";
 import { getCalendlyService } from "./calendly-service";
 import { 
@@ -279,6 +279,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error confirming booking:", error);
       return res.status(500).json({ error: "Failed to confirm booking" });
+    }
+  });
+
+  app.get("/api/founder/calendar-events", requireFounderAuth, async (req, res) => {
+    try {
+      const calendar = await getGoogleCalendarClient();
+      if (!calendar) {
+        return res.json([]);
+      }
+
+      const now = new Date();
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const response = await calendar.events.list({
+        calendarId: 'primary',
+        timeMin: now.toISOString(),
+        timeMax: thirtyDaysFromNow.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+      });
+
+      const events = response.data.items || [];
+      return res.json(events);
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      return res.json([]);
     }
   });
   
