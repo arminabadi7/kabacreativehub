@@ -48,6 +48,7 @@ export interface IStorage {
   createBooking(booking: InsertBooking): Promise<Booking>;
   getBookings(status?: string): Promise<Booking[]>;
   confirmBooking(bookingId: string, tier: string): Promise<Booking | undefined>;
+  updateBooking(bookingId: string, updates: Partial<Booking>): Promise<Booking | undefined>;
   
   // Scheduling System
   getAvailability(): Promise<Availability[]>;
@@ -197,6 +198,15 @@ export class DatabaseStorage implements IStorage {
         tier: tier,
         confirmedAt: new Date(),
       })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+    return booking || undefined;
+  }
+
+  async updateBooking(bookingId: string, updates: Partial<Booking>): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set(updates)
       .where(eq(bookings.id, bookingId))
       .returning();
     return booking || undefined;

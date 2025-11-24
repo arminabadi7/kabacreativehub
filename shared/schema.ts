@@ -120,6 +120,12 @@ export const confirmBookingSchema = z.object({
   tier: z.enum(["Growth", "Domination", "Empire"]),
 });
 
+export const updateBookingSchema = z.object({
+  affiliateUsername: z.string().optional(),
+  tier: z.enum(["Growth", "Domination", "Empire"]).optional(),
+  status: z.enum(["call_scheduled", "no_show", "follow_up", "no_interest", "sale"]).optional(),
+});
+
 // Availability Management
 export const availability = pgTable("availability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

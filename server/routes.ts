@@ -14,6 +14,7 @@ import {
   loginAffiliateSchema,
   insertBookingSchema,
   confirmBookingSchema,
+  updateBookingSchema,
   type Affiliate
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
@@ -279,6 +280,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error confirming booking:", error);
       return res.status(500).json({ error: "Failed to confirm booking" });
+    }
+  });
+
+  app.patch("/api/founder/bookings/:bookingId", requireFounderAuth, async (req, res) => {
+    try {
+      const { bookingId } = req.params;
+      const validatedData = updateBookingSchema.parse(req.body);
+      
+      const booking = await storage.updateBooking(bookingId, validatedData);
+      
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      
+      return res.json(booking);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      console.error("Error updating booking:", error);
+      return res.status(500).json({ error: "Failed to update booking" });
     }
   });
 
