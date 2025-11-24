@@ -456,6 +456,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Scheduling System API Routes
+  app.get("/api/scheduling/availability", async (req, res) => {
+    try {
+      const availability = await storage.getAvailability();
+      return res.json(availability);
+    } catch (error) {
+      console.error("Error fetching availability:", error);
+      return res.status(500).json({ error: "Failed to fetch availability" });
+    }
+  });
+
+  app.put("/api/founder/scheduling/availability", requireFounderAuth, async (req, res) => {
+    try {
+      const { dayOfWeek, startTime, endTime, isEnabled } = req.body;
+      const updated = await storage.updateAvailability(dayOfWeek, startTime, endTime, isEnabled);
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating availability:", error);
+      return res.status(500).json({ error: "Failed to update availability" });
+    }
+  });
+
+  app.get("/api/scheduling/questions", async (req, res) => {
+    try {
+      const questions = await storage.getBookingQuestions();
+      return res.json(questions);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      return res.status(500).json({ error: "Failed to fetch questions" });
+    }
+  });
+
+  app.post("/api/founder/scheduling/questions", requireFounderAuth, async (req, res) => {
+    try {
+      const question = await storage.createBookingQuestion(req.body);
+      return res.status(201).json(question);
+    } catch (error) {
+      console.error("Error creating question:", error);
+      return res.status(500).json({ error: "Failed to create question" });
+    }
+  });
+
+  app.put("/api/founder/scheduling/questions/:id", requireFounderAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateBookingQuestion(id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Question not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating question:", error);
+      return res.status(500).json({ error: "Failed to update question" });
+    }
+  });
+
+  app.delete("/api/founder/scheduling/questions/:id", requireFounderAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteBookingQuestion(id);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      return res.status(500).json({ error: "Failed to delete question" });
+    }
+  });
+
+  app.get("/api/founder/scheduling/appointments", requireFounderAuth, async (req, res) => {
+    try {
+      const appointments = await storage.getAppointments();
+      return res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+      return res.status(500).json({ error: "Failed to fetch appointments" });
+    }
+  });
+
+  app.post("/api/scheduling/appointments", async (req, res) => {
+    try {
+      const appointment = await storage.createAppointment(req.body);
+      return res.status(201).json(appointment);
+    } catch (error) {
+      console.error("Error creating appointment:", error);
+      return res.status(500).json({ error: "Failed to create appointment" });
+    }
+  });
+
+  app.get("/api/founder/scheduling/settings", requireFounderAuth, async (req, res) => {
+    try {
+      const settings = await storage.getFounderSettings();
+      return res.json(settings || { timeFormat: "12h", meetingDuration: 30, bufferTime: 20, timezone: "America/Toronto" });
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      return res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.put("/api/founder/scheduling/settings", requireFounderAuth, async (req, res) => {
+    try {
+      const updated = await storage.updateFounderSettings(req.body);
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      return res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

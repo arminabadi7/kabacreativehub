@@ -119,3 +119,75 @@ export const confirmBookingSchema = z.object({
   bookingId: z.string().min(1, "Booking ID is required"),
   tier: z.enum(["Growth", "Domination", "Empire"]),
 });
+
+// Availability Management
+export const availability = pgTable("availability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dayOfWeek: integer("day_of_week").notNull(), // 0-6 (Sunday-Saturday)
+  startTime: text("start_time").notNull(), // "00:00"
+  endTime: text("end_time").notNull(), // "23:45"
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type Availability = typeof availability.$inferSelect;
+
+// Booking Questions (Custom Form Builder)
+export const bookingQuestions = pgTable("booking_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  question: text("question").notNull(),
+  questionType: text("question_type").notNull(), // "short_answer", "paragraph", "multiple_choice", "checkboxes", "dropdown", "file_upload", "linear_scale", "rating", "date", "time"
+  options: text("options"), // JSON string for multiple choice, checkboxes, dropdown options
+  isRequired: boolean("is_required").notNull().default(true),
+  order: integer("order").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type BookingQuestion = typeof bookingQuestions.$inferSelect;
+
+// Appointments (Scheduled Calls)
+export const appointments = pgTable("appointments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  attendeeName: text("attendee_name").notNull(),
+  attendeeEmail: text("attendee_email").notNull(),
+  guests: text("guests"), // JSON string [{name, email}]
+  appointmentTime: timestamp("appointment_time").notNull(),
+  formResponses: text("form_responses").notNull(), // JSON string of all answers
+  referralId: varchar("referral_id"),
+  affiliateUsername: text("affiliate_username"),
+  googleCalendarEventId: text("google_calendar_event_id"),
+  googleSheetRowId: text("google_sheet_row_id"),
+  confirmationEmailSent: boolean("confirmation_email_sent").notNull().default(false),
+  reminderEmailSent: boolean("reminder_email_sent").notNull().default(false),
+  status: text("status").notNull().default("scheduled"), // "scheduled", "completed", "cancelled"
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type Appointment = typeof appointments.$inferSelect;
+
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  googleCalendarEventId: true,
+  googleSheetRowId: true,
+  confirmationEmailSent: true,
+  reminderEmailSent: true,
+  status: true,
+});
+
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+
+// Founder Settings
+export const founderSettings = pgTable("founder_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  timeFormat: text("time_format").notNull().default("12h"), // "12h" or "24h"
+  meetingDuration: integer("meeting_duration").notNull().default(30), // minutes
+  bufferTime: integer("buffer_time").notNull().default(20), // minutes
+  timezone: text("timezone").notNull().default("America/Toronto"),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type FounderSettings = typeof founderSettings.$inferSelect;
