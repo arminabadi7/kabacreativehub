@@ -92,6 +92,11 @@ export default function FounderDashboard() {
     enabled: !!founderSession,
   });
 
+  const { data: calendarEvents, isLoading: calendarLoading } = useQuery<any[]>({
+    queryKey: ["/api/founder/calendar-events"],
+    enabled: !!founderSession,
+  });
+
 
   const founderLoginMutation = useMutation({
     mutationFn: async (data: z.infer<typeof founderLoginSchema>) => {
@@ -395,7 +400,7 @@ export default function FounderDashboard() {
 
             <TabsContent value="bookings">
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold">Your Bookings</h2>
+                <h2 className="text-2xl font-bold">Your Bookings & Events</h2>
                 
                 <div className="space-y-4">
                   {(bookings || []).map((booking) => (
@@ -405,7 +410,7 @@ export default function FounderDashboard() {
                           <p className="font-semibold text-lg">{booking.attendeeName}</p>
                           <p className="text-sm text-muted-foreground">{booking.attendeeEmail}</p>
                           <p className="text-sm mt-2">
-                            {new Date(booking.appointmentTime || booking.eventTime).toLocaleString()}
+                            {new Date(booking.eventTime).toLocaleString()}
                           </p>
                           {booking.affiliateUsername && (
                             <p className="text-sm text-primary mt-2">
@@ -416,9 +421,24 @@ export default function FounderDashboard() {
                       </CardContent>
                     </Card>
                   ))}
-                  {(bookings || []).length === 0 && (
+                  
+                  {(calendarEvents || []).map((event) => (
+                    <Card key={event.id} data-testid={`calendar-event-card-${event.id}`}>
+                      <CardContent className="pt-6">
+                        <div className="space-y-2">
+                          <p className="font-semibold text-lg">{event.summary}</p>
+                          <p className="text-sm text-muted-foreground">{event.description || "Calendar Event"}</p>
+                          <p className="text-sm mt-2">
+                            {event.start?.dateTime ? new Date(event.start.dateTime).toLocaleString() : "No time specified"}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {(bookings || []).length === 0 && (calendarEvents || []).length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
-                      No bookings yet
+                      No bookings or events yet
                     </div>
                   )}
                 </div>
