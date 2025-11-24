@@ -246,12 +246,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const calendly = getCalendlyService();
       if (calendly) {
-        // Fetch from Calendly API
-        const bookings = await calendly.syncBookings();
-        return res.json(bookings);
+        // Fetch from Calendly API and sync to database
+        const calendlyBookings = await calendly.syncBookings();
+        
+        // Upsert each Calendly booking into the database so they can be updated
+        for (const booking of calendlyBookings) {
+          await storage.upsertBooking(booking);
+        }
       }
       
-      // Fallback to database bookings if Calendly not configured
+      // Return all database bookings (includes synced Calendly + manually created)
       const { status } = req.query;
       const allBookings = await storage.getBookings(status as string | undefined);
       return res.json(allBookings);

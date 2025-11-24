@@ -179,6 +179,37 @@ export class DatabaseStorage implements IStorage {
     return booking;
   }
 
+  async getBookingById(bookingId: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId));
+    return booking || undefined;
+  }
+
+  async upsertBooking(bookingData: any): Promise<Booking> {
+    // Try to insert, if it conflicts on ID, update it
+    const [booking] = await db
+      .insert(bookings)
+      .values({
+        id: bookingData.id,
+        attendeeName: bookingData.attendeeName,
+        attendeeEmail: bookingData.attendeeEmail,
+        eventTime: new Date(bookingData.appointmentTime || bookingData.eventTime),
+        status: "pending"
+      })
+      .onConflictDoUpdate({
+        target: bookings.id,
+        set: {
+          attendeeName: bookingData.attendeeName,
+          attendeeEmail: bookingData.attendeeEmail,
+          eventTime: new Date(bookingData.appointmentTime || bookingData.eventTime),
+        }
+      })
+      .returning();
+    return booking;
+  }
+
   async getBookings(status?: string): Promise<Booking[]> {
     if (status) {
       return await db
