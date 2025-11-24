@@ -286,21 +286,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const calendar = await getGoogleCalendarClient();
       if (!calendar) {
+        console.warn("Google Calendar client not available");
         return res.json([]);
       }
 
       const now = new Date();
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+      // KabaContent Google Calendar ID
+      const calendarId = '917c18cec506eb1481e1deb5156a6d561900a80fdea4b234e72820460c74fc4230c@group.calendar.google.com';
+
       const response = await calendar.events.list({
-        calendarId: 'primary',
+        calendarId: calendarId,
         timeMin: now.toISOString(),
         timeMax: thirtyDaysFromNow.toISOString(),
         singleEvents: true,
         orderBy: 'startTime',
+        maxResults: 100,
       });
 
       const events = response.data.items || [];
+      console.log(`✓ Fetched ${events.length} calendar events`);
       return res.json(events);
     } catch (error) {
       console.error("Error fetching calendar events:", error);

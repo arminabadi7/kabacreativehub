@@ -71,20 +71,22 @@ export class CalendlyService {
     return data.resource;
   }
 
-  async getUpcomingEvents(pageSize = 25) {
+  async getUpcomingEvents(pageSize = 100) {
     if (!this.userUri) {
       await this.getCurrentUser();
     }
 
     const response = await this.request(
-      `/events?user=${encodeURIComponent(this.userUri!)}&status=active&page_size=${pageSize}&sort=start_time:asc`
+      `/scheduled_events?user=${encodeURIComponent(this.userUri!)}&status=active&count=${pageSize}&sort=start_time:asc`
     );
 
     return response.collection as CalendlyEvent[];
   }
 
   async getEventInvitees(eventUri: string) {
-    const response = await this.request(`${eventUri}/invitees`);
+    // Extract the event UUID from the full URI
+    const eventUuid = eventUri.split('/').pop();
+    const response = await this.request(`/scheduled_events/${eventUuid}/invitees`);
     return response.collection as CalendlyInvitee[];
   }
 
