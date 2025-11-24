@@ -105,11 +105,15 @@ export class CalendlyService {
         const invitee = invitees[0];
 
         if (invitee) {
+          // Extract just the UUID from the full URI
+          const eventUuid = event.uri.split('/').pop() || event.uri;
+          
           bookings.push({
-            id: event.uri,
+            id: eventUuid,
             eventName: event.name,
             attendeeName: invitee.name,
             attendeeEmail: invitee.email,
+            eventTime: event.start_time,
             appointmentTime: event.start_time,
             status: event.status,
             timezone: invitee.timezone,
