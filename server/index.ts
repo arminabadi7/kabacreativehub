@@ -17,6 +17,7 @@ declare module 'express-session' {
     affiliateId?: string;
     username?: string;
     isFounder?: boolean;
+    memberId?: string;
   }
 }
 

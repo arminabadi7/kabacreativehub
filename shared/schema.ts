@@ -197,3 +197,193 @@ export const founderSettings = pgTable("founder_settings", {
 });
 
 export type FounderSettings = typeof founderSettings.$inferSelect;
+
+// Members/Employees
+export const members = pgTable("members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull(),
+  fullName: text("full_name"),
+  passwordHash: text("password_hash").notNull(),
+  profilePicture: text("profile_picture"),
+  role: text("role").notNull().default("MEMBER"), // MEMBER, MANAGER, ADMIN, etc.
+  memberSince: timestamp("member_since").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type Member = typeof members.$inferSelect;
+
+// Clients
+export const clients = pgTable("clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull(),
+  fullName: text("full_name"),
+  passwordHash: text("password_hash").notNull(),
+  tier: text("tier"), // Growth, Domination, Empire
+  phoneNumber: text("phone_number"),
+  instagramUsername: text("instagram_username"),
+  totalSpent: integer("total_spent").notNull().default(0), // in cents
+  clientSince: timestamp("client_since").notNull().default(sql`now()`),
+  monthlyPaymentDate: integer("monthly_payment_date"), // Day of month (1-31)
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type Client = typeof clients.$inferSelect;
+
+// Social Media Accounts
+export const socialMediaAccounts = pgTable("social_media_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").notNull(),
+  accountName: text("account_name").notNull(), // Name to identify this account
+  username: text("username").notNull(),
+  password: text("password").notNull(),
+  platform: text("platform").notNull(), // instagram, tiktok, youtube, facebook
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type SocialMediaAccount = typeof socialMediaAccounts.$inferSelect;
+
+// Billing Information (Iranian Bank Cards)
+export const billingInfo = pgTable("billing_info", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull(),
+  cardNumber: text("card_number"),
+  shebah: text("shebah"),
+  fullNameOnCard: text("full_name_on_card"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type BillingInfo = typeof billingInfo.$inferSelect;
+
+// Transactions
+export const transactions = pgTable("transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull(),
+  type: text("type").notNull(), // "task_completed", "bonus", "payment", "penalty", etc.
+  description: text("description").notNull(),
+  points: integer("points").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Transaction = typeof transactions.$inferSelect;
+
+// Member Stats
+export const memberStats = pgTable("member_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull().unique(),
+  currentBalance: integer("current_balance").notNull().default(0), // points
+  totalEarned: integer("total_earned").notNull().default(0), // points
+  totalPaid: integer("total_paid").notNull().default(0), // points
+  tasksCompleted: integer("tasks_completed").notNull().default(0),
+  bonusesReceived: integer("bonuses_received").notNull().default(0),
+  paymentsProcessed: integer("payments_processed").notNull().default(0),
+  tasksIncomplete: integer("tasks_incomplete").notNull().default(0),
+  penaltiesApplied: integer("penalties_applied").notNull().default(0),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type MemberStats = typeof memberStats.$inferSelect;
+
+// Workspace Currency
+export const workspaceCurrency = pgTable("workspace_currency", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  exchangeRate: text("exchange_rate").notNull().default("0.052083333333333"), // 1 point = X USD
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type WorkspaceCurrency = typeof workspaceCurrency.$inferSelect;
+
+// Projects
+export const projects = pgTable("projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type Project = typeof projects.$inferSelect;
+
+// Issue Templates
+export const issueTemplates = pgTable("issue_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  videoUrl: text("video_url"),
+  videoDuration: text("video_duration"), // "0:01:00" format
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type IssueTemplate = typeof issueTemplates.$inferSelect;
+
+// Issues (Tasks/Projects)
+export const issues = pgTable("issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id"),
+  templateId: varchar("template_id"),
+  title: text("title").notNull(),
+  description: text("description"),
+  videoUrl: text("video_url"),
+  videoDuration: text("video_duration"),
+  status: text("status").notNull().default("backlog"), // backlog, ready_for_editing, editing, ready_for_caption, ready_for_upload
+  order: integer("order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type Issue = typeof issues.$inferSelect;
+
+// Clips (for Clipping Area)
+export const clips = pgTable("clips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  clipNumber: integer("clip_number").notNull(),
+  filePath: text("file_path").notNull(),
+  isValid: boolean("is_valid"), // null = pending, true = valid, false = not valid
+  rejectionNote: text("rejection_note"),
+  reviewedBy: varchar("reviewed_by"), // member id
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Clip = typeof clips.$inferSelect;
+
+// Template Tasks (Tasks that belong to a template)
+export const templateTasks = pgTable("template_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull(),
+  name: text("name").notNull(), // "Video Selection", "Translate", "Dub", "Edit", "Admin"
+  points: integer("points").notNull().default(0),
+  priority: text("priority").notNull().default("no_priority"), // no_priority, low, medium, high
+  assignedTo: varchar("assigned_to"), // member id
+  order: integer("order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type TemplateTask = typeof templateTasks.$inferSelect;
+
+// Tasks (Sub-tasks within issues)
+export const tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  issueId: varchar("issue_id").notNull(),
+  templateTaskId: varchar("template_task_id"), // Reference to template task if created from template
+  name: text("name").notNull(), // "Video Selection", "Translate", "Dub", "Edit", "Admin"
+  points: integer("points").notNull().default(0),
+  priority: text("priority").notNull().default("no_priority"), // no_priority, low, medium, high
+  assignedTo: varchar("assigned_to"), // member id
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  order: integer("order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type Task = typeof tasks.$inferSelect;

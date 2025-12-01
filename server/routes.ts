@@ -686,6 +686,472 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Template Routes
+  app.get("/api/templates", async (req, res) => {
+    try {
+      const templates = await storage.getAllTemplates();
+      return res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      return res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  app.post("/api/templates", async (req, res) => {
+    try {
+      const { name, title, description, videoUrl, videoDuration } = req.body;
+      if (!name || !title) {
+        return res.status(400).json({ error: "Name and title are required" });
+      }
+      const template = await storage.createTemplate({ name, title, description, videoUrl, videoDuration });
+      return res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating template:", error);
+      return res.status(500).json({ error: "Failed to create template" });
+    }
+  });
+
+  app.put("/api/templates/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, title, description, videoUrl, videoDuration } = req.body;
+      const updated = await storage.updateTemplate(id, { name, title, description, videoUrl, videoDuration });
+      if (!updated) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating template:", error);
+      return res.status(500).json({ error: "Failed to update template" });
+    }
+  });
+
+  app.delete("/api/templates/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteTemplate(id);
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      return res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Template Tasks Routes
+  app.get("/api/templates/:templateId/tasks", async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const tasks = await storage.getTemplateTasks(templateId);
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching template tasks:", error);
+      return res.status(500).json({ error: "Failed to fetch template tasks" });
+    }
+  });
+
+  app.post("/api/templates/:templateId/tasks", async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const { name, points, priority, assignedTo, order } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Task name is required" });
+      }
+      const task = await storage.createTemplateTask(templateId, {
+        name,
+        points: points || 0,
+        priority: priority || "no_priority",
+        assignedTo: assignedTo || null,
+        order: order || 0,
+      });
+      return res.status(201).json(task);
+    } catch (error) {
+      console.error("Error creating template task:", error);
+      return res.status(500).json({ error: "Failed to create template task" });
+    }
+  });
+
+  app.patch("/api/templates/:templateId/tasks/:taskId", async (req, res) => {
+    try {
+      const { templateId, taskId } = req.params;
+      const updates = req.body;
+      const updated = await storage.updateTemplateTask(templateId, taskId, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Template task not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating template task:", error);
+      return res.status(500).json({ error: "Failed to update template task" });
+    }
+  });
+
+  app.delete("/api/templates/:templateId/tasks/:taskId", async (req, res) => {
+    try {
+      const { templateId, taskId } = req.params;
+      await storage.deleteTemplateTask(templateId, taskId);
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting template task:", error);
+      return res.status(500).json({ error: "Failed to delete template task" });
+    }
+  });
+
+  // Member Authentication Routes
+  app.post("/api/members/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      const member = await storage.getMemberByUsername(username) || await storage.getMemberByEmail(username);
+      if (!member) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const isValid = await bcrypt.compare(password, member.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      req.session.memberId = member.id;
+      const { passwordHash: _, ...memberWithoutPassword } = member;
+      return res.json(memberWithoutPassword);
+    } catch (error) {
+      console.error("Error logging in member:", error);
+      return res.status(500).json({ error: "Failed to authenticate" });
+    }
+  });
+
+  app.get("/api/members/session", async (req, res) => {
+    try {
+      if (!req.session?.memberId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const member = await storage.getMember(req.session.memberId);
+      if (!member) {
+        req.session.destroy(() => {});
+        return res.status(401).json({ error: "Member not found" });
+      }
+
+      const { passwordHash: _, ...memberWithoutPassword } = member;
+      return res.json(memberWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching member session:", error);
+      return res.status(500).json({ error: "Failed to fetch session" });
+    }
+  });
+
+  app.post("/api/members/logout", (req, res) => {
+    req.session.destroy((err: any) => {
+      if (err) {
+        console.error("Error destroying member session:", err);
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.clearCookie("connect.sid");
+      return res.json({ success: true });
+    });
+  });
+
+  // Member Profile Routes
+  app.put("/api/members/:id/profile", async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (req.session?.memberId !== id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const { fullName, profilePicture } = req.body;
+      const updated = await storage.updateMember(id, { fullName, profilePicture });
+      if (!updated) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+
+      const { passwordHash: _, ...memberWithoutPassword } = updated;
+      return res.json(memberWithoutPassword);
+    } catch (error) {
+      console.error("Error updating member profile:", error);
+      return res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  app.put("/api/members/:id/password", async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (req.session?.memberId !== id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current and new passwords are required" });
+      }
+
+      const member = await storage.getMember(id);
+      if (!member) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+
+      const isValid = await bcrypt.compare(currentPassword, member.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await storage.updateMember(id, { passwordHash });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      return res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
+  // Member Stats Route
+  app.get("/api/members/:id/stats", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const stats = await storage.getMemberStats(id);
+      if (!stats) {
+        // Return default stats if none exist
+        return res.json({
+          currentBalance: 0,
+          totalEarned: 0,
+          totalPaid: 0,
+          thisMonth: 0,
+        });
+      }
+      return res.json(stats);
+    } catch (error) {
+      console.error("Error fetching member stats:", error);
+      return res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  // Member Activity Route
+  app.get("/api/members/:id/activity", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const stats = await storage.getMemberStats(id);
+      if (!stats) {
+        return res.json({
+          tasksCompleted: 0,
+          bonusesReceived: 0,
+          paymentsProcessed: 0,
+          tasksIncomplete: 0,
+          penaltiesApplied: 0,
+        });
+      }
+      return res.json({
+        tasksCompleted: stats.tasksCompleted,
+        bonusesReceived: stats.bonusesReceived,
+        paymentsProcessed: stats.paymentsProcessed,
+        tasksIncomplete: stats.tasksIncomplete,
+        penaltiesApplied: stats.penaltiesApplied,
+      });
+    } catch (error) {
+      console.error("Error fetching member activity:", error);
+      return res.status(500).json({ error: "Failed to fetch activity" });
+    }
+  });
+
+  // Member Transactions Route
+  app.get("/api/members/:id/transactions", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const transactions = await storage.getMemberTransactions(id, limit, offset);
+      return res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      return res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
+  // Member Billing Route
+  app.get("/api/members/:id/billing", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const billing = await storage.getMemberBillingInfo(id);
+      return res.json(billing || { cardNumber: null, shebah: null, fullNameOnCard: null });
+    } catch (error) {
+      console.error("Error fetching billing info:", error);
+      return res.status(500).json({ error: "Failed to fetch billing info" });
+    }
+  });
+
+  app.put("/api/members/:id/billing", async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (req.session?.memberId !== id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const { cardNumber, shebah, fullNameOnCard } = req.body;
+      const billing = await storage.createOrUpdateBillingInfo(id, { cardNumber, shebah, fullNameOnCard });
+      return res.json(billing);
+    } catch (error) {
+      console.error("Error updating billing info:", error);
+      return res.status(500).json({ error: "Failed to update billing info" });
+    }
+  });
+
+  // Members list route (for template assignment)
+  app.get("/api/members/list", async (req, res) => {
+    try {
+      const allMembers = await storage.getAllMembers();
+      const membersWithoutPasswords = allMembers.map(({ passwordHash: _, ...member }) => member);
+      return res.json(membersWithoutPasswords);
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      return res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+
+  // Projects Routes
+  app.get("/api/projects", async (req, res) => {
+    try {
+      const projects = await storage.getAllProjects();
+      return res.json(projects);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      return res.status(500).json({ error: "Failed to fetch projects" });
+    }
+  });
+
+  app.post("/api/projects", async (req, res) => {
+    try {
+      const { name, description, fileLocation } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Project name is required" });
+      }
+      const project = await storage.createProject({ name, description, fileLocation });
+      return res.status(201).json(project);
+    } catch (error) {
+      console.error("Error creating project:", error);
+      return res.status(500).json({ error: "Failed to create project" });
+    }
+  });
+
+  app.patch("/api/projects/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updated = await storage.updateProject(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating project:", error);
+      return res.status(500).json({ error: "Failed to update project" });
+    }
+  });
+
+  // Clips Routes
+  app.get("/api/clips/pending", async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string;
+      const clips = await storage.getPendingClips(projectId);
+      return res.json(clips);
+    } catch (error) {
+      console.error("Error fetching pending clips:", error);
+      return res.status(500).json({ error: "Failed to fetch clips" });
+    }
+  });
+
+  app.post("/api/clips", async (req, res) => {
+    try {
+      const { projectId, clipNumber, filePath } = req.body;
+      if (!projectId || !clipNumber || !filePath) {
+        return res.status(400).json({ error: "projectId, clipNumber and filePath are required" });
+      }
+      const clip = await storage.createClip({ projectId, clipNumber, filePath });
+      return res.status(201).json(clip);
+    } catch (error) {
+      console.error("Error creating clip:", error);
+      return res.status(500).json({ error: "Failed to create clip" });
+    }
+  });
+
+  app.patch("/api/clips/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { clipNumber, filePath, isValid, rejectionNote } = req.body;
+
+      const clip = await storage.getClip(id);
+      if (!clip) {
+        return res.status(404).json({ error: "Clip not found" });
+      }
+
+      const updateData: any = {};
+      if (clipNumber !== undefined) updateData.clipNumber = clipNumber;
+      if (filePath !== undefined) updateData.filePath = filePath;
+      if (isValid !== undefined) {
+        updateData.isValid = isValid;
+        updateData.rejectionNote = rejectionNote;
+        updateData.reviewedBy = req.session?.memberId;
+      }
+
+      const updated = await storage.updateClip(id, updateData);
+
+      // If clip is approved (valid), create an issue from it
+      if (isValid === true) {
+        await storage.createIssue({
+          projectId: clip.projectId,
+          title: `Clip ${clip.clipNumber}`,
+          description: `Clip from: ${clip.filePath}`,
+          videoUrl: clip.filePath,
+          status: "backlog",
+        });
+      }
+
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating clip:", error);
+      return res.status(500).json({ error: "Failed to update clip" });
+    }
+  });
+
+  // Issues/Projects Routes
+  app.get("/api/issues", async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string;
+      const issues = await storage.getIssues(projectId);
+      return res.json(issues);
+    } catch (error) {
+      console.error("Error fetching issues:", error);
+      return res.status(500).json({ error: "Failed to fetch issues" });
+    }
+  });
+
+  app.patch("/api/issues/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updated = await storage.updateIssue(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Issue not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating issue:", error);
+      return res.status(500).json({ error: "Failed to update issue" });
+    }
+  });
+
+  app.get("/api/issues/:id/tasks", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const tasks = await storage.getIssueTasks(id);
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching issue tasks:", error);
+      return res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
