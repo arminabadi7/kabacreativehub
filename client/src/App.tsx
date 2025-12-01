@@ -8,6 +8,8 @@ import Affiliate from "@/pages/Affiliate";
 import AffiliateDashboard from "@/pages/AffiliateDashboard";
 import FounderDashboard from "@/pages/FounderDashboard";
 import BookingPage from "@/pages/BookingPage";
+import MemberLogin from "@/pages/MemberLogin";
+import MembersDashboard from "@/pages/MembersDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +20,8 @@ function Router() {
       <Route path="/affiliate" component={Affiliate} />
       <Route path="/affiliate-dashboard" component={AffiliateDashboard} />
       <Route path="/founder" component={FounderDashboard} />
+      <Route path="/member-login" component={MemberLogin} />
+      <Route path="/member-dashboard" component={MembersDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
