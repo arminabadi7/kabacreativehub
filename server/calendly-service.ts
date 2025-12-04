@@ -83,6 +83,19 @@ export class CalendlyService {
     return response.collection as CalendlyEvent[];
   }
 
+  async getAllEvents(pageSize = 100) {
+    if (!this.userUri) {
+      await this.getCurrentUser();
+    }
+
+    // Get all events (past and future) to catch bookings that might have been missed
+    const response = await this.request(
+      `/scheduled_events?user=${encodeURIComponent(this.userUri!)}&count=${pageSize}&sort=start_time:desc`
+    );
+
+    return response.collection as CalendlyEvent[];
+  }
+
   async getEventInvitees(eventUri: string) {
     // Extract the event UUID from the full URI
     const eventUuid = eventUri.split('/').pop();
@@ -97,8 +110,11 @@ export class CalendlyService {
 
   async syncBookings() {
     try {
-      const events = await this.getUpcomingEvents();
+      // Get all events (past and future) to ensure we catch all bookings
+      const events = await this.getAllEvents();
       const bookings = [];
+
+      console.log(`[Calendly Sync] Found ${events.length} events to process`);
 
       for (const event of events) {
         const invitees = await this.getEventInvitees(event.uri);
@@ -107,6 +123,18 @@ export class CalendlyService {
         if (invitee) {
           // Extract just the UUID from the full URI
           const eventUuid = event.uri.split('/').pop() || event.uri;
+          
+          const utmSource = invitee.tracking?.utm_source;
+          
+          // Log UTM tracking data for debugging
+          if (utmSource) {
+            console.log(`[Calendly Sync] Event ${eventUuid}: Found utm_source="${utmSource}" for ${invitee.email}`);
+          } else {
+            console.log(`[Calendly Sync] Event ${eventUuid}: No utm_source found for ${invitee.email}`);
+            if (invitee.tracking) {
+              console.log(`[Calendly Sync] Available tracking data:`, JSON.stringify(invitee.tracking));
+            }
+          }
           
           bookings.push({
             id: eventUuid,
@@ -117,13 +145,14 @@ export class CalendlyService {
             appointmentTime: event.start_time,
             status: event.status,
             timezone: invitee.timezone,
-            utmSource: invitee.tracking?.utm_source,
+            utmSource: utmSource,
             createdAt: event.created_at,
             updatedAt: event.updated_at,
           });
         }
       }
 
+      console.log(`[Calendly Sync] Processed ${bookings.length} bookings, ${bookings.filter(b => b.utmSource).length} with utm_source`);
       return bookings;
     } catch (error) {
       console.error("Error syncing Calendly bookings:", error);

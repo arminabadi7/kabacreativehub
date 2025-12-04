@@ -242,13 +242,15 @@ export default function Affiliate() {
                       ))}
                     </div>
 
-                    <Button 
-                      size="lg" 
-                      className="w-full"
-                      variant={tier.popular ? "default" : "outline"}
-                    >
-                      Promote {tier.name}
-                    </Button>
+                    <Link href="/affiliate-dashboard">
+                      <Button 
+                        size="lg" 
+                        className="w-full"
+                        variant={tier.popular ? "default" : "outline"}
+                      >
+                        Promote {tier.name}
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               </div>
