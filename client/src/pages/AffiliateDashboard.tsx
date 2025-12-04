@@ -91,7 +91,7 @@ export default function AffiliateDashboard() {
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      emailOrUsername: "",
       password: "",
     },
   });
