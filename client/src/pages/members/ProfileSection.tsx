@@ -57,7 +57,7 @@ export default function ProfileSection({ member }: { member: Member }) {
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
-      const response = await apiRequest("PUT", `/api/members/${member.id}/password`, data);
+      const response = await apiRequest("POST", `/api/members/change-password`, data);
       return await response.json();
     },
     onSuccess: () => {

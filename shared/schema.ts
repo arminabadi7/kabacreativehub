@@ -7,21 +7,95 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email"),
+  type: text("type"), // 'founder' | 'manager' | 'editor' | 'clipper' | 'client' | 'affiliate' | 'employee'
+  role: text("role"), // For employees: 'admin' | 'manager' | 'editor' | 'clipper' | 'employee'
+  fullName: text("full_name"),
+  mustChangePassword: boolean("must_change_password").default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  email: true,
+  type: true,
+  role: true,
+  fullName: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Members (Employees)
+export const members = pgTable("members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  fullName: text("full_name"),
+  role: text("role").notNull().default("employee"), // 'admin' | 'manager' | 'editor' | 'clipper' | 'employee'
+  mustChangePassword: boolean("must_change_password").default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertMemberSchema = createInsertSchema(members).omit({
+  id: true,
+  createdAt: true,
+  passwordHash: true,
+}).extend({
+  username: z.string().min(3).max(30),
+  email: z.string().email(),
+  password: z.string().min(8),
+  role: z.enum(["admin", "manager", "editor", "clipper", "employee"]).optional(),
+});
+
+export type InsertMember = z.infer<typeof insertMemberSchema>;
+export type Member = typeof members.$inferSelect;
+
+// Clients
+export const clients = pgTable("clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  fullName: text("full_name"),
+  tier: text("tier"), // 'Growth' | 'Domination' | 'Empire'
+  phoneNumber: text("phone_number"),
+  instagramUsername: text("instagram_username"),
+  totalSpent: integer("total_spent").default(0), // in cents
+  clientSince: timestamp("client_since").notNull().default(sql`now()`),
+  monthlyPaymentDate: integer("monthly_payment_date"), // Day of month (1-31)
+  contractFilePath: text("contract_file_path"),
+  mustChangePassword: boolean("must_change_password").default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertClientSchema = createInsertSchema(clients).omit({
+  id: true,
+  createdAt: true,
+  clientSince: true,
+  passwordHash: true,
+}).extend({
+  username: z.string().min(3).max(30),
+  email: z.string().email(),
+  password: z.string().min(8),
+  tier: z.enum(["Growth", "Domination", "Empire"]).optional(),
+});
+
+export type InsertClient = z.infer<typeof insertClientSchema>;
+export type Client = typeof clients.$inferSelect;
 
 export const affiliates = pgTable("affiliates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   email: text("email").notNull(),
   passwordHash: text("password_hash"),
+  fullName: text("full_name"),
+  country: text("country"),
+  telegramAccount: text("telegram_account"),
+  instagramUsername: text("instagram_username"),
+  phoneNumber: text("phone_number"),
   paymentMethod: text("payment_method"),
   paymentDetails: text("payment_details"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -97,8 +171,12 @@ export const bookings = pgTable("bookings", {
   affiliateUsername: text("affiliate_username"),
   tier: text("tier"),
   status: text("status").notNull().default("pending"),
+  saleStatus: text("sale_status"), // "sold", "failed", or null
+  commissionPaid: boolean("commission_paid").notNull().default(false),
+  commissionAmount: integer("commission_amount"), // in cents
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   confirmedAt: timestamp("confirmed_at"),
+  soldAt: timestamp("sold_at"),
 });
 
 export const insertBookingSchema = createInsertSchema(bookings).omit({
@@ -124,6 +202,7 @@ export const updateBookingSchema = z.object({
   affiliateUsername: z.string().optional(),
   tier: z.enum(["Growth", "Domination", "Empire"]).optional(),
   status: z.enum(["call_scheduled", "no_show", "follow_up", "no_interest", "sale"]).optional(),
+  saleStatus: z.enum(["sold", "failed"]).optional(),
 });
 
 // Availability Management
@@ -198,192 +277,245 @@ export const founderSettings = pgTable("founder_settings", {
 
 export type FounderSettings = typeof founderSettings.$inferSelect;
 
-// Members/Employees
-export const members = pgTable("members", {
+// Affiliate Transactions (Commission Payouts)
+export const affiliateTransactions = pgTable("affiliate_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull(),
-  fullName: text("full_name"),
-  passwordHash: text("password_hash").notNull(),
-  profilePicture: text("profile_picture"),
-  role: text("role").notNull().default("MEMBER"), // MEMBER, MANAGER, ADMIN, etc.
-  memberSince: timestamp("member_since").notNull().default(sql`now()`),
+  affiliateId: varchar("affiliate_id").notNull(),
+  affiliateUsername: text("affiliate_username").notNull(),
+  bookingId: varchar("booking_id"), // Reference to the booking that generated this commission
+  amount: integer("amount").notNull(), // Commission amount in cents
+  description: text("description"), // e.g., "Commission for Growth tier sale"
+  status: text("status").notNull().default("pending"), // "pending", "paid", "cancelled"
+  paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-export type Member = typeof members.$inferSelect;
-
-// Clients
-export const clients = pgTable("clients", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull(),
-  fullName: text("full_name"),
-  passwordHash: text("password_hash").notNull(),
-  tier: text("tier"), // Growth, Domination, Empire
-  phoneNumber: text("phone_number"),
-  instagramUsername: text("instagram_username"),
-  totalSpent: integer("total_spent").notNull().default(0), // in cents
-  clientSince: timestamp("client_since").notNull().default(sql`now()`),
-  monthlyPaymentDate: integer("monthly_payment_date"), // Day of month (1-31)
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+export type AffiliateTransaction = typeof affiliateTransactions.$inferSelect;
+export const insertAffiliateTransactionSchema = createInsertSchema(affiliateTransactions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  amount: z.number().positive("Amount must be positive"),
+  status: z.enum(["pending", "paid", "cancelled"]).optional(),
 });
 
-export type Client = typeof clients.$inferSelect;
+export type InsertAffiliateTransaction = z.infer<typeof insertAffiliateTransactionSchema>;
 
-// Social Media Accounts
+// Social Media Accounts (Account Groups - one username/password for multiple platforms)
 export const socialMediaAccounts = pgTable("social_media_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   clientId: varchar("client_id").notNull(),
-  accountName: text("account_name").notNull(), // Name to identify this account
+  accountName: text("account_name"), // Optional name for the account group
   username: text("username").notNull(),
-  password: text("password").notNull(),
-  platform: text("platform").notNull(), // instagram, tiktok, youtube, facebook
+  password: text("password"), // Encrypted password (same for all platforms in this group)
+  platforms: text("platforms").notNull(), // JSON array: ["instagram", "tiktok", "youtube", "facebook"]
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 export type SocialMediaAccount = typeof socialMediaAccounts.$inferSelect;
 
-// Billing Information (Iranian Bank Cards)
-export const billingInfo = pgTable("billing_info", {
+// Issue Templates
+export const issueTemplates = pgTable("issue_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  memberId: varchar("member_id").notNull(),
-  cardNumber: text("card_number"),
-  shebah: text("shebah"),
-  fullNameOnCard: text("full_name_on_card"),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-export type BillingInfo = typeof billingInfo.$inferSelect;
-
-// Transactions
-export const transactions = pgTable("transactions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  memberId: varchar("member_id").notNull(),
-  type: text("type").notNull(), // "task_completed", "bonus", "payment", "penalty", etc.
-  description: text("description").notNull(),
-  points: integer("points").notNull().default(0),
+  name: text("name").notNull(),
+  issueTitle: text("issue_title").notNull(),
+  description: text("description"),
+  videoUrl: text("video_url"),
+  videoDuration: integer("video_duration"), // in seconds
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-export type Transaction = typeof transactions.$inferSelect;
-
-// Member Stats
-export const memberStats = pgTable("member_stats", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  memberId: varchar("member_id").notNull().unique(),
-  currentBalance: integer("current_balance").notNull().default(0), // points
-  totalEarned: integer("total_earned").notNull().default(0), // points
-  totalPaid: integer("total_paid").notNull().default(0), // points
-  tasksCompleted: integer("tasks_completed").notNull().default(0),
-  bonusesReceived: integer("bonuses_received").notNull().default(0),
-  paymentsProcessed: integer("payments_processed").notNull().default(0),
-  tasksIncomplete: integer("tasks_incomplete").notNull().default(0),
-  penaltiesApplied: integer("penalties_applied").notNull().default(0),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-export type MemberStats = typeof memberStats.$inferSelect;
-
-// Workspace Currency
-export const workspaceCurrency = pgTable("workspace_currency", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  exchangeRate: text("exchange_rate").notNull().default("0.052083333333333"), // 1 point = X USD
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-export type WorkspaceCurrency = typeof workspaceCurrency.$inferSelect;
+export type IssueTemplate = typeof issueTemplates.$inferSelect;
 
 // Projects
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
+  clientId: varchar("client_id").notNull(),
+  fileLink: text("file_link"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 export type Project = typeof projects.$inferSelect;
 
-// Issue Templates
-export const issueTemplates = pgTable("issue_templates", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  title: text("title").notNull(),
-  description: text("description"),
-  videoUrl: text("video_url"),
-  videoDuration: text("video_duration"), // "0:01:00" format
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-export type IssueTemplate = typeof issueTemplates.$inferSelect;
-
-// Issues (Tasks/Projects)
+// Issues (Tasks in Kanban board)
 export const issues = pgTable("issues", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id"),
-  templateId: varchar("template_id"),
+  projectId: varchar("project_id").notNull(),
   title: text("title").notNull(),
   description: text("description"),
+  status: text("status").notNull().default("todo"), // "todo", "in_progress", "review", "done"
+  order: integer("order").default(0),
   videoUrl: text("video_url"),
-  videoDuration: text("video_duration"),
-  status: text("status").notNull().default("backlog"), // backlog, ready_for_editing, editing, ready_for_caption, ready_for_upload
-  order: integer("order").notNull().default(0),
+  videoDuration: integer("video_duration"), // in seconds
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 export type Issue = typeof issues.$inferSelect;
 
-// Clips (for Clipping Area)
+// Clips
 export const clips = pgTable("clips", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull(),
-  clipNumber: integer("clip_number").notNull(),
   filePath: text("file_path").notNull(),
-  isValid: boolean("is_valid"), // null = pending, true = valid, false = not valid
-  rejectionNote: text("rejection_note"),
-  reviewedBy: varchar("reviewed_by"), // member id
-  reviewedAt: timestamp("reviewed_at"),
+  clipNumber: integer("clip_number").notNull(),
+  status: text("status").notNull().default("pending"), // "pending", "valid", "invalid"
+  invalidNote: text("invalid_note"),
+  validatedBy: varchar("validated_by"),
+  validatedAt: timestamp("validated_at"),
+  issueId: varchar("issue_id"), // If converted to issue
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 export type Clip = typeof clips.$inferSelect;
 
-// Template Tasks (Tasks that belong to a template)
-export const templateTasks = pgTable("template_tasks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  templateId: varchar("template_id").notNull(),
-  name: text("name").notNull(), // "Video Selection", "Translate", "Dub", "Edit", "Admin"
-  points: integer("points").notNull().default(0),
-  priority: text("priority").notNull().default("no_priority"), // no_priority, low, medium, high
-  assignedTo: varchar("assigned_to"), // member id
-  order: integer("order").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-export type TemplateTask = typeof templateTasks.$inferSelect;
-
-// Tasks (Sub-tasks within issues)
+// Tasks (Employee tasks)
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  issueId: varchar("issue_id").notNull(),
-  templateTaskId: varchar("template_task_id"), // Reference to template task if created from template
-  name: text("name").notNull(), // "Video Selection", "Translate", "Dub", "Edit", "Admin"
-  points: integer("points").notNull().default(0),
-  priority: text("priority").notNull().default("no_priority"), // no_priority, low, medium, high
-  assignedTo: varchar("assigned_to"), // member id
-  isCompleted: boolean("is_completed").notNull().default(false),
+  memberId: varchar("member_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("pending"), // "pending", "completed"
+  points: integer("points").default(0),
   completedAt: timestamp("completed_at"),
-  order: integer("order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 export type Task = typeof tasks.$inferSelect;
+
+// Income
+export const income = pgTable("income", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("USD"),
+  source: text("source"), // "client", "affiliate", "stripe", "paypal"
+  description: text("description"),
+  date: timestamp("date").notNull().default(sql`now()`),
+  clientId: varchar("client_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Income = typeof income.$inferSelect;
+
+// Expenses
+export const expenses = pgTable("expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("USD"),
+  category: text("category").notNull(),
+  description: text("description"),
+  notes: text("notes"),
+  date: timestamp("date").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Expense = typeof expenses.$inferSelect;
+
+// Invoices
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id"),
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull().default("USD"),
+  description: text("description").notNull(),
+  stripeCheckoutId: text("stripe_checkout_id"),
+  paypalInvoiceId: text("paypal_invoice_id"),
+  status: text("status").notNull().default("pending"), // "pending", "paid", "cancelled"
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Invoice = typeof invoices.$inferSelect;
+
+// Notes (Team Chat/Comments)
+export const notes = pgTable("notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id"),
+  projectId: varchar("project_id"),
+  taskId: varchar("task_id"),
+  authorId: varchar("author_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Note = typeof notes.$inferSelect;
+
+// Outreach Tracking
+export const outreachTracking = pgTable("outreach_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(), // DM account ID
+  date: timestamp("date").notNull().default(sql`now()`),
+  count: integer("count").default(0),
+  responseRate: integer("response_rate"), // percentage
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type OutreachTracking = typeof outreachTracking.$inferSelect;
+
+// Editor Workload
+export const editorWorkload = pgTable("editor_workload", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  editorId: varchar("editor_id").notNull(),
+  projectId: varchar("project_id").notNull(),
+  deadline: timestamp("deadline"),
+  status: text("status").notNull().default("active"), // "active", "completed", "overdue"
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type EditorWorkload = typeof editorWorkload.$inferSelect;
+
+// Member Stats (Points system)
+export const memberStats = pgTable("member_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull().unique(),
+  pointsEarned: integer("points_earned").default(0),
+  pointsPaid: integer("points_paid").default(0),
+  currentBalance: integer("current_balance").default(0),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type MemberStats = typeof memberStats.$inferSelect;
+
+// Transactions (Member point transactions)
+export const transactions = pgTable("transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull(),
+  type: text("type").notNull(), // "earned", "paid", "bonus", "penalty"
+  description: text("description").notNull(),
+  points: integer("points").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Transaction = typeof transactions.$inferSelect;
+
+// Workspace Currency
+export const workspaceCurrency = pgTable("workspace_currency", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  currency: text("currency").notNull().default("USD"),
+  pointsToUsdRate: text("points_to_usd_rate").notNull().default("0.05208333"), // 1 point = $0.05208333
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type WorkspaceCurrency = typeof workspaceCurrency.$inferSelect;
+
+// Recurring Subscriptions
+export const recurringSubscriptions = pgTable("recurring_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  monthlyAmount: integer("monthly_amount").notNull(), // in cents
+  startDate: timestamp("start_date").notNull(),
+  nextPaymentDate: timestamp("next_payment_date"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type RecurringSubscription = typeof recurringSubscriptions.$inferSelect;
+
+// Unified Login Schema
+export const unifiedLoginSchema = z.object({
+  emailOrUsername: z.string().min(1, "Email or username is required"),
+  password: z.string().min(1, "Password is required"),
+  rememberMe: z.boolean().default(false),
+});
+
+export type UnifiedLogin = z.infer<typeof unifiedLoginSchema>;

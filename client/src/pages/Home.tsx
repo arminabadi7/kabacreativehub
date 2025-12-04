@@ -302,7 +302,8 @@ export default function Home() {
         const expiryDate = new Date(expiry);
         
         if (expiryDate > new Date()) {
-          return `${baseUrl}?utm_source=affiliate&utm_medium=ref&utm_campaign=${referrer}`;
+          // Set utm_source to the affiliate username so Calendly API can track it
+          return `${baseUrl}?utm_source=${encodeURIComponent(referrer)}&utm_medium=ref&utm_campaign=affiliate`;
         }
       } catch (error) {
         console.error('Failed to parse referral data:', error);

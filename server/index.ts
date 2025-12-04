@@ -18,6 +18,9 @@ declare module 'express-session' {
     username?: string;
     isFounder?: boolean;
     memberId?: string;
+    clientId?: string;
+    userType?: string; // 'member' | 'client' | 'affiliate' | 'founder'
+    role?: string; // For employees: 'admin' | 'manager' | 'editor' | 'clipper' | 'employee'
   }
 }
 
@@ -28,8 +31,9 @@ app.use(session({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: 30 * 60 * 1000, // 30 minutes in milliseconds
   },
+  rolling: true, // Reset expiration on every request
 }));
 
 app.use(express.json({

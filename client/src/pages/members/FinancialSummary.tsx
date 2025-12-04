@@ -31,7 +31,7 @@ export default function FinancialSummary({ memberId }: { memberId: string }) {
           <div className="text-2xl font-bold text-green-600">
             {stats?.currentBalance || 0} pts
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-base text-muted-foreground mt-1">
             {formatUSD(stats?.currentBalance || 0)} USD
           </p>
           <p className="text-xs text-muted-foreground mt-2">
@@ -49,7 +49,7 @@ export default function FinancialSummary({ memberId }: { memberId: string }) {
           <div className="text-2xl font-bold text-blue-600">
             {stats?.totalEarned || 0} pts
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-base text-muted-foreground mt-1">
             {formatUSD(stats?.totalEarned || 0)} USD
           </p>
           <p className="text-xs text-muted-foreground mt-2">
@@ -67,7 +67,7 @@ export default function FinancialSummary({ memberId }: { memberId: string }) {
           <div className="text-2xl font-bold text-orange-600">
             {stats?.totalPaid || 0} pts
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-base text-muted-foreground mt-1">
             {formatUSD(stats?.totalPaid || 0)} USD
           </p>
           <p className="text-xs text-muted-foreground mt-2">
@@ -85,7 +85,7 @@ export default function FinancialSummary({ memberId }: { memberId: string }) {
           <div className="text-2xl font-bold text-purple-600">
             {stats?.thisMonth || 0} pts
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-base text-muted-foreground mt-1">
             {formatUSD(stats?.thisMonth || 0)} USD
           </p>
           <p className="text-xs text-muted-foreground mt-2">

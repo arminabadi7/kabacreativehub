@@ -1,7 +1,8 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { issueTemplates, clips, issues, tasks, projects } from "@shared/schema";
+import { clips, projects, clients, issues, tasks, issueTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcrypt";
 
 export async function seedInitialData() {
   try {
@@ -176,47 +177,200 @@ export async function seedInitialData() {
       console.warn("Could not seed templates:", error);
     }
 
+    // Seed sample clients with social media accounts (needed for projects)
+    let sampleClient1, sampleClient2, sampleClient3;
+    try {
+      const existingClients = await storage.getAllClients();
+      if (existingClients.length === 0) {
+        const defaultPassword = "password123";
+        const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+        const sampleClients = [
+          {
+            username: "john_doe",
+            email: "john.doe@example.com",
+            fullName: "John Doe",
+            tier: "Growth",
+            passwordHash,
+          },
+          {
+            username: "sarah_smith",
+            email: "sarah.smith@example.com",
+            fullName: "Sarah Smith",
+            tier: "Domination",
+            passwordHash,
+          },
+          {
+            username: "mike_johnson",
+            email: "mike.johnson@example.com",
+            fullName: "Mike Johnson",
+            tier: "Empire",
+            passwordHash,
+          },
+        ];
+
+        const createdClients = [];
+        for (const clientData of sampleClients) {
+          const [client] = await db.insert(clients).values(clientData).returning();
+          createdClients.push(client);
+        }
+
+        sampleClient1 = createdClients[0];
+        sampleClient2 = createdClients[1];
+        sampleClient3 = createdClients[2];
+
+        // Add social media accounts for each client
+        await storage.createSocialMediaAccount({
+          clientId: createdClients[0].id,
+          accountName: "Main Account",
+          username: "johndoe_official",
+          password: "john_pass_123",
+          platforms: JSON.stringify(["instagram", "tiktok"]),
+        });
+
+        await storage.createSocialMediaAccount({
+          clientId: createdClients[1].id,
+          accountName: "Primary Account",
+          username: "sarahsmith",
+          password: "sarah_pass_2024",
+          platforms: JSON.stringify(["instagram", "tiktok", "youtube", "facebook"]),
+        });
+
+        await storage.createSocialMediaAccount({
+          clientId: createdClients[2].id,
+          accountName: "Business Account",
+          username: "mikejohnson",
+          password: "mike_pass_2024",
+          platforms: JSON.stringify(["youtube", "facebook", "instagram"]),
+        });
+
+        console.log("✓ Seeded 3 sample clients with social media accounts");
+      } else {
+        sampleClient1 = existingClients[0];
+        sampleClient2 = existingClients[1] || existingClients[0];
+        sampleClient3 = existingClients[2] || existingClients[0];
+        console.log("Clients already exist, using existing clients");
+      }
+    } catch (error) {
+      console.warn("Could not seed clients:", error);
+      // Fallback: try to get any existing clients
+      try {
+        const allClients = await storage.getAllClients();
+        sampleClient1 = allClients[0];
+        sampleClient2 = allClients[1] || allClients[0];
+        sampleClient3 = allClients[2] || allClients[0];
+      } catch {
+        console.error("Could not get clients for projects");
+      }
+    }
+
     // Seed projects and clips
     try {
+
       const existingProjects = await storage.getAllProjects();
-      let drewFarsiProject = existingProjects.find((p) => p.name === "Drew Farsi");
       
+      // Create "Drew Farsi" project if it doesn't exist
+      let drewFarsiProject = existingProjects.find((p) => p.name === "Drew Farsi");
       if (!drewFarsiProject) {
-        // Create "Drew Farsi" project
         drewFarsiProject = await storage.createProject({
           name: "Drew Farsi",
           description: "Drew Farsi content project",
-          fileLocation: null,
+          clientId: sampleClient1.id,
+          fileLink: "/Projects/DrewFarsi",
         });
         console.log("✓ Created Drew Farsi project");
       }
 
-      // Create sample clips for clipping area (if no clips exist)
+      // Create sample projects for clipping area (linked to clients)
+      const clippingProjects = [
+        {
+          name: `${sampleClient1.fullName || sampleClient1.username} - Episode 01`,
+          description: `Sample project for clipping - Episode 1 (${sampleClient1.fullName || sampleClient1.username})`,
+          clientId: sampleClient1.id,
+          fileLink: `/Projects/${sampleClient1.username}/Episode_01`,
+        },
+        {
+          name: `${sampleClient2.fullName || sampleClient2.username} - Episode 05`,
+          description: `Sample project for clipping - Episode 5 (${sampleClient2.fullName || sampleClient2.username})`,
+          clientId: sampleClient2.id,
+          fileLink: `/Projects/${sampleClient2.username}/Episode_05`,
+        },
+        {
+          name: `${sampleClient3.fullName || sampleClient3.username} - Episode 12`,
+          description: `Sample project for clipping - Episode 12 (${sampleClient3.fullName || sampleClient3.username})`,
+          clientId: sampleClient3.id,
+          fileLink: `/Projects/${sampleClient3.username}/Episode_12`,
+        },
+      ];
+
+      const createdProjects = [];
+      for (const projectData of clippingProjects) {
+        const existing = existingProjects.find((p) => p.name === projectData.name);
+        if (!existing) {
+          const project = await storage.createProject(projectData);
+          createdProjects.push(project);
+        } else {
+          createdProjects.push(existing);
+        }
+      }
+
+      // Create sample clips for each project
       const existingClips = await db.select().from(clips).limit(1);
       if (existingClips.length === 0) {
-        // Create a sample project for clipping
-        const clippingProject = await storage.createProject({
-          name: "Client1 Episode 01",
-          description: "Sample project for clipping",
-          fileLocation: "/Projects/Client1/Episode_01",
-        });
-
-        const sampleClips = [
-          { clipNumber: 1, filePath: "/Projects/Client1/Episode_01/Clip_001.mp4" },
-          { clipNumber: 2, filePath: "/Projects/Client1/Episode_01/Clip_002.mp4" },
-          { clipNumber: 3, filePath: "/Projects/Client1/Episode_01/Clip_003.mp4" },
-          { clipNumber: 4, filePath: "/Projects/Client1/Episode_01/Clip_004.mp4" },
-          { clipNumber: 5, filePath: "/Projects/Client1/Episode_01/Clip_005.mp4" },
+        // Project 1: First client's project - Mix of pending, valid, and invalid clips
+        const project1Clips = [
+          { clipNumber: 1, filePath: `${createdProjects[0].fileLink}/Clip_001.mp4`, status: "pending" },
+          { clipNumber: 2, filePath: `${createdProjects[0].fileLink}/Clip_002.mp4`, status: "valid" },
+          { clipNumber: 3, filePath: `${createdProjects[0].fileLink}/Clip_003.mp4`, status: "pending" },
+          { clipNumber: 4, filePath: `${createdProjects[0].fileLink}/Clip_004.mp4`, status: "invalid", invalidNote: "Audio quality too low" },
+          { clipNumber: 5, filePath: `${createdProjects[0].fileLink}/Clip_005.mp4`, status: "valid" },
         ];
 
-        for (const clipData of sampleClips) {
-          await db.insert(clips).values({
-            ...clipData,
-            projectId: clippingProject.id,
-            isValid: null, // pending
-          });
+        // Project 2: Second client's project - All pending
+        const project2Clips = [
+          { clipNumber: 1, filePath: `${createdProjects[1].fileLink}/Clip_001.mp4`, status: "pending" },
+          { clipNumber: 2, filePath: `${createdProjects[1].fileLink}/Clip_002.mp4`, status: "pending" },
+          { clipNumber: 3, filePath: `${createdProjects[1].fileLink}/Clip_003.mp4`, status: "pending" },
+        ];
+
+        // Project 3: Third client's project - Mix of statuses
+        const project3Clips = [
+          { clipNumber: 1, filePath: `${createdProjects[2].fileLink}/Clip_001.mp4`, status: "valid" },
+          { clipNumber: 2, filePath: `${createdProjects[2].fileLink}/Clip_002.mp4`, status: "valid" },
+          { clipNumber: 3, filePath: `${createdProjects[2].fileLink}/Clip_003.mp4`, status: "invalid", invalidNote: "Video too short" },
+          { clipNumber: 4, filePath: `${createdProjects[2].fileLink}/Clip_004.mp4`, status: "pending" },
+        ];
+
+        // Insert clips for each project (only if projects were created/found)
+        if (createdProjects.length >= 3) {
+          for (const clipData of project1Clips) {
+            await storage.createClip({
+              ...clipData,
+              projectId: createdProjects[0].id,
+            });
+          }
+
+          for (const clipData of project2Clips) {
+            await storage.createClip({
+              ...clipData,
+              projectId: createdProjects[1].id,
+            });
+          }
+
+          for (const clipData of project3Clips) {
+            await storage.createClip({
+              ...clipData,
+              projectId: createdProjects[2].id,
+            });
+          }
+
+          console.log(`✓ Seeded ${project1Clips.length + project2Clips.length + project3Clips.length} sample clips across 3 projects`);
+        } else {
+          console.warn("Not enough projects created to seed clips");
         }
-        console.log("✓ Seeded clipping project with 5 sample clips");
+
+      } else {
+        console.log("Clips already seeded");
       }
 
       // Seed sample issues for Drew Farsi project
@@ -298,6 +452,7 @@ export async function seedInitialData() {
     } catch (error) {
       console.warn("Could not seed projects/clips/issues:", error);
     }
+
   } catch (error) {
     console.error("Error seeding data:", error);
   }

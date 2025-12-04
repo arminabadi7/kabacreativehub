@@ -32,7 +32,8 @@ import {
   CreditCard,
   Wallet,
   Monitor,
-  Box
+  Box,
+  ArrowLeft
 } from "lucide-react";
 import { Link } from "wouter";
 import ProfileSection from "./members/ProfileSection";
@@ -45,6 +46,8 @@ import PaymentsSection from "./members/PaymentsSection";
 import ClippingArea from "./members/ClippingArea";
 import ProjectsBoard from "./members/ProjectsBoard";
 import TemplatesPage from "./members/TemplatesPage";
+import ClientsSection from "./members/ClientsSection";
+import { canAccessClipping, canAccessAdmin, canAccessSettings } from "@/lib/permissions";
 
 type Member = {
   id: string;
@@ -56,7 +59,13 @@ type Member = {
   memberSince: string;
 };
 
-export default function MembersDashboard() {
+type MembersDashboardProps = {
+  fromFounderDashboard?: boolean;
+  onBackToFounder?: () => void;
+};
+
+export default function MembersDashboard(props: MembersDashboardProps = {}) {
+  const { fromFounderDashboard = false, onBackToFounder } = props;
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState("profile");
@@ -154,12 +163,7 @@ export default function MembersDashboard() {
       );
     }
     if (activeSection === "clients") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Clients</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <ClientsSection />;
     }
     if (activeSection === "labels") {
       return (
@@ -260,9 +264,9 @@ export default function MembersDashboard() {
     <div className="min-h-screen bg-white flex">
       {/* Left Sidebar - Fixed */}
       <div className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-10">
-        <div className="p-4 border-b border-gray-200 flex-shrink-0">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="KabaContent" className="w-8 h-8" />
+            <div className="p-4 border-b border-gray-200 flex-shrink-0">
+              <Link href="/" className="flex items-center gap-2">
+                <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />
             <span className="text-xl font-bold">
               <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Kaba</span>
               <span className="text-gray-900">Content</span>
@@ -273,6 +277,23 @@ export default function MembersDashboard() {
         <div className="flex-1 overflow-y-auto p-4 space-y-6 flex-shrink">
           {menuMode === "main" ? (
             <>
+              {/* Back to Founder Dashboard (if accessed from founder) */}
+              {fromFounderDashboard && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <button
+                    onClick={() => {
+                      if (onBackToFounder) {
+                        onBackToFounder();
+                      }
+                    }}
+                    className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Founder Dashboard
+                  </button>
+                </div>
+              )}
+
               {/* Main Navigation */}
               <div className="space-y-1">
                 <button
@@ -309,15 +330,17 @@ export default function MembersDashboard() {
                     <Folder className="w-5 h-5" />
                     <span>Projects</span>
                   </button>
-                  <button
-                    onClick={() => setActiveSection("clipping-area")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
-                      activeSection === "clipping-area" ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                    }`}
-                  >
-                    <Scissors className="w-5 h-5" />
-                    <span>Clipping Area</span>
-                  </button>
+                  {(fromFounderDashboard || canAccessClipping(displayMember.role)) && (
+                    <button
+                      onClick={() => setActiveSection("clipping-area")}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
+                        activeSection === "clipping-area" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                      }`}
+                    >
+                      <Scissors className="w-5 h-5" />
+                      <span>Clipping Area</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setActiveSection("views")}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
@@ -383,14 +406,32 @@ export default function MembersDashboard() {
           ) : (
             <>
               {/* Settings Menu */}
-              <div className="mb-4">
-                <button
-                  onClick={() => setMenuMode("main")}
-                  className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
-                >
-                  <span>←</span> Back to app
-                </button>
-              </div>
+              {/* Back to Founder Dashboard (if accessed from founder) */}
+              {fromFounderDashboard && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <button
+                    onClick={() => {
+                      if (onBackToFounder) {
+                        onBackToFounder();
+                      }
+                    }}
+                    className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Founder Dashboard
+                  </button>
+                </div>
+              )}
+              {!fromFounderDashboard && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => setMenuMode("main")}
+                    className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
+                  >
+                    <span>←</span> Back to app
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-1 mb-6">
                 <button
