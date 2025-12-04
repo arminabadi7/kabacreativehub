@@ -1,0 +1,74 @@
+modules = ["nodejs-20", "web", "postgresql-16"]
+run = "npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+deploymentTarget = "gce"
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 40761
+externalPort = 3003
+
+[[ports]]
+localPort = 40795
+externalPort = 3001
+
+[[ports]]
+localPort = 41575
+externalPort = 4200
+
+[[ports]]
+localPort = 42133
+externalPort = 3000
+
+[[ports]]
+localPort = 42751
+externalPort = 3002
+
+[[ports]]
+localPort = 42957
+externalPort = 5000
+
+[env]
+PORT = "5000"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[agent]
+integrations = ["javascript_database:1.0.0", "google-calendar:1.0.0", "google-sheet:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+FOUNDER_PASSWORD = "Mohi2002"
+RESEND_API_KEY = "re_LpkN9Rf5_459r6hHn8F2H9q6gjUEJh2RM"
+GOOGLE_SHEETS_ID = "115bQmZzNtw_7nWK7Xxp5XqVPfMzI7WRSN58S_TfMtSI"
+CALENDLY_API_TOKEN = "eyJraWQiOiIxY2UxZTEzNjE3ZGNmNzY2YjNjZWJjY2Y4ZGM1YmFmYThhNjVlNjg0MDIzZjdjMzJiZTgzNDliMjM4MDEzNWI0IiwidHlwIjoiUEFUIiwiYWxnIjoiRVMyNTYifQ.eyJpc3MiOiJodHRwczovL2F1dGguY2FsZW5kbHkuY29tIiwiaWF0IjoxNzYzOTk2NDkyLCJqdGkiOiIzZWMwNmExMC0yOTY4LTRiNzYtYmZmMy05NjYwY2I5MGIzYzciLCJ1c2VyX3V1aWQiOiJiOWI2NGMxNS1jYWRjLTRkYTItYTQ4Zi1jZTQxN2VhMDljYWIifQ.NFmcSxFiilEBVrsyaQcr_TCDQXLjMNKNzKIl0bRL2ot7FD_PU0NDSXU5M9v-ihf8W2vzfsARGeQn21TLxH_dSQ"
