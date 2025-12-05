@@ -465,7 +465,7 @@ export default function Home() {
                   </Button>
                 </SheetClose>
                 <div className="border-t border-white/20 pt-6 mt-4">
-                  <Link href="/affiliate-dashboard">
+                  <Link href="/affiliate">
                     <SheetClose asChild>
                       <Button 
                         variant="outline"
