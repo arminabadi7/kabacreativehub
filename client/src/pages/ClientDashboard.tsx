@@ -100,34 +100,38 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="KabaContent" className="w-10 h-10 rounded-lg" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-4">
+              <img src="/logo.png" alt="KabaContent" className="w-8 h-8 md:w-10 md:h-10 rounded-lg" />
               <div>
-                <h1 className="text-xl font-bold">KabaContent</h1>
-                <p className="text-sm text-gray-600">Client Dashboard</p>
+                <h1 className="text-lg md:text-xl font-bold">KabaContent</h1>
+                <p className="text-xs md:text-sm text-gray-600">Client Dashboard</p>
               </div>
             </div>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => logoutMutation.mutate()}
+              className="text-sm"
             >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
+              <LogOut className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Logout</span>
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="social-accounts">Social Media Accounts</TabsTrigger>
-            <TabsTrigger value="contracts">Contracts & Documents</TabsTrigger>
-            <TabsTrigger value="billing">Billing</TabsTrigger>
-          </TabsList>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
+          <div className="overflow-x-auto">
+            <TabsList className="w-auto inline-flex">
+              <TabsTrigger value="profile" className="text-xs md:text-sm whitespace-nowrap">Profile</TabsTrigger>
+              <TabsTrigger value="social-accounts" className="text-xs md:text-sm whitespace-nowrap">Accounts</TabsTrigger>
+              <TabsTrigger value="contracts" className="text-xs md:text-sm whitespace-nowrap">Contracts</TabsTrigger>
+              <TabsTrigger value="billing" className="text-xs md:text-sm whitespace-nowrap">Billing</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Profile Tab */}
           <TabsContent value="profile">

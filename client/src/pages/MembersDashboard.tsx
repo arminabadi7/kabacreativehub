@@ -33,9 +33,11 @@ import {
   Wallet,
   Monitor,
   Box,
-  ArrowLeft
+  ArrowLeft,
+  Menu
 } from "lucide-react";
 import { Link } from "wouter";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import ProfileSection from "./members/ProfileSection";
 import FinancialSummary from "./members/FinancialSummary";
 import ActivityOverview from "./members/ActivityOverview";
@@ -71,6 +73,7 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
   const [activeSection, setActiveSection] = useState("profile");
   const [activeSubSection, setActiveSubSection] = useState<string | null>(null);
   const [menuMode, setMenuMode] = useState<"main" | "settings">("main");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { data: member, isLoading: memberLoading } = useQuery<Member>({
     queryKey: ["/api/members/session"],
@@ -260,342 +263,339 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
     return <ProfileSection member={displayMember} />;
   };
 
+  const SidebarContent = () => (
+    <>
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 flex-shrink">
+        {menuMode === "main" ? (
+          <>
+            {fromFounderDashboard && (
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    if (onBackToFounder) {
+                      onBackToFounder();
+                    }
+                  }}
+                  className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Founder Dashboard
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <button
+                onClick={() => { setActiveSection("home"); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+              >
+                <Home className="w-5 h-5" />
+                <span>Home</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("my-issues"); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+              >
+                <MessageSquare className="w-5 h-5" />
+                <span>My issues</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("board"); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+              >
+                <LayoutGrid className="w-5 h-5" />
+                <span>Board</span>
+              </button>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase mb-2">WORKSPACE</div>
+              <div className="space-y-1">
+                <button
+                  onClick={() => { setActiveSection("projects"); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+                >
+                  <Folder className="w-5 h-5" />
+                  <span>Projects</span>
+                </button>
+                {(fromFounderDashboard || canAccessClipping(displayMember.role)) && (
+                  <button
+                    onClick={() => { setActiveSection("clipping-area"); setMobileMenuOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
+                      activeSection === "clipping-area" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                    }`}
+                  >
+                    <Scissors className="w-5 h-5" />
+                    <span>Clipping Area</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => { setActiveSection("views"); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+                >
+                  <BarChart3 className="w-5 h-5" />
+                  <span>Views</span>
+                </button>
+                <button
+                  onClick={() => { setActiveSection("more"); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+                >
+                  <MoreHorizontal className="w-5 h-5" />
+                  <span>More</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase mb-2">YOUR TEAMS</div>
+              <div className="space-y-1">
+                <button
+                  onClick={() => { setActiveSection("persian"); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+                >
+                  <Users className="w-5 h-5" />
+                  <span>Persian</span>
+                  <span className="ml-auto">→</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => { setActiveSection("calendar"); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+              >
+                <Calendar className="w-5 h-5" />
+                <span>Calendar</span>
+              </button>
+              <button
+                onClick={() => {
+                  setMenuMode("settings");
+                  setActiveSection("profile");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
+                  menuMode === "settings" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+                <span>Settings</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("help"); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+              >
+                <HelpCircle className="w-5 h-5" />
+                <span>Help</span>
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {fromFounderDashboard && (
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    if (onBackToFounder) {
+                      onBackToFounder();
+                    }
+                  }}
+                  className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Founder Dashboard
+                </button>
+              </div>
+            )}
+            {!fromFounderDashboard && (
+              <div className="mb-4">
+                <button
+                  onClick={() => setMenuMode("main")}
+                  className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
+                >
+                  <span>←</span> Back to app
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-1 mb-6">
+              <button
+                onClick={() => { setActiveSection("profile"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "profile" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <User className="w-5 h-5" />
+                <span>Profile</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("billing"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "billing" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <CreditCard className="w-5 h-5" />
+                <span>Billing</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("payments"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "payments" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Wallet className="w-5 h-5" />
+                <span>Payments</span>
+              </button>
+            </div>
+
+            <div className="mb-2">
+              <div className="text-xs font-semibold text-gray-500 uppercase">Administration</div>
+            </div>
+            <div className="space-y-1 mb-6">
+              <button
+                onClick={() => { setActiveSection("workspace"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "workspace" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Building2 className="w-5 h-5" />
+                <span>Workspace</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("teams"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "teams" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Users className="w-5 h-5" />
+                <span>Teams</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("members"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "members" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Users className="w-5 h-5" />
+                <span>Members</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("clients"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "clients" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Users className="w-5 h-5" />
+                <span>Clients</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("labels"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "labels" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Tag className="w-5 h-5" />
+                <span>Labels</span>
+              </button>
+              <button
+                onClick={() => { setActiveSection("templates"); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                  activeSection === "templates" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <FileText className="w-5 h-5" />
+                <span>Templates</span>
+              </button>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Log Out</span>
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+            {displayMember.profilePicture ? (
+              <img src={displayMember.profilePicture} alt={displayMember.username} className="w-full h-full rounded-full" />
+            ) : (
+              <span className="text-sm font-medium text-gray-600">
+                {displayMember.fullName?.[0] || displayMember.username[0].toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-gray-900 truncate">
+              {displayMember.fullName || displayMember.username}
+            </div>
+            <div className="text-xs text-gray-500 truncate">{displayMember.email}</div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-white flex">
-      {/* Left Sidebar - Fixed */}
-      <div className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-10">
-            <div className="p-4 border-b border-gray-200 flex-shrink-0">
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between p-4">
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />
+          <span className="text-xl font-bold">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Kaba</span>
+            <span className="text-gray-900">Content</span>
+          </span>
+        </Link>
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-80 p-0 flex flex-col">
+            <div className="p-4 border-b border-gray-200">
               <Link href="/" className="flex items-center gap-2">
                 <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />
+                <span className="text-xl font-bold">
+                  <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Kaba</span>
+                  <span className="text-gray-900">Content</span>
+                </span>
+              </Link>
+            </div>
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Desktop Sidebar - Fixed */}
+      <div className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex-col z-10">
+        <div className="p-4 border-b border-gray-200 flex-shrink-0">
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />
             <span className="text-xl font-bold">
               <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Kaba</span>
               <span className="text-gray-900">Content</span>
             </span>
           </Link>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 flex-shrink">
-          {menuMode === "main" ? (
-            <>
-              {/* Back to Founder Dashboard (if accessed from founder) */}
-              {fromFounderDashboard && (
-                <div className="mb-4 pb-4 border-b border-gray-200">
-                  <button
-                    onClick={() => {
-                      if (onBackToFounder) {
-                        onBackToFounder();
-                      }
-                    }}
-                    className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Founder Dashboard
-                  </button>
-                </div>
-              )}
-
-              {/* Main Navigation */}
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveSection("home")}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                >
-                  <Home className="w-5 h-5" />
-                  <span>Home</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("my-issues")}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                  <span>My issues</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("board")}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                >
-                  <LayoutGrid className="w-5 h-5" />
-                  <span>Board</span>
-                </button>
-              </div>
-
-              {/* WORKSPACE Section */}
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">WORKSPACE</div>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => setActiveSection("projects")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                  >
-                    <Folder className="w-5 h-5" />
-                    <span>Projects</span>
-                  </button>
-                  {(fromFounderDashboard || canAccessClipping(displayMember.role)) && (
-                    <button
-                      onClick={() => setActiveSection("clipping-area")}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
-                        activeSection === "clipping-area" ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                      }`}
-                    >
-                      <Scissors className="w-5 h-5" />
-                      <span>Clipping Area</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setActiveSection("views")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                  >
-                    <BarChart3 className="w-5 h-5" />
-                    <span>Views</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveSection("more")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                  >
-                    <MoreHorizontal className="w-5 h-5" />
-                    <span>More</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* YOUR TEAMS Section */}
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">YOUR TEAMS</div>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => setActiveSection("persian")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                  >
-                    <Users className="w-5 h-5" />
-                    <span>Persian</span>
-                    <span className="ml-auto">→</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Bottom Navigation */}
-              <div className="space-y-1 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => setActiveSection("calendar")}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                >
-                  <Calendar className="w-5 h-5" />
-                  <span>Calendar</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setMenuMode("settings");
-                    setActiveSection("profile");
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
-                    menuMode === "settings" ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                  }`}
-                >
-                  <Settings className="w-5 h-5" />
-                  <span>Settings</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("help")}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                >
-                  <HelpCircle className="w-5 h-5" />
-                  <span>Help</span>
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Settings Menu */}
-              {/* Back to Founder Dashboard (if accessed from founder) */}
-              {fromFounderDashboard && (
-                <div className="mb-4 pb-4 border-b border-gray-200">
-                  <button
-                    onClick={() => {
-                      if (onBackToFounder) {
-                        onBackToFounder();
-                      }
-                    }}
-                    className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Founder Dashboard
-                  </button>
-                </div>
-              )}
-              {!fromFounderDashboard && (
-                <div className="mb-4">
-                  <button
-                    onClick={() => setMenuMode("main")}
-                    className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
-                  >
-                    <span>←</span> Back to app
-                  </button>
-                </div>
-              )}
-
-              <div className="space-y-1 mb-6">
-                <button
-                  onClick={() => setActiveSection("profile")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "profile" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <User className="w-5 h-5" />
-                  <span>Profile</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("billing")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "billing" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  <span>Billing</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("payments")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "payments" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Wallet className="w-5 h-5" />
-                  <span>Payments</span>
-                </button>
-              </div>
-
-              <div className="mb-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Administration</div>
-              </div>
-              <div className="space-y-1 mb-6">
-                <button
-                  onClick={() => setActiveSection("workspace")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "workspace" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Building2 className="w-5 h-5" />
-                  <span>Workspace</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("teams")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "teams" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Users className="w-5 h-5" />
-                  <span>Teams</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("members")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "members" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <User className="w-5 h-5" />
-                  <span>Members</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("clients")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "clients" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Monitor className="w-5 h-5" />
-                  <span>Clients</span>
-                </button>
-              </div>
-
-              <div className="mb-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Issues</div>
-              </div>
-              <div className="space-y-1 mb-6">
-                <button
-                  onClick={() => setActiveSection("labels")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "labels" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Tag className="w-5 h-5" />
-                  <span>Labels</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("templates")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "templates" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <FileText className="w-5 h-5" />
-                  <span>Templates</span>
-                </button>
-              </div>
-
-              <div className="mb-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Projects</div>
-              </div>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveSection("labels")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "labels" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Tag className="w-5 h-5" />
-                  <span>Labels</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("projects")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "projects" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Box className="w-5 h-5" />
-                  <span>Projects</span>
-                </button>
-                <button
-                  onClick={() => setActiveSection("statuses")}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                    activeSection === "statuses" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Clock className="w-5 h-5" />
-                  <span>Statuses</span>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* User Profile at Bottom - Fixed */}
-        <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              {displayMember.profilePicture ? (
-                <img src={displayMember.profilePicture} alt={displayMember.username} className="w-full h-full rounded-full" />
-              ) : (
-                <span className="text-sm font-medium text-gray-600">
-                  {displayMember.fullName?.[0] || displayMember.username[0].toUpperCase()}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">
-                {displayMember.fullName || displayMember.username}
-              </div>
-              <div className="text-xs text-gray-500 truncate">{displayMember.email}</div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
-        </div>
+        <SidebarContent />
       </div>
 
-      {/* Main Content Area - With left margin for fixed sidebar */}
-      <div className="flex-1 ml-64">
+      {/* Main Content Area - Responsive margin for sidebar */}
+      <div className="flex-1 md:ml-64 pt-16 md:pt-0">
         {/* Main Content */}
         <div className="h-screen overflow-y-auto">
           {renderContent()}

@@ -33,9 +33,12 @@ import {
   EyeOff,
   Edit,
   Trash2,
-  Search
+  Search,
+  Menu,
+  X
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Link } from "wouter";
 import MembersDashboard from "./MembersDashboard";
 import FinancesPage from "./finances/FinancesPage";
@@ -126,6 +129,7 @@ export default function FounderDashboard() {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [selectedAffiliate, setSelectedAffiliate] = useState<AffiliateWithStats | null>(null);
   const [affiliateDetailDialogOpen, setAffiliateDetailDialogOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Update section when URL changes
   useEffect(() => {
@@ -587,69 +591,70 @@ export default function FounderDashboard() {
     };
 
     return (
-      <div className="p-6">
-        <h1 className="text-3xl font-bold mb-2">Affiliates</h1>
-        <p className="text-gray-600 mb-6">Manage all affiliate accounts and track performance</p>
+      <div className="p-4 md:p-6">
+        <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">Affiliates</h1>
+        <p className="text-gray-600 mb-4 md:mb-6 text-sm md:text-base">Manage all affiliate accounts and track performance</p>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Affiliates</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Total Affiliates</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{affiliates?.length || 0}</div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-xl md:text-3xl font-bold">{affiliates?.length || 0}</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Total Clicks</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalStats.clicks}</div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-xl md:text-3xl font-bold">{totalStats.clicks}</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Conversions</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Total Conversions</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{totalStats.conversions}</div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-xl md:text-3xl font-bold">{totalStats.conversions}</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Commission</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 md:p-6">
+              <CardTitle className="text-xs md:text-sm font-medium">Total Commission</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">${(totalStats.commission / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <CardContent className="p-3 md:p-6 pt-0">
+              <div className="text-xl md:text-3xl font-bold">${(totalStats.commission / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
           </Card>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>All Affiliates</CardTitle>
+          <CardHeader className="p-4 md:p-6">
+            <CardTitle className="text-lg md:text-xl">All Affiliates</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 md:p-6 pt-0">
             <Input
               placeholder="Search by username or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="text-sm"
             />
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 md:mx-0">
+              <table className="w-full text-xs md:text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-semibold">Username</th>
-                    <th className="text-left py-3 px-4 font-semibold">Email</th>
-                    <th className="text-right py-3 px-4 font-semibold">Clicks</th>
-                    <th className="text-right py-3 px-4 font-semibold">Conversions</th>
-                    <th className="text-right py-3 px-4 font-semibold">Commission</th>
-                    <th className="text-left py-3 px-4 font-semibold">Joined</th>
+                    <th className="text-left py-2 md:py-3 px-3 md:px-4 font-semibold">Username</th>
+                    <th className="text-left py-2 md:py-3 px-3 md:px-4 font-semibold">Email</th>
+                    <th className="text-right py-2 md:py-3 px-3 md:px-4 font-semibold">Clicks</th>
+                    <th className="text-right py-2 md:py-3 px-3 md:px-4 font-semibold">Conversions</th>
+                    <th className="text-right py-2 md:py-3 px-3 md:px-4 font-semibold">Commission</th>
+                    <th className="text-left py-2 md:py-3 px-3 md:px-4 font-semibold">Joined</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -662,12 +667,12 @@ export default function FounderDashboard() {
                         setAffiliateDetailDialogOpen(true);
                       }}
                     >
-                      <td className="py-3 px-4 font-medium">{affiliate.username}</td>
-                      <td className="py-3 px-4 text-gray-600">{affiliate.email}</td>
-                      <td className="py-3 px-4 text-right">{affiliate.totalClicks}</td>
-                      <td className="py-3 px-4 text-right">{affiliate.totalConversions}</td>
+                      <td className="py-2 md:py-3 px-3 md:px-4 font-medium">{affiliate.username}</td>
+                      <td className="py-2 md:py-3 px-3 md:px-4 text-gray-600 truncate max-w-[120px] md:max-w-none">{affiliate.email}</td>
+                      <td className="py-2 md:py-3 px-3 md:px-4 text-right">{affiliate.totalClicks}</td>
+                      <td className="py-2 md:py-3 px-3 md:px-4 text-right">{affiliate.totalConversions}</td>
                       <td 
-                        className="py-3 px-4 text-right font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                        className="py-2 md:py-3 px-3 md:px-4 text-right font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(`/affiliate-dashboard#total-commission`, '_blank');
@@ -676,7 +681,7 @@ export default function FounderDashboard() {
                       >
                         ${(affiliate.totalCommission / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
-                      <td className="py-3 px-4 text-gray-600 text-sm">
+                      <td className="py-2 md:py-3 px-3 md:px-4 text-gray-600 text-xs md:text-sm">
                         {new Date(affiliate.createdAt).toLocaleDateString()}
                       </td>
                     </tr>
@@ -686,7 +691,7 @@ export default function FounderDashboard() {
             </div>
 
             {filteredAffiliates.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-6 md:py-8 text-gray-500 text-sm">
                 No affiliates found
               </div>
             )}
@@ -847,20 +852,20 @@ export default function FounderDashboard() {
 
   const renderBookingsClientsSection = () => {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Bookings & Clients</h1>
-            <p className="text-gray-600">Manage bookings and client information</p>
+            <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">Bookings & Clients</h1>
+            <p className="text-gray-600 text-sm md:text-base">Manage bookings and client information</p>
           </div>
           <Button
             onClick={() => refetchBookings()}
             disabled={bookingsLoading}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-sm w-full sm:w-auto"
           >
             <RefreshCw className={`w-4 h-4 ${bookingsLoading ? 'animate-spin' : ''}`} />
-            {bookingsLoading ? 'Syncing...' : 'Refresh Bookings'}
+            {bookingsLoading ? 'Syncing...' : 'Refresh'}
           </Button>
         </div>
 
@@ -1155,9 +1160,9 @@ export default function FounderDashboard() {
     }
 
     return (
-      <div className="p-6">
-        <h1 className="text-3xl font-bold mb-2">Clients</h1>
-        <p className="text-gray-600 mb-6">Manage client accounts and social media profiles</p>
+      <div className="p-4 md:p-6">
+        <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">Clients</h1>
+        <p className="text-gray-600 mb-4 md:mb-6 text-sm md:text-base">Manage client accounts and social media profiles</p>
 
         <div className="space-y-4">
           {(clients || []).map((client) => {
@@ -1588,28 +1593,28 @@ export default function FounderDashboard() {
     };
 
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 md:mb-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">User Management</h1>
-            <p className="text-gray-600">Create and manage all user accounts (Members, Clients, Affiliates)</p>
+            <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">User Management</h1>
+            <p className="text-gray-600 text-sm md:text-base">Create and manage all user accounts</p>
           </div>
-          <Button onClick={() => setCreateUserDialogOpen(true)} className="bg-black text-white hover:bg-gray-900">
+          <Button onClick={() => setCreateUserDialogOpen(true)} className="bg-black text-white hover:bg-gray-900 w-full sm:w-auto">
             <UserPlus className="w-4 h-4 mr-2" />
             Create User
           </Button>
         </div>
 
         {/* Search Bar */}
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               type="text"
-              placeholder="Search by username, email, or name..."
+              placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 text-sm"
             />
           </div>
         </div>
@@ -1618,16 +1623,16 @@ export default function FounderDashboard() {
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[700px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                    <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Full Name</th>
+                    <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Role</th>
+                    <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Password</th>
+                    <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -2115,66 +2120,96 @@ export default function FounderDashboard() {
     return <MembersDashboard fromFounderDashboard={true} onBackToFounder={() => setActiveSection("affiliates")} />;
   }
 
+  const SidebarContent = () => (
+    <>
+      <div className="p-4 border-b border-gray-200 flex-shrink-0">
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />
+          <span className="text-xl font-bold">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Kaba</span>
+            <span className="text-gray-900">Content</span>
+          </span>
+        </Link>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-1">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeSection === item.id || (!activeSection && item.id === "affiliates");
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveSection(item.id);
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* User Profile at Bottom */}
+      <div className="p-4 border-t border-gray-200 flex-shrink-0">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold">
+            F
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">Founder</p>
+            <p className="text-xs text-gray-500 truncate">Full Access</p>
+          </div>
+        </div>
+        <Button
+          onClick={handleLogout}
+          variant="outline"
+          className="w-full"
+          size="sm"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Logout
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-white flex">
-      {/* Left Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen">
-        <div className="p-4 border-b border-gray-200 flex-shrink-0">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />
-            <span className="text-xl font-bold">
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Kaba</span>
-              <span className="text-gray-900">Content</span>
-            </span>
-          </Link>
-        </div>
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/logo.png" alt="KabaContent" className="w-7 h-7 rounded-lg" />
+          <span className="text-lg font-bold">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Kaba</span>
+            <span className="text-gray-900">Content</span>
+          </span>
+        </Link>
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0 flex flex-col">
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+      </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSection === item.id || (!activeSection && item.id === "affiliates");
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* User Profile at Bottom */}
-        <div className="p-4 border-t border-gray-200 flex-shrink-0">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold">
-              F
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">Founder</p>
-              <p className="text-xs text-gray-500 truncate">Full Access</p>
-            </div>
-          </div>
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            className="w-full"
-            size="sm"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
-        </div>
+      {/* Desktop Left Sidebar */}
+      <div className="hidden md:flex w-64 bg-white border-r border-gray-200 flex-col fixed left-0 top-0 h-screen">
+        <SidebarContent />
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 ml-64 overflow-y-auto bg-white">
+      <div className="flex-1 md:ml-64 overflow-y-auto bg-white pt-14 md:pt-0">
         {renderContent()}
       </div>
     </div>

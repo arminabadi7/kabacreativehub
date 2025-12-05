@@ -151,10 +151,10 @@ export async function seedInitialData() {
         for (const templateData of templates) {
           const template = await storage.createTemplate({
             name: templateData.name,
-            title: templateData.title,
+            issueTitle: templateData.title,
             description: null,
             videoUrl: null,
-            videoDuration: "0:01:00",
+            videoDuration: 60,
           });
 
           // Directly update the template's updatedAt to 2 days ago
@@ -386,7 +386,7 @@ export async function seedInitialData() {
           description: null,
           status: "backlog",
           order: 0,
-          videoDuration: "0:01:00",
+          videoDuration: 60,
           createdAt: sep15,
           updatedAt: sep15,
         }).returning();
@@ -419,7 +419,7 @@ export async function seedInitialData() {
           description: null,
           status: "unstarted",
           order: 0,
-          videoDuration: "0:02:00",
+          videoDuration: 120,
           createdAt: sep15,
           updatedAt: sep15,
         }).returning();
