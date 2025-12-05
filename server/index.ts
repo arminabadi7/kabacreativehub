@@ -31,6 +31,7 @@ app.use(session({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax', // Required for mobile browsers to properly handle session cookies
     maxAge: 30 * 60 * 1000, // 30 minutes in milliseconds
   },
   rolling: true, // Reset expiration on every request

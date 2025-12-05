@@ -280,11 +280,19 @@ export default function AffiliateDashboard() {
       return await response.json();
     },
     onSuccess: async () => {
-      await refetchSession();
+      // Invalidate session cache first to force fresh fetch
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
+      // Small delay for mobile browsers to properly store the session cookie
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const result = await refetchSession();
       toast({
         title: "Success!",
         description: "Your affiliate account has been created.",
       });
+      // Fallback: if session still not detected after refetch, force reload on mobile
+      if (!result.data) {
+        window.location.reload();
+      }
     },
     onError: (error: any) => {
       toast({
@@ -301,11 +309,19 @@ export default function AffiliateDashboard() {
       return await response.json();
     },
     onSuccess: async () => {
-      await refetchSession();
+      // Invalidate session cache first to force fresh fetch
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
+      // Small delay for mobile browsers to properly store the session cookie
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const result = await refetchSession();
       toast({
         title: "Success!",
         description: "You've been logged in.",
       });
+      // Fallback: if session still not detected after refetch, force reload on mobile
+      if (!result.data) {
+        window.location.reload();
+      }
     },
     onError: (error: any) => {
       toast({
