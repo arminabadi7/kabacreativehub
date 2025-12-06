@@ -6,6 +6,11 @@ import { seedInitialData } from "./seedData";
 
 const app = express();
 
+// Trust proxy for production (required for secure cookies behind reverse proxy like Replit)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
