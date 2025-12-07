@@ -217,3 +217,4 @@ npm run build
 4. **Seed Data**: Seed data runs automatically - it won't duplicate existing data
 5. **Port**: Don't change port 5000 - Replit maps it automatically
 
+

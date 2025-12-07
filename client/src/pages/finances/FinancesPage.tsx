@@ -70,7 +70,7 @@ const EXPENSE_CATEGORIES = [
   { value: "travel", label: "Travel" },
   { value: "tech", label: "Tech" },
   { value: "tools_software", label: "Tools & Software" },
-  { value: "employee_payment", label: "Employee Payment" },
+  { value: "employee_payment", label: "Member Payment" },
   { value: "affiliate_payment", label: "Affiliate Payment" },
 ];
 
@@ -299,7 +299,7 @@ function MemberAffiliateFinancialSummary() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Members / Employees Financial Summary
+            Members Financial Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -573,7 +573,7 @@ export default function FinancesPage() {
     },
   });
 
-  const { data: employeePayments } = useQuery<{ total: number }>({
+  const { data: memberPayments } = useQuery<{ total: number }>({
     queryKey: ["/api/founder/finances/expenses/employee-payments"],
   });
 
@@ -916,14 +916,14 @@ export default function FinancesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Employee Payments</CardTitle>
+            <CardTitle className="text-sm font-medium">Member Payments</CardTitle>
             <DollarSign className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              {formatCurrency(employeePayments?.total || 0)}
+              {formatCurrency(memberPayments?.total || 0)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Total paid to employees</p>
+            <p className="text-xs text-gray-500 mt-1">Total paid to members</p>
           </CardContent>
         </Card>
       </div>

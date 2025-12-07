@@ -35,6 +35,8 @@ import {
   XCircle,
   User,
   Calendar,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { Affiliate, Referral } from "@shared/schema";
 import { CountrySelect } from "@/components/CountrySelect";
@@ -73,6 +75,8 @@ export default function AffiliateDashboard() {
   const [isLogin, setIsLogin] = useState(false); // Default to Sign Up
   const { toast } = useToast();
   const [location] = useLocation();
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
 
   const { data: affiliate, isLoading: affiliateLoading, refetch: refetchSession } = useQuery<Affiliate>({
     queryKey: ["/api/auth/session"],
@@ -534,13 +538,23 @@ export default function AffiliateDashboard() {
 
                     <div className="space-y-2">
                       <Label htmlFor="login-password">Password</Label>
-                      <Input
-                        id="login-password"
-                        type="password"
-                        placeholder="••••••••"
-                        autoComplete="current-password"
-                        data-testid="input-login-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="login-password"
+                          type={showLoginPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          autoComplete="current-password"
+                          data-testid="input-login-password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <Button
@@ -586,13 +600,23 @@ export default function AffiliateDashboard() {
 
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Password</Label>
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        data-testid="input-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="signup-password"
+                          type={showSignupPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          autoComplete="new-password"
+                          data-testid="input-password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignupPassword(!showSignupPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <Button

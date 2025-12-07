@@ -3,21 +3,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Plus, Trash2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import TemplateEditPage from "./TemplateEditPage";
+import TemplateCreatePage from "./TemplateCreatePage";
 
 type Template = {
   id: string;
@@ -34,7 +24,7 @@ export default function TemplatesPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreatePageOpen, setIsCreatePageOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -69,29 +59,6 @@ export default function TemplatesPage() {
     },
   });
 
-  const createTemplateMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const response = await apiRequest("POST", "/api/templates", data);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
-      setIsCreateDialogOpen(false);
-      setFormData({ name: "", title: "", description: "", videoUrl: "", videoDuration: "0:01:00" });
-      toast({
-        title: "Success!",
-        description: "Template created successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create template",
-        variant: "destructive",
-      });
-    },
-  });
-
   const updateTemplateMutation = useMutation({
     mutationFn: async (data: typeof formData & { id: string }) => {
       const response = await apiRequest("PUT", `/api/templates/${data.id}`, data);
@@ -116,23 +83,6 @@ export default function TemplatesPage() {
     },
   });
 
-  const handleCreate = () => {
-    if (!formData.name.trim() || !formData.title.trim()) {
-      toast({
-        title: "Error",
-        description: "Name and Title are required",
-        variant: "destructive",
-      });
-      return;
-    }
-    createTemplateMutation.mutate(formData);
-  };
-
-  const handleUpdate = () => {
-    if (selectedTemplate) {
-      updateTemplateMutation.mutate({ ...formData, id: selectedTemplate.id });
-    }
-  };
 
   const handleEditClick = (template: Template) => {
     setSelectedTemplate(template);
@@ -157,6 +107,16 @@ export default function TemplatesPage() {
     return date.toLocaleDateString();
   };
 
+  if (isCreatePageOpen) {
+    return (
+      <TemplateCreatePage
+        onBack={() => {
+          setIsCreatePageOpen(false);
+        }}
+      />
+    );
+  }
+
   if (selectedTemplate && isEditDialogOpen) {
     return (
       <TemplateEditPage
@@ -178,37 +138,37 @@ export default function TemplatesPage() {
 
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Issue templates</h2>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
+        <Card className="border border-gray-200 shadow-sm">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-base font-semibold text-gray-900">
                 {templates?.length || 0} Issue templates
               </h3>
               <Button
-                onClick={() => setIsCreateDialogOpen(true)}
+                onClick={() => setIsCreatePageOpen(true)}
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8"
+                className="w-8 h-8 hover:bg-gray-100 rounded-lg"
               >
                 <Plus className="w-5 h-5 text-gray-700" />
               </Button>
             </div>
 
-            <div className="space-y-0">
+            <div className="divide-y divide-gray-200">
               {isLoading ? (
                 <div className="text-center py-8 text-gray-500">Loading templates...</div>
               ) : templates && templates.length > 0 ? (
                 templates.map((template) => (
                   <div
                     key={template.id}
-                    className="flex items-center justify-between p-4 border-b last:border-b-0 hover:bg-gray-50 group cursor-pointer"
+                    className="flex items-center justify-between p-4 hover:bg-gray-50 group cursor-pointer transition-colors"
                     onClick={() => handleEditClick(template)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-5 h-5 border-2 border-gray-300 rounded-full"></div>
-                      <div>
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-5 h-5 border-2 border-gray-300 rounded-full flex-shrink-0"></div>
+                      <div className="flex-1">
                         <div className="font-medium text-gray-900">{template.name}</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 mt-0.5">
                           {formatDate(template.updatedAt)}
                         </div>
                       </div>
@@ -216,7 +176,7 @@ export default function TemplatesPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="opacity-0 group-hover:opacity-100 w-8 h-8"
+                      className="opacity-0 group-hover:opacity-100 w-8 h-8 transition-opacity text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (confirm("Are you sure you want to delete this template?")) {
@@ -224,7 +184,7 @@ export default function TemplatesPage() {
                         }
                       }}
                     >
-                      <Trash2 className="w-4 h-4 text-red-600" />
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 ))
@@ -236,68 +196,6 @@ export default function TemplatesPage() {
         </Card>
       </div>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Create Issue Template</DialogTitle>
-            <DialogDescription>
-              Create a new template for issues
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Name</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Template name"
-              />
-            </div>
-            <div>
-              <Label>Title</Label>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Issue title"
-              />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Add description..."
-                rows={4}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Video URL</Label>
-                <Input
-                  value={formData.videoUrl}
-                  onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                  placeholder="Enter video URL"
-                />
-              </div>
-              <div>
-                <Label>Video Duration (seconds)</Label>
-                <Input
-                  value={formData.videoDuration}
-                  onChange={(e) => setFormData({ ...formData, videoDuration: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={createTemplateMutation.isPending}>
-              {createTemplateMutation.isPending ? "Creating..." : "Create Template"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

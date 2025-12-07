@@ -20,25 +20,9 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Plus, X, User, MoreHorizontal, Flag, ChevronDown, Folder } from "lucide-react";
+import { ArrowLeft, Plus, X, User, MoreHorizontal, Flag, ChevronDown, Folder, Globe } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useLocation } from "wouter";
-
-type Template = {
-  id: string;
-  name: string;
-  title: string;
-  description: string | null;
-  videoUrl: string | null;
-  videoDuration: string | null;
-  teamId?: string | null;
-  defaultStatus?: string | null;
-  defaultPriority?: string | null;
-  defaultAssigneeId?: string | null;
-  defaultProjectId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
 
 type TemplateTask = {
   id: string;
@@ -70,33 +54,23 @@ type Team = {
   description: string | null;
 };
 
-export default function TemplateEditPage({ template, onBack }: { template: Template; onBack: () => void }) {
+export default function TemplateCreatePage({ onBack }: { onBack: () => void }) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [formData, setFormData] = useState({
-    name: template.name,
-    title: template.title,
-    description: template.description || "",
-    videoUrl: template.videoUrl || "",
-    videoDuration: template.videoDuration || "0:01:00",
-    teamId: template.teamId || null,
-    defaultStatus: template.defaultStatus || "todo",
-    defaultPriority: template.defaultPriority || "no_priority",
-    defaultAssigneeId: template.defaultAssigneeId || null,
-    defaultProjectId: template.defaultProjectId || null,
+    name: "",
+    title: "",
+    description: "",
+    videoUrl: "",
+    videoDuration: "0:01:00",
+    teamId: null as string | null,
+    defaultStatus: "backlog",
+    defaultPriority: "no_priority",
+    defaultAssigneeId: null as string | null,
+    defaultProjectId: null as string | null,
   });
 
-  const [tasks, setTasks] = useState<TemplateTask[]>([]);
-  const [newTaskName, setNewTaskName] = useState("");
-
-  // Fetch template tasks
-  const { data: templateTasks } = useQuery<TemplateTask[]>({
-    queryKey: ["/api/templates", template.id, "tasks"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/templates/${template.id}/tasks`);
-      return await response.json();
-    },
-  });
+  const [tasks, setTasks] = useState<Omit<TemplateTask, "id" | "templateId">[]>([]);
 
   // Fetch members (for assignee selection) - filtered by team
   const { data: members } = useQuery<Member[]>({
@@ -119,7 +93,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
     },
   });
 
-  // Fetch teams (or create default teams based on member roles)
+  // Fetch teams
   const { data: teams } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
     queryFn: async () => {
@@ -138,120 +112,82 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
     },
   });
 
-  // Update local tasks when templateTasks changes
-  useEffect(() => {
-    if (templateTasks) {
-      setTasks(templateTasks.sort((a, b) => a.order - b.order));
-    }
-  }, [templateTasks]);
-
-  const updateTemplateMutation = useMutation({
+  const createTemplateMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await apiRequest("PATCH", `/api/templates/${template.id}`, data);
+      const response = await apiRequest("POST", "/api/templates", {
+        name: data.name,
+        title: data.title,
+        description: data.description || null,
+        videoUrl: data.videoUrl || null,
+        videoDuration: data.videoDuration || null,
+        teamId: data.teamId,
+        defaultStatus: data.defaultStatus,
+        defaultPriority: data.defaultPriority,
+        defaultAssigneeId: data.defaultAssigneeId,
+        defaultProjectId: data.defaultProjectId,
+      });
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (newTemplate) => {
+      // Create tasks for the template
+      if (tasks.length > 0) {
+        await Promise.all(
+          tasks
+            .filter((task) => task.name && task.name.trim())
+            .map(async (task, index) => {
+              const response = await apiRequest("POST", `/api/templates/${newTemplate.id}/tasks`, {
+                name: task.name.trim(),
+                points: task.points || 0,
+                priority: task.priority || "no_priority",
+                assignedTo: task.assignedTo || null,
+                order: index,
+              });
+              return await response.json();
+            })
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/templates", template.id] });
       toast({
         title: "Success!",
-        description: "Template updated successfully.",
+        description: "Template created successfully.",
       });
       onBack();
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update template",
+        description: error.message || "Failed to create template",
         variant: "destructive",
       });
     },
   });
 
-  const addTaskMutation = useMutation({
-    mutationFn: async (taskName: string) => {
-      const response = await apiRequest("POST", `/api/templates/${template.id}/tasks`, {
-        name: taskName,
-        points: 0,
-        priority: "no_priority",
-        order: tasks.length,
-      });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates", template.id, "tasks"] });
-      setNewTaskName("");
-    },
-    onError: (error: any) => {
+  const handleCreate = () => {
+    if (!formData.name.trim() || !formData.title.trim()) {
       toast({
         title: "Error",
-        description: error.message || "Failed to add task",
+        description: "Name and Title are required",
         variant: "destructive",
       });
-    },
-  });
-
-  const updateTaskMutation = useMutation({
-    mutationFn: async (data: { taskId: string; name?: string; points?: number; priority?: string; assignedTo?: string | null }) => {
-      const response = await apiRequest("PATCH", `/api/templates/${template.id}/tasks/${data.taskId}`, {
-        name: data.name,
-        points: data.points,
-        priority: data.priority,
-        assignedTo: data.assignedTo,
-      });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates", template.id, "tasks"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update task",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteTaskMutation = useMutation({
-    mutationFn: async (taskId: string) => {
-      const response = await apiRequest("DELETE", `/api/templates/${template.id}/tasks/${taskId}`, {});
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates", template.id, "tasks"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete task",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleUpdate = () => {
-    updateTemplateMutation.mutate(formData);
+      return;
+    }
+    createTemplateMutation.mutate(formData);
   };
 
   const handleAddTask = () => {
-    if (newTaskName.trim()) {
-      addTaskMutation.mutate(newTaskName.trim());
-    }
+    setTasks([...tasks, { name: "", points: 0, priority: "no_priority", assignedTo: null, order: tasks.length }]);
   };
 
-  const handleTaskUpdate = (taskId: string, field: string, value: any) => {
-    // Update local state immediately for better UX
+  const handleTaskUpdate = (index: number, field: string, value: any) => {
     setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === taskId ? { ...task, [field]: value } : task
+      prevTasks.map((task, i) =>
+        i === index ? { ...task, [field]: value } : task
       )
     );
-    // Then sync with server
-    updateTaskMutation.mutate({
-      taskId,
-      [field]: value,
-    });
+  };
+
+  const handleRemoveTask = (index: number) => {
+    setTasks((prevTasks) => prevTasks.filter((_, i) => i !== index));
   };
 
   const getAssignedMember = (memberId: string | null) => {
@@ -288,7 +224,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold mb-6">Edit issue template</h1>
+      <h1 className="text-3xl font-bold mb-6">Create issue template</h1>
 
       {/* Name Field */}
       <div>
@@ -297,6 +233,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           className="text-lg font-semibold border-gray-300"
+          placeholder="Template name"
         />
       </div>
 
@@ -324,15 +261,15 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Drive Location / Video URL</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Video URL</Label>
               <Input
                 value={formData.videoUrl}
                 onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                placeholder="Enter video URL or drive location"
+                placeholder="Enter video URL"
               />
             </div>
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Video Duration (seconds)</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Video Duration (HH:MM:SS)</Label>
               <Input
                 value={formData.videoDuration}
                 onChange={(e) => setFormData({ ...formData, videoDuration: e.target.value })}
@@ -346,8 +283,8 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
             {/* Team Selector */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 flex items-center gap-1">
-                  <Folder className="w-4 h-4" />
+                <Button variant="outline" size="sm" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 h-8 text-sm px-2.5">
+                  <Globe className="w-3 h-3 text-gray-500" />
                   {getSelectedTeam()?.name || "Team"} <ChevronDown className="w-3 h-3 ml-1" />
                 </Button>
               </PopoverTrigger>
@@ -370,8 +307,8 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
             {/* Status Selector */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100 flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                <Button variant="outline" size="sm" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 h-8 text-sm px-2.5">
+                  <div className="w-3 h-3 rounded-full bg-orange-500"></div>
                   {statusOptions.find(s => s.value === formData.defaultStatus)?.label || "Status"} <ChevronDown className="w-3 h-3 ml-1" />
                 </Button>
               </PopoverTrigger>
@@ -393,8 +330,8 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
             {/* Priority Selector */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="hover:bg-gray-100">
-                  <MoreHorizontal className="w-4 h-4 mr-1" />
+                <Button variant="outline" size="sm" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 h-8 text-sm px-2.5">
+                  <MoreHorizontal className="w-3 h-3 text-gray-600" />
                   {priorityOptions.find(p => p.value === formData.defaultPriority)?.label || "No Priority"} <ChevronDown className="w-3 h-3 ml-1" />
                 </Button>
               </PopoverTrigger>
@@ -416,10 +353,10 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
             {/* Assignee Selector */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="hover:bg-gray-100 flex items-center gap-1">
+                <Button variant="outline" size="sm" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 h-8 text-sm px-2.5">
                   {getSelectedAssignee() ? (
                     <>
-                      <Avatar className="w-4 h-4 mr-0">
+                      <Avatar className="w-3 h-3 mr-0">
                         <AvatarFallback className="text-[10px]">
                           {getSelectedAssignee()?.fullName?.[0] || getSelectedAssignee()?.username[0] || "?"}
                         </AvatarFallback>
@@ -428,7 +365,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
                     </>
                   ) : (
                     <>
-                      <User className="w-4 h-4 mr-1" />
+                      <User className="w-3 h-3 text-gray-600" />
                       Assignee
                     </>
                   )}
@@ -464,8 +401,8 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
             {/* Project Selector */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100">
-                  <Flag className="w-4 h-4 mr-1" />
+                <Button variant="outline" size="sm" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 h-8 text-sm px-2.5">
+                  <Flag className="w-3 h-3 text-gray-600" />
                   {getSelectedProject()?.name || "Project"} <ChevronDown className="w-3 h-3 ml-1" />
                 </Button>
               </PopoverTrigger>
@@ -504,18 +441,18 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
           </div>
 
           <div className="space-y-3">
-            {tasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+            {tasks.map((task, index) => (
+              <div key={index} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
                 <Input
                   value={task.name}
-                  onChange={(e) => handleTaskUpdate(task.id, "name", e.target.value)}
+                  onChange={(e) => handleTaskUpdate(index, "name", e.target.value)}
                   className="flex-1 bg-white border-gray-300"
                   placeholder="Task name"
                 />
                 <Input
                   type="number"
                   value={task.points}
-                  onChange={(e) => handleTaskUpdate(task.id, "points", parseInt(e.target.value) || 0)}
+                  onChange={(e) => handleTaskUpdate(index, "points", parseInt(e.target.value) || 0)}
                   className="w-20 bg-white border-gray-300"
                   placeholder="0"
                   min="0"
@@ -532,7 +469,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
                       {priorityOptions.map((priority) => (
                         <button
                           key={priority.value}
-                          onClick={() => handleTaskUpdate(task.id, "priority", priority.value)}
+                          onClick={() => handleTaskUpdate(index, "priority", priority.value)}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
                         >
                           {priority.label}
@@ -561,7 +498,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
                   <PopoverContent className="w-56 p-0">
                     <div className="p-1">
                       <button
-                        onClick={() => handleTaskUpdate(task.id, "assignedTo", null)}
+                        onClick={() => handleTaskUpdate(index, "assignedTo", null)}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
                       >
                         Unassigned
@@ -570,7 +507,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
                         members.map((member) => (
                           <button
                             key={member.id}
-                            onClick={() => handleTaskUpdate(task.id, "assignedTo", member.id)}
+                            onClick={() => handleTaskUpdate(index, "assignedTo", member.id)}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2"
                           >
                             <Avatar className="w-5 h-5">
@@ -592,7 +529,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => deleteTaskMutation.mutate(task.id)}
+                  onClick={() => handleRemoveTask(index)}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50 w-8 h-8 flex-shrink-0"
                 >
                   <X className="w-4 h-4" />
@@ -600,28 +537,14 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
               </div>
             ))}
 
-            <div className="flex items-center gap-2 pt-2">
-              <Input
-                value={newTaskName}
-                onChange={(e) => setNewTaskName(e.target.value)}
-                placeholder="Task name"
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    handleAddTask();
-                  }
-                }}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleAddTask}
-                variant="outline"
-                disabled={!newTaskName.trim() || addTaskMutation.isPending}
-                className="flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add task
-              </Button>
-            </div>
+            <Button
+              onClick={handleAddTask}
+              variant="outline"
+              className="flex items-center gap-2 bg-black text-white hover:bg-gray-900 border-0"
+            >
+              <Plus className="w-4 h-4" />
+              Add task
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -632,13 +555,14 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
           Cancel
         </Button>
         <Button
-          onClick={handleUpdate}
-          disabled={updateTemplateMutation.isPending}
+          onClick={handleCreate}
+          disabled={createTemplateMutation.isPending}
           className="bg-gray-900 text-white hover:bg-gray-800"
         >
-          {updateTemplateMutation.isPending ? "Updating..." : "Update"}
+          {createTemplateMutation.isPending ? "Creating..." : "Create"}
         </Button>
       </div>
     </div>
   );
 }
+

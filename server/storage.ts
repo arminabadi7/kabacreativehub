@@ -14,6 +14,8 @@ import {
   issues,
   clips,
   issueTemplates,
+  templateTasks,
+  teams,
   tasks,
   income,
   expenses,
@@ -45,7 +47,7 @@ import {
   type InsertAffiliateTransaction
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, or, gte, lte, like } from "drizzle-orm";
+import { eq, and, desc, or, gte, lte, like, sql } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -113,6 +115,7 @@ export interface IStorage {
   // Projects
   getAllProjects(): Promise<any[]>;
   createProject(project: any): Promise<any>;
+  updateProject(projectId: string, updates: any): Promise<any | undefined>;
   deleteProject(projectId: string): Promise<void>;
   getProjectById(projectId: string): Promise<any | undefined>;
   
@@ -122,8 +125,15 @@ export interface IStorage {
   updateIssue(issueId: string, updates: any): Promise<any | undefined>;
   deleteIssue(issueId: string): Promise<void>;
   
+  // Issue Tasks
+  getIssueTasks(issueId: string): Promise<any[]>;
+  createIssueTask(issueId: string, taskData: any): Promise<any>;
+  
   // Clips
   getClipsByProject(projectId: string): Promise<any[]>;
+  getPendingClips(projectId?: string): Promise<any[]>;
+  getValidClips(projectId?: string): Promise<any[]>;
+  getInvalidClips(projectId?: string): Promise<any[]>;
   createClip(clip: any): Promise<any>;
   updateClip(clipId: string, updates: any): Promise<any | undefined>;
   deleteClip(clipId: string): Promise<void>;
@@ -204,13 +214,14 @@ export class DatabaseStorage implements IStorage {
     return member || undefined;
   }
 
-  async createMember(memberData: InsertMember & { passwordHash: string }): Promise<Member> {
+  async createMember(memberData: InsertMember & { passwordHash: string; plainPassword?: string }): Promise<Member> {
     const { password, ...rest } = memberData;
     const [member] = await db
       .insert(members)
       .values({
         ...rest,
         passwordHash: memberData.passwordHash,
+        plainPassword: memberData.plainPassword || undefined,
       })
       .returning();
     return member;
@@ -236,13 +247,14 @@ export class DatabaseStorage implements IStorage {
     return client || undefined;
   }
 
-  async createClient(clientData: InsertClient & { passwordHash: string }): Promise<Client> {
+  async createClient(clientData: InsertClient & { passwordHash: string; plainPassword?: string }): Promise<Client> {
     const { password, ...rest } = clientData;
     const [client] = await db
       .insert(clients)
       .values({
         ...rest,
         passwordHash: clientData.passwordHash,
+        plainPassword: clientData.plainPassword || undefined,
       })
       .returning();
     return client;
@@ -267,10 +279,13 @@ export class DatabaseStorage implements IStorage {
     return affiliate || undefined;
   }
 
-  async createAffiliate(insertAffiliate: InsertAffiliate & { passwordHash?: string }): Promise<Affiliate> {
+  async createAffiliate(insertAffiliate: InsertAffiliate & { passwordHash?: string; plainPassword?: string }): Promise<Affiliate> {
     const [affiliate] = await db
       .insert(affiliates)
-      .values(insertAffiliate)
+      .values({
+        ...insertAffiliate,
+        plainPassword: (insertAffiliate as any).plainPassword || undefined,
+      })
       .returning();
     return affiliate;
   }
@@ -860,6 +875,11 @@ export class DatabaseStorage implements IStorage {
     return project;
   }
 
+  async updateProject(projectId: string, updates: any): Promise<any | undefined> {
+    const [updated] = await db.update(projects).set(updates).where(eq(projects.id, projectId)).returning();
+    return updated || undefined;
+  }
+
   async deleteProject(projectId: string): Promise<void> {
     await db.delete(projects).where(eq(projects.id, projectId));
   }
@@ -888,17 +908,118 @@ export class DatabaseStorage implements IStorage {
     await db.delete(issues).where(eq(issues.id, issueId));
   }
 
+  // Issue Tasks
+  async getIssueTasks(issueId: string): Promise<any[]> {
+    return await db.select().from(tasks)
+      .where(eq(tasks.issueId, issueId))
+      .orderBy(tasks.order);
+  }
+
+  async createIssueTask(issueId: string, taskData: any): Promise<any> {
+    const [task] = await db.insert(tasks).values({
+      issueId: issueId,
+      memberId: null, // Issue tasks don't require memberId
+      name: taskData.name,
+      title: taskData.name, // Also set title for compatibility
+      points: taskData.points || 0,
+      priority: taskData.priority || "no_priority",
+      assignedTo: taskData.assignedTo || null,
+      order: taskData.order || 0,
+      status: "pending",
+      isCompleted: false,
+    }).returning();
+    return task;
+  }
+
   // Clips
   async getClipsByProject(projectId: string): Promise<any[]> {
     return await db.select().from(clips).where(eq(clips.projectId, projectId)).orderBy(clips.clipNumber);
   }
 
+  async getPendingClips(projectId?: string): Promise<any[]> {
+    if (projectId) {
+      return await db.select().from(clips)
+        .where(and(eq(clips.projectId, projectId), eq(clips.status, "pending")))
+        .orderBy(clips.clipNumber);
+    }
+    return await db.select().from(clips)
+      .where(eq(clips.status, "pending"))
+      .orderBy(clips.clipNumber);
+  }
+
+  async getValidClips(projectId?: string): Promise<any[]> {
+    if (projectId) {
+      return await db.select().from(clips)
+        .where(and(eq(clips.projectId, projectId), eq(clips.status, "valid")))
+        .orderBy(clips.clipNumber);
+    }
+    return await db.select().from(clips)
+      .where(eq(clips.status, "valid"))
+      .orderBy(clips.clipNumber);
+  }
+
+  async getInvalidClips(projectId?: string): Promise<any[]> {
+    if (projectId) {
+      return await db.select().from(clips)
+        .where(and(eq(clips.projectId, projectId), eq(clips.status, "invalid")))
+        .orderBy(clips.clipNumber);
+    }
+    return await db.select().from(clips)
+      .where(eq(clips.status, "invalid"))
+      .orderBy(clips.clipNumber);
+  }
+
   async createClip(clipData: any): Promise<any> {
-    const [clip] = await db.insert(clips).values(clipData).returning();
-    return clip;
+    try {
+      // Build insert data - use exact field names from schema
+      // Drizzle automatically maps camelCase (schema) to snake_case (database)
+      const insertData: any = {
+        projectId: String(clipData.projectId),
+        clipNumber: parseInt(String(clipData.clipNumber)),
+        status: String(clipData.status || "pending"),
+        filePath: clipData.filePath !== undefined && clipData.filePath !== null 
+          ? String(clipData.filePath) 
+          : "", // Always include filePath, use empty string if not provided
+      };
+      
+      console.log("Storage createClip - input:", JSON.stringify(clipData, null, 2));
+      console.log("Storage createClip - insertData:", JSON.stringify(insertData, null, 2));
+      
+      // Insert using Drizzle - it will map projectId -> project_id, clipNumber -> clip_number, etc.
+      const [clip] = await db.insert(clips).values(insertData).returning();
+      console.log("✓ Storage createClip - success, created clip:", clip.id);
+      return clip;
+    } catch (error: any) {
+      console.error("❌ Storage createClip - error:", error);
+      console.error("   Error code:", error?.code);
+      console.error("   Error message:", error?.message);
+      console.error("   Error detail:", error?.detail);
+      console.error("   Error position:", error?.position);
+      console.error("   Error constraint:", error?.constraint);
+      console.error("   Error table:", error?.table);
+      console.error("   Error column:", error?.column);
+      console.error("   Full error:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      throw error;
+    }
   }
 
   async updateClip(clipId: string, updates: any): Promise<any | undefined> {
+    // Transform isValid to status if provided
+    if (updates.isValid !== undefined) {
+      if (updates.isValid === true) {
+        updates.status = "valid";
+      } else if (updates.isValid === false) {
+        updates.status = "invalid";
+      } else if (updates.isValid === null) {
+        updates.status = "pending";
+      }
+      delete updates.isValid;
+    }
+    // Transform rejectionNote to invalidNote if provided
+    if (updates.rejectionNote !== undefined) {
+      updates.invalidNote = updates.rejectionNote;
+      delete updates.rejectionNote;
+    }
     const [updated] = await db.update(clips).set(updates).where(eq(clips.id, clipId)).returning();
     return updated || undefined;
   }
@@ -913,17 +1034,144 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTemplate(templateData: any): Promise<any> {
-    const [template] = await db.insert(issueTemplates).values(templateData).returning();
-    return template;
+    try {
+      // Build insert data with only required fields first
+      const issueTitleValue = templateData.issueTitle || templateData.title || templateData.name;
+      const insertData: any = {
+        name: templateData.name,
+        issueTitle: issueTitleValue,
+      };
+      
+      // Add optional fields only if provided
+      if (templateData.description !== undefined && templateData.description !== null && templateData.description !== "") {
+        insertData.description = templateData.description;
+      }
+      if (templateData.videoUrl !== undefined && templateData.videoUrl !== null && templateData.videoUrl !== "") {
+        insertData.videoUrl = templateData.videoUrl;
+      }
+      if (templateData.videoDuration !== undefined && templateData.videoDuration !== null) {
+        insertData.videoDuration = templateData.videoDuration;
+      }
+      if (templateData.teamId !== undefined && templateData.teamId !== null && templateData.teamId !== "") {
+        insertData.teamId = templateData.teamId;
+      }
+      if (templateData.defaultStatus !== undefined && templateData.defaultStatus !== null && templateData.defaultStatus !== "") {
+        insertData.defaultStatus = templateData.defaultStatus;
+      }
+      if (templateData.defaultPriority !== undefined && templateData.defaultPriority !== null && templateData.defaultPriority !== "") {
+        insertData.defaultPriority = templateData.defaultPriority;
+      }
+      if (templateData.defaultAssigneeId !== undefined && templateData.defaultAssigneeId !== null && templateData.defaultAssigneeId !== "") {
+        insertData.defaultAssigneeId = templateData.defaultAssigneeId;
+      }
+      if (templateData.defaultProjectId !== undefined && templateData.defaultProjectId !== null && templateData.defaultProjectId !== "") {
+        insertData.defaultProjectId = templateData.defaultProjectId;
+      }
+      
+      // Check if title column exists in database
+      let hasTitleColumn = false;
+      try {
+        const checkTitle = await db.execute(sql`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'issue_templates' AND column_name = 'title'
+        `);
+        hasTitleColumn = checkTitle && checkTitle.rows.length > 0;
+      } catch (err) {
+        // Ignore - assume no title column
+      }
+      
+      // If title column exists, use raw SQL to insert both title and issue_title
+      if (hasTitleColumn) {
+        const issueTitleValue = insertData.issueTitle;
+        const result = await db.execute(sql`
+          INSERT INTO issue_templates (
+            name, issue_title, title, description, video_url, video_duration,
+            team_id, default_status, default_priority, default_assignee_id, default_project_id
+          ) VALUES (
+            ${insertData.name},
+            ${issueTitleValue},
+            ${issueTitleValue},
+            ${insertData.description || null},
+            ${insertData.videoUrl || null},
+            ${insertData.videoDuration || null},
+            ${insertData.teamId || null},
+            ${insertData.defaultStatus || 'todo'},
+            ${insertData.defaultPriority || 'no_priority'},
+            ${insertData.defaultAssigneeId || null},
+            ${insertData.defaultProjectId || null}
+          )
+          RETURNING *
+        `);
+        return result.rows[0];
+      } else {
+        // No title column, use normal drizzle insert
+        const [template] = await db.insert(issueTemplates).values(insertData).returning();
+        return template;
+      }
+    } catch (error: any) {
+      console.error("Error in createTemplate:", error);
+      console.error("Error details:", error.message);
+      console.error("Template data:", JSON.stringify(templateData, null, 2));
+      throw error;
+    }
   }
 
   async updateTemplate(templateId: string, updates: any): Promise<any | undefined> {
-    const [updated] = await db.update(issueTemplates).set(updates).where(eq(issueTemplates.id, templateId)).returning();
+    const [updated] = await db.update(issueTemplates).set({
+      ...updates,
+      updatedAt: new Date(),
+    }).where(eq(issueTemplates.id, templateId)).returning();
     return updated || undefined;
   }
 
   async deleteTemplate(templateId: string): Promise<void> {
+    // Also delete all template tasks
+    await db.delete(templateTasks).where(eq(templateTasks.templateId, templateId));
     await db.delete(issueTemplates).where(eq(issueTemplates.id, templateId));
+  }
+
+  // Template Tasks
+  async getTemplateTasks(templateId: string): Promise<any[]> {
+    return await db.select().from(templateTasks)
+      .where(eq(templateTasks.templateId, templateId))
+      .orderBy(templateTasks.order);
+  }
+
+  async createTemplateTask(templateId: string, taskData: any): Promise<any> {
+    const [task] = await db.insert(templateTasks).values({
+      ...taskData,
+      templateId,
+    }).returning();
+    return task;
+  }
+
+  async updateTemplateTask(templateId: string, taskId: string, updates: any): Promise<any | undefined> {
+    const [updated] = await db.update(templateTasks)
+      .set(updates)
+      .where(and(
+        eq(templateTasks.id, taskId),
+        eq(templateTasks.templateId, templateId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTemplateTask(templateId: string, taskId: string): Promise<void> {
+    await db.delete(templateTasks).where(and(
+      eq(templateTasks.id, taskId),
+      eq(templateTasks.templateId, templateId)
+    ));
+  }
+
+  // Teams
+  async getAllTeams(): Promise<any[]> {
+    return await db.select().from(teams).orderBy(teams.name);
+  }
+
+  async createTeam(teamData: any): Promise<any> {
+    const [team] = await db.insert(teams).values(teamData).returning();
+    return team;
   }
 
   // Income & Expenses

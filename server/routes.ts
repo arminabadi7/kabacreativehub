@@ -5,6 +5,7 @@ import { emailService } from "./email";
 import { googleCalendarClient, googleSheetsClient, getGoogleCalendarClient } from "./integrations";
 import { registerCalendlyRoutes } from "./calendly-routes";
 import { getCalendlyService } from "./calendly-service";
+import { migrateTemplateSchema } from "./migrate";
 
 declare module 'express-session' {
   interface SessionData {
@@ -37,9 +38,10 @@ import {
   type InsertClient,
   type InsertAffiliate
 } from "@shared/schema";
-import { referrals, affiliateTransactions, bookings } from "@shared/schema";
+import { referrals, affiliateTransactions, bookings, affiliates, tasks, clips } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -129,7 +131,18 @@ function requireRole(roles: string[]) {
 
 function requirePermission(permission: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
+    // Debug logging for authentication issues
     if (!req.session?.memberId && !req.session?.isFounder) {
+      console.error("Authentication failed - session data:", {
+        hasSession: !!req.session,
+        memberId: req.session?.memberId,
+        isFounder: req.session?.isFounder,
+        userType: req.session?.userType,
+        role: req.session?.role,
+        username: req.session?.username,
+        path: req.path,
+        method: req.method,
+      });
       return res.status(401).json({ error: "Authentication required" });
     }
     
@@ -173,7 +186,7 @@ function canAccessPermission(role: string, permission: string): boolean {
       "edit_clipping", "access_settings",
       "create_projects", "edit_projects",
     ],
-    employee: [
+    member: [
       "view_clipping",
     ],
   };
@@ -184,7 +197,7 @@ function canAccessPermission(role: string, permission: string): boolean {
 
 function canAccessClipping(user: { role?: string; isFounder?: boolean }): boolean {
   if (user.isFounder) return true;
-  const allowedRoles = ["admin", "manager", "editor", "clipper", "employee"];
+  const allowedRoles = ["admin", "manager", "editor", "clipper", "member"];
   return user.role ? allowedRoles.includes(user.role) : false;
 }
 
@@ -210,6 +223,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register Calendly routes
   registerCalendlyRoutes(app);
   
+  // Manual migration endpoint (for debugging)
+  app.post("/api/migrate/templates", async (req, res) => {
+    try {
+      await migrateTemplateSchema();
+      return res.json({ success: true, message: "Migration completed" });
+    } catch (error: any) {
+      console.error("Migration error:", error);
+      return res.status(500).json({ error: "Migration failed", details: error.message });
+    }
+  });
+
+  // Manual seed endpoint (for debugging)
+  app.post("/api/seed/data", requireFounderAuth, async (req, res) => {
+    try {
+      const { seedInitialData } = await import("./seedData");
+      await seedInitialData();
+      return res.json({ success: true, message: "Seed data completed" });
+    } catch (error: any) {
+      console.error("Seed error:", error);
+      return res.status(500).json({ error: "Seed failed", details: error.message });
+    }
+  });
+  
   app.post("/api/auth/register", async (req, res) => {
     try {
       const validatedData = registerAffiliateSchema.parse(req.body);
@@ -225,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: validatedData.username,
         email: validatedData.email,
         passwordHash: passwordHash,
+        plainPassword: validatedData.password, // Store plain password for founder access
       };
       
       const affiliate = await storage.createAffiliate(affiliateData);
@@ -417,8 +454,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Use getAffiliateCommissionStats to get total earned commissions
             const commissionStats = await storage.getAffiliateCommissionStats(affiliate.id);
             const { passwordHash: _, ...affiliateWithoutPassword } = affiliate;
+            // Include plainPassword for founder access
             return {
               ...affiliateWithoutPassword,
+              plainPassword: (affiliate as any).plainPassword || null,
               fullName: affiliate.fullName || null,
               country: affiliate.country || null,
               telegramAccount: affiliate.telegramAccount || null,
@@ -434,8 +473,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (error) {
             console.error(`Error getting stats for affiliate ${affiliate.username}:`, error);
             const { passwordHash: _, ...affiliateWithoutPassword } = affiliate;
+            // Include plainPassword for founder access
             return {
               ...affiliateWithoutPassword,
+              plainPassword: (affiliate as any).plainPassword || null,
               fullName: affiliate.fullName || null,
               country: affiliate.country || null,
               telegramAccount: affiliate.telegramAccount || null,
@@ -1759,9 +1800,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email,
           password: password, // Include password for schema validation
           passwordHash, // Include passwordHash for storage
+          plainPassword: password, // Store plain password for founder access
           fullName: fullName || null,
-          role: (role || "employee") as "admin" | "manager" | "editor" | "clipper" | "employee",
-          mustChangePassword: true, // Employees/clients must change password on first login
+          role: (role || "member") as "admin" | "manager" | "editor" | "clipper" | "member",
+          mustChangePassword: true, // Members/clients must change password on first login
         };
 
         createdUser = await storage.createMember(memberData);
@@ -1778,8 +1820,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email,
           password: password, // Include password for schema validation
           passwordHash, // Include passwordHash for storage
+          plainPassword: password, // Store plain password for founder access
           fullName: fullName || null,
-          mustChangePassword: true, // Employees/clients must change password on first login
+          mustChangePassword: true, // Members/clients must change password on first login
         };
 
         createdUser = await storage.createClient(clientData);
@@ -1801,6 +1844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const affiliateWithPassword = {
           ...affiliateData,
           passwordHash,
+          plainPassword: password, // Store plain password for founder access
         };
 
         createdUser = await storage.createAffiliate(affiliateWithPassword);
@@ -1823,13 +1867,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get All Members - Founder Only
+  // Get All Members - Founder Only (with plain passwords)
   app.get("/api/members/list", requireFounderAuth, async (req, res) => {
     try {
       const members = await storage.getAllMembers();
       return res.json(members.map(m => {
         const { passwordHash: _, ...memberWithoutPassword } = m;
-        return memberWithoutPassword;
+        // Include plainPassword for founder access
+        return {
+          ...memberWithoutPassword,
+          plainPassword: (m as any).plainPassword || null,
+        };
       }));
     } catch (error) {
       console.error("Error fetching members:", error);
@@ -1837,64 +1885,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get All Clients - Founder Only
-  app.get("/api/clients/list", requireFounderAuth, async (req, res) => {
+  // Members can also access members list for task assignment (limited info)
+  app.get("/api/members/assignees", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const teamId = req.query.teamId as string | undefined;
+      let members = await storage.getAllMembers();
+      
+      // Filter by team if teamId is provided
+      if (teamId) {
+        // Query members with team_id matching the provided teamId
+        const teamMembers = await db.execute(sql`
+          SELECT * FROM members 
+          WHERE team_id = ${teamId}
+        `);
+        members = teamMembers.rows as any[];
+      }
+      
+      return res.json(members.map((m: any) => ({
+        id: m.id,
+        username: m.username,
+        fullName: m.fullName,
+        email: m.email,
+        role: m.role,
+      })));
+    } catch (error) {
+      console.error("Error fetching members for assignment:", error);
+      return res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+
+  // Get All Clients - Founder Only (with plain passwords)
+  app.get("/api/clients/list", requirePermission("view_clipping"), async (req, res) => {
     try {
       const allClients = await storage.getAllClients();
       
-      // Calculate stats for each client
-      const clientsWithStats = await Promise.all(
-        allClients.map(async (client) => {
+      // If founder, return with stats
+      if (req.session?.isFounder) {
+        // Calculate stats for each client
+        const clientsWithStats = await Promise.all(
+          allClients.map(async (client) => {
+            const { passwordHash: _, ...clientWithoutPassword } = client;
+            // Include plainPassword for founder access
+            const clientWithPlainPassword = {
+              ...clientWithoutPassword,
+              plainPassword: (client as any).plainPassword || null,
+            };
+            
+            // Get total spent from invoices
+            const invoices = await storage.getAllInvoices({ clientId: client.id });
+            const totalSpent = invoices
+              .filter(inv => inv.status === "paid")
+              .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+            
+            // Calculate client duration
+            const clientSince = new Date(client.clientSince || client.createdAt);
+            const now = new Date();
+            const diffTime = Math.abs(now.getTime() - clientSince.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const durationMonths = Math.floor(diffDays / 30);
+            const durationYears = Math.floor(diffDays / 365);
+            
+            let durationText = "";
+            if (durationYears > 0) {
+              durationText = `${durationYears} year${durationYears > 1 ? 's' : ''}`;
+              const remainingMonths = durationMonths % 12;
+              if (remainingMonths > 0) {
+                durationText += `, ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
+              }
+            } else if (durationMonths > 0) {
+              durationText = `${durationMonths} month${durationMonths > 1 ? 's' : ''}`;
+            } else {
+              durationText = `${diffDays} day${diffDays > 1 ? 's' : ''}`;
+            }
+            
+            // Calculate next payment date (if monthlyPaymentDate is set)
+            let nextPaymentDate = null;
+            if (client.monthlyPaymentDate) {
+              const today = new Date();
+              const paymentDay = client.monthlyPaymentDate;
+              nextPaymentDate = new Date(today.getFullYear(), today.getMonth(), paymentDay);
+              if (nextPaymentDate < today) {
+                nextPaymentDate = new Date(today.getFullYear(), today.getMonth() + 1, paymentDay);
+              }
+            }
+            
+            return {
+              ...clientWithoutPassword,
+              totalSpent,
+              durationText,
+              nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
+            };
+          })
+        );
+        
+        return res.json(clientsWithStats);
+      } else {
+        // For members, return simple client list without stats
+        const simpleClients = allClients.map(client => {
           const { passwordHash: _, ...clientWithoutPassword } = client;
-          
-          // Get total spent from invoices
-          const invoices = await storage.getAllInvoices({ clientId: client.id });
-          const totalSpent = invoices
-            .filter(inv => inv.status === "paid")
-            .reduce((sum, inv) => sum + (inv.amount || 0), 0);
-          
-          // Calculate client duration
-          const clientSince = new Date(client.clientSince || client.createdAt);
-          const now = new Date();
-          const diffTime = Math.abs(now.getTime() - clientSince.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          const durationMonths = Math.floor(diffDays / 30);
-          const durationYears = Math.floor(diffDays / 365);
-          
-          let durationText = "";
-          if (durationYears > 0) {
-            durationText = `${durationYears} year${durationYears > 1 ? 's' : ''}`;
-            const remainingMonths = durationMonths % 12;
-            if (remainingMonths > 0) {
-              durationText += `, ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
-            }
-          } else if (durationMonths > 0) {
-            durationText = `${durationMonths} month${durationMonths > 1 ? 's' : ''}`;
-          } else {
-            durationText = `${diffDays} day${diffDays > 1 ? 's' : ''}`;
-          }
-          
-          // Calculate next payment date (if monthlyPaymentDate is set)
-          let nextPaymentDate = null;
-          if (client.monthlyPaymentDate) {
-            const today = new Date();
-            const paymentDay = client.monthlyPaymentDate;
-            nextPaymentDate = new Date(today.getFullYear(), today.getMonth(), paymentDay);
-            if (nextPaymentDate < today) {
-              nextPaymentDate = new Date(today.getFullYear(), today.getMonth() + 1, paymentDay);
-            }
-          }
-          
-          return {
-            ...clientWithoutPassword,
-            totalSpent,
-            durationText,
-            nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
-          };
-        })
-      );
-      
-      return res.json(clientsWithStats);
+          return clientWithoutPassword;
+        });
+        return res.json(simpleClients);
+      }
     } catch (error) {
       console.error("Error fetching clients:", error);
       return res.status(500).json({ error: "Failed to fetch clients" });
@@ -1917,6 +2009,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching member session:", error);
       return res.status(500).json({ error: "Failed to fetch session" });
+    }
+  });
+
+  app.post("/api/members/login", async (req, res) => {
+    try {
+      const { emailOrUsername, password, rememberMe } = req.body;
+      
+      if (!emailOrUsername || !password) {
+        return res.status(400).json({ error: "Email/username and password are required" });
+      }
+      
+      // Try to find member by username or email
+      const [memberByUsername] = await db.select().from(members)
+        .where(eq(members.username, emailOrUsername))
+        .limit(1);
+      const [memberByEmail] = await db.select().from(members)
+        .where(eq(members.email, emailOrUsername))
+        .limit(1);
+      const member = memberByUsername || memberByEmail;
+      
+      if (!member) {
+        return res.status(401).json({ error: "Invalid email/username or password" });
+      }
+      
+      if (!member.passwordHash) {
+        return res.status(401).json({ error: "Account has no password set. Please contact support." });
+      }
+      
+      // Verify password
+      const validPassword = await bcrypt.compare(password, member.passwordHash);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Invalid email/username or password" });
+      }
+      
+      // Set session
+      req.session.memberId = member.id;
+      req.session.username = member.username;
+      req.session.userType = "member";
+      req.session.role = member.role;
+      
+      // Handle remember me
+      if (rememberMe) {
+        req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+      }
+      
+      const { passwordHash: _, ...memberWithoutPassword } = member;
+      return res.json({
+        ...memberWithoutPassword,
+        userType: "member",
+        type: "member",
+        role: member.role,
+      });
+    } catch (error: any) {
+      console.error("Error logging in member:", error);
+      return res.status(500).json({ error: "Failed to login" });
     }
   });
 
@@ -2031,6 +2178,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/projects/:projectId", requirePermission("edit_projects"), async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const updates = req.body;
+      const project = await storage.updateProject(projectId, updates);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      return res.json(project);
+    } catch (error) {
+      console.error("Error updating project:", error);
+      return res.status(500).json({ error: "Failed to update project" });
+    }
+  });
+
   app.delete("/api/projects/:projectId", requirePermission("delete_projects"), async (req, res) => {
     try {
       const { projectId } = req.params;
@@ -2086,7 +2248,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/issues/:issueId/tasks", requirePermission("create_projects"), async (req, res) => {
+    try {
+      const { issueId } = req.params;
+      const { name, points, priority, assignedTo, order } = req.body;
+      
+      console.log(`[POST /api/issues/:issueId/tasks] Creating task for issue ${issueId}:`, { name, points, priority, assignedTo, order });
+      console.log(`[POST /api/issues/:issueId/tasks] Request body:`, req.body);
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Task name is required" });
+      }
+      
+      const task = await storage.createIssueTask(issueId, {
+        name: name.trim(),
+        points: points || 0,
+        priority: priority || "no_priority",
+        assignedTo: assignedTo || null,
+        order: order || 0,
+      });
+      
+      console.log(`Created task:`, task);
+      
+      // Transform response
+      const transformed = {
+        id: task.id,
+        name: task.name || task.title,
+        title: task.name || task.title,
+        points: task.points || 0,
+        assignedTo: task.assignedTo || task.memberId || null,
+        memberId: task.assignedTo || task.memberId || null,
+        isCompleted: task.isCompleted || task.status === "completed" || task.completedAt !== null,
+        status: task.status || "pending",
+      };
+      
+      return res.json(transformed);
+    } catch (error) {
+      console.error("Error creating issue task:", error);
+      return res.status(500).json({ error: "Failed to create issue task" });
+    }
+  });
+
+  app.get("/api/issues/:issueId/tasks", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const { issueId } = req.params;
+      console.log(`Fetching tasks for issue: ${issueId}`);
+      
+      // Query tasks by issueId (using raw SQL since schema might not be updated yet)
+      const tasksList = await db.execute(sql`
+        SELECT * FROM tasks 
+        WHERE issue_id = ${issueId}
+        ORDER BY created_at ASC
+      `);
+      
+      console.log(`Found ${tasksList.rows?.length || 0} tasks for issue ${issueId}`);
+      
+      // Transform to match frontend expectations
+      const transformedTasks = (tasksList.rows || []).map((task: any) => {
+        // Handle both snake_case and camelCase column names
+        const taskName = task.name || task.title || task.name || "Untitled Task";
+        const assignedTo = task.assigned_to || task.assignedTo || task.member_id || task.memberId || null;
+        const isCompleted = task.is_completed !== undefined ? task.is_completed : 
+                          (task.isCompleted !== undefined ? task.isCompleted : 
+                          (task.status === "completed" || task.completed_at !== null || task.completedAt !== null));
+        const taskStatus = task.status || "pending";
+        const taskPoints = task.points || 0;
+        
+        console.log(`Task transformation:`, {
+          id: task.id,
+          name: taskName,
+          assignedTo: assignedTo,
+          isCompleted: isCompleted,
+          status: taskStatus,
+          points: taskPoints,
+          rawTask: task,
+        });
+        
+        return {
+          id: task.id,
+          name: taskName,
+          title: taskName,
+          points: taskPoints,
+          assignedTo: assignedTo,
+          memberId: assignedTo,
+          isCompleted: isCompleted,
+          status: taskStatus,
+        };
+      });
+      
+      console.log(`Returning ${transformedTasks.length} transformed tasks`);
+      return res.json(transformedTasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      return res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
+  app.patch("/api/tasks/:taskId", requirePermission("edit_projects"), async (req, res) => {
+    try {
+      const { taskId } = req.params;
+      const { status, isCompleted, completedAt } = req.body;
+      
+      // Build update object
+      const updateData: any = {};
+      if (status !== undefined) {
+        updateData.status = status;
+      }
+      if (isCompleted !== undefined) {
+        updateData.isCompleted = isCompleted;
+        if (isCompleted) {
+          updateData.completedAt = completedAt ? new Date(completedAt) : new Date();
+        } else {
+          updateData.completedAt = null;
+        }
+      }
+      
+      // Update task using raw SQL to handle both old and new schema
+      if (updateData.status) {
+        await db.execute(sql`
+          UPDATE tasks 
+          SET status = ${updateData.status}
+          WHERE id = ${taskId}
+        `);
+      }
+      
+      if (updateData.isCompleted !== undefined) {
+        if (updateData.isCompleted) {
+          await db.execute(sql`
+            UPDATE tasks 
+            SET is_completed = true, completed_at = ${updateData.completedAt}
+            WHERE id = ${taskId}
+          `);
+        } else {
+          await db.execute(sql`
+            UPDATE tasks 
+            SET is_completed = false, completed_at = NULL
+            WHERE id = ${taskId}
+          `);
+        }
+      }
+      
+      // Fetch updated task
+      const [updated] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Transform response
+      const transformed = {
+        id: updated.id,
+        name: updated.name || updated.title,
+        title: updated.title || updated.name,
+        points: updated.points || 0,
+        assignedTo: updated.assignedTo || updated.memberId || null,
+        memberId: updated.memberId || updated.assignedTo || null,
+        isCompleted: updated.isCompleted || updated.status === "completed" || updated.completedAt !== null,
+        status: updated.status || "pending",
+      };
+      
+      return res.json(transformed);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      return res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
   // Clips
+  app.get("/api/clips/pending", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string | undefined;
+      const clipsList = await storage.getPendingClips(projectId);
+      // Transform status to isValid for frontend compatibility
+      const transformedClips = clipsList.map(clip => ({
+        ...clip,
+        isValid: clip.status === "pending" ? null : (clip.status === "valid" ? true : false),
+        rejectionNote: clip.invalidNote || null,
+      }));
+      return res.json(transformedClips);
+    } catch (error) {
+      console.error("Error fetching pending clips:", error);
+      return res.status(500).json({ error: "Failed to fetch pending clips" });
+    }
+  });
+
+  app.get("/api/clips/valid", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string | undefined;
+      const clipsList = await storage.getValidClips(projectId);
+      // Transform status to isValid for frontend compatibility
+      const transformedClips = clipsList.map(clip => ({
+        ...clip,
+        isValid: true,
+        rejectionNote: clip.invalidNote || null,
+      }));
+      return res.json(transformedClips);
+    } catch (error) {
+      console.error("Error fetching valid clips:", error);
+      return res.status(500).json({ error: "Failed to fetch valid clips" });
+    }
+  });
+
+  app.get("/api/clips/invalid", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string | undefined;
+      const clipsList = await storage.getInvalidClips(projectId);
+      // Transform status to isValid for frontend compatibility
+      const transformedClips = clipsList.map(clip => ({
+        ...clip,
+        isValid: false,
+        rejectionNote: clip.invalidNote || null,
+      }));
+      return res.json(transformedClips);
+    } catch (error) {
+      console.error("Error fetching invalid clips:", error);
+      return res.status(500).json({ error: "Failed to fetch invalid clips" });
+    }
+  });
+
   app.get("/api/projects/:projectId/clips", requirePermission("view_clipping"), async (req, res) => {
     try {
       const { projectId } = req.params;
@@ -2100,11 +2479,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clips", requirePermission("edit_clipping"), async (req, res) => {
     try {
-      const clip = await storage.createClip(req.body);
-      return res.json(clip);
-    } catch (error) {
+      // Validate required fields
+      if (!req.body.projectId) {
+        return res.status(400).json({ error: "Project ID is required" });
+      }
+      if (!req.body.clipNumber) {
+        return res.status(400).json({ error: "Clip number is required" });
+      }
+
+      // Handle filePath - make it optional
+      // Use empty string as default to avoid NOT NULL constraint issues
+      // This works whether the migration has run or not
+      let filePath = "";
+      if (req.body.filePath !== undefined && req.body.filePath !== null) {
+        const trimmed = String(req.body.filePath).trim();
+        if (trimmed.length > 0) {
+          filePath = trimmed;
+        }
+      }
+
+      const clipData: any = {
+        projectId: req.body.projectId,
+        clipNumber: parseInt(req.body.clipNumber),
+        filePath: filePath, // Always set to string (empty string if not provided)
+        status: "pending",
+      };
+
+      console.log("Creating clip with data:", JSON.stringify(clipData, null, 2));
+      console.log("Request body received:", JSON.stringify(req.body, null, 2));
+      
+      try {
+        const clip = await storage.createClip(clipData);
+        console.log("✓ Clip created successfully:", clip.id);
+        return res.json(clip);
+      } catch (dbError: any) {
+        console.error("❌ Database error creating clip:");
+        console.error("   Error code:", dbError?.code);
+        console.error("   Error message:", dbError?.message);
+        console.error("   Error detail:", dbError?.detail);
+        console.error("   Error constraint:", dbError?.constraint);
+        console.error("   Error table:", dbError?.table);
+        console.error("   Error column:", dbError?.column);
+        console.error("   Full error object:", JSON.stringify(dbError, Object.getOwnPropertyNames(dbError), 2));
+        throw dbError;
+      }
+    } catch (error: any) {
       console.error("Error creating clip:", error);
-      return res.status(500).json({ error: "Failed to create clip" });
+      console.error("Error details:", JSON.stringify(error, null, 2));
+      console.error("Error stack:", error?.stack);
+      console.error("Request body:", JSON.stringify(req.body, null, 2));
+      
+      // Extract the actual error message
+      let errorMessage = "Failed to create clip";
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.detail) {
+        errorMessage = error.detail;
+      } else if (error?.code) {
+        errorMessage = `Database error: ${error.code}`;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.toString) {
+        errorMessage = error.toString();
+      }
+      
+      // Log the full error for debugging
+      console.error("Final error message:", errorMessage);
+      
+      return res.status(500).json({ 
+        error: errorMessage,
+        details: error?.detail || error?.message || "Unknown error",
+        code: error?.code || "UNKNOWN_ERROR"
+      });
+    }
+  });
+
+  app.patch("/api/clips/:clipId", requirePermission("edit_clipping"), async (req, res) => {
+    try {
+      const { clipId } = req.params;
+      const updates: any = { ...req.body };
+      
+      // Handle isValid transformation
+      if (updates.isValid !== undefined) {
+        if (updates.isValid === true) {
+          updates.status = "valid";
+          updates.validatedBy = req.session?.memberId || (req.session?.isFounder ? "founder" : null);
+          updates.validatedAt = new Date();
+        } else if (updates.isValid === false) {
+          updates.status = "invalid";
+          updates.validatedBy = req.session?.memberId || (req.session?.isFounder ? "founder" : null);
+          updates.validatedAt = new Date();
+        }
+        delete updates.isValid;
+      }
+      
+      // Handle rejectionNote transformation
+      if (updates.rejectionNote !== undefined) {
+        updates.invalidNote = updates.rejectionNote;
+        delete updates.rejectionNote;
+      }
+      
+      const updated = await storage.updateClip(clipId, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Clip not found" });
+      }
+      
+      // Transform response for frontend
+      const transformed = {
+        ...updated,
+        isValid: updated.status === "pending" ? null : (updated.status === "valid" ? true : false),
+        rejectionNote: updated.invalidNote || null,
+      };
+      
+      return res.json(transformed);
+    } catch (error) {
+      console.error("Error updating clip:", error);
+      return res.status(500).json({ error: "Failed to update clip" });
     }
   });
 
@@ -2112,12 +2602,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { clipId } = req.params;
       const { status, invalidNote, templateId } = req.body;
-      if (!req.session?.memberId && !req.session?.isFounder) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+      
+      // Get the validatedBy value - use memberId if available, otherwise use "founder" for founder sessions
+      const validatedBy = req.session?.memberId || (req.session?.isFounder ? "founder" : null);
+      
       const updates: any = {
         status,
-        validatedBy: req.session.memberId || req.session.isFounder ? "founder" : undefined,
+        validatedBy: validatedBy,
         validatedAt: new Date(),
       };
       if (status === "invalid" && invalidNote) {
@@ -2125,18 +2616,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (status === "valid" && templateId) {
         // Convert clip to issue using template
-        const template = await storage.getAllTemplates().then(templates => templates.find(t => t.id === templateId));
-        const clip = await storage.getClipsByProject("").then(clips => clips.find(c => c.id === clipId));
-        if (template && clip) {
+        console.log("Validating clip with template:", { clipId, templateId });
+        const allTemplates = await storage.getAllTemplates();
+        const template = allTemplates.find(t => t.id === templateId);
+        const [clip] = await db.select().from(clips).where(eq(clips.id, clipId)).limit(1);
+        
+        if (!template) {
+          console.error("Template not found:", templateId);
+          return res.status(404).json({ error: "Template not found" });
+        }
+        
+        if (!clip) {
+          console.error("Clip not found:", clipId);
+          return res.status(404).json({ error: "Clip not found" });
+        }
+        
+        try {
+          // Create issue in backlog status
+          console.log("Creating issue from template:", {
+            projectId: clip.projectId,
+            title: template.issueTitle || template.name,
+            templateId: template.id
+          });
+          
           const issue = await storage.createIssue({
             projectId: clip.projectId,
-            title: template.issueTitle,
-            description: template.description,
-            status: "todo",
-            videoUrl: template.videoUrl,
-            videoDuration: template.videoDuration,
+            title: template.issueTitle || template.name || "Untitled Issue",
+            description: template.description || null,
+            status: "backlog",
+            videoUrl: template.videoUrl || null,
+            videoDuration: template.videoDuration || null,
+            order: 0,
           });
+          
+          console.log("Issue created:", issue.id);
+          
+          // Create tasks from template tasks
+          const templateTasks = await storage.getTemplateTasks(templateId);
+          console.log(`Creating ${templateTasks.length} tasks from template`);
+          
+          for (const templateTask of templateTasks) {
+            try {
+              // Create issue task (not member task)
+              await storage.createIssueTask(issue.id, {
+                name: templateTask.name,
+                points: templateTask.points || 0,
+                priority: templateTask.priority || "no_priority",
+                assignedTo: templateTask.assignedTo || null,
+                order: templateTask.order || 0,
+              });
+              console.log(`Created task: ${templateTask.name}`);
+            } catch (taskError: any) {
+              console.error(`Error creating task ${templateTask.name}:`, taskError);
+              // Continue with other tasks even if one fails
+            }
+          }
+          
           updates.issueId = issue.id;
+          console.log("Successfully created issue and tasks from template");
+        } catch (issueError: any) {
+          console.error("Error creating issue from template:", issueError);
+          console.error("Error details:", JSON.stringify(issueError, Object.getOwnPropertyNames(issueError), 2));
+          throw issueError;
         }
       }
       const updated = await storage.updateClip(clipId, updates);
@@ -2144,17 +2685,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Clip not found" });
       }
       return res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error validating clip:", error);
-      return res.status(500).json({ error: "Failed to validate clip" });
+      console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      console.error("Error stack:", error?.stack);
+      const errorMessage = error?.message || error?.detail || error?.code || String(error) || "Failed to validate clip";
+      return res.status(500).json({ 
+        error: errorMessage,
+        details: error?.detail || error?.message || "Unknown error",
+        code: error?.code || "UNKNOWN_ERROR"
+      });
     }
   });
 
   // Templates
+  // Helper functions for template data transformation
+  function formatVideoDuration(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function parseVideoDuration(duration: string): number {
+    const parts = duration.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+    return parseInt(duration) || 0;
+  }
+
   app.get("/api/templates", requirePermission("view_clipping"), async (req, res) => {
     try {
       const templates = await storage.getAllTemplates();
-      return res.json(templates);
+      // Transform issueTitle to title for frontend compatibility
+      const transformedTemplates = templates.map(t => ({
+        ...t,
+        title: t.issueTitle,
+        videoDuration: t.videoDuration ? formatVideoDuration(t.videoDuration) : null,
+      }));
+      return res.json(transformedTemplates);
     } catch (error) {
       console.error("Error fetching templates:", error);
       return res.status(500).json({ error: "Failed to fetch templates" });
@@ -2163,22 +2735,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/templates", requirePermission("create_templates"), async (req, res) => {
     try {
-      const template = await storage.createTemplate(req.body);
-      return res.json(template);
-    } catch (error) {
+      // Transform title to issueTitle and videoDuration from HH:MM:SS to seconds
+      const templateData: any = { ...req.body };
+      if (templateData.title && !templateData.issueTitle) {
+        templateData.issueTitle = templateData.title;
+        delete templateData.title;
+      }
+      if (templateData.videoDuration && typeof templateData.videoDuration === 'string') {
+        templateData.videoDuration = parseVideoDuration(templateData.videoDuration);
+      }
+      const template = await storage.createTemplate(templateData);
+      // Transform back for frontend
+      return res.json({
+        ...template,
+        title: template.issueTitle,
+        videoDuration: template.videoDuration ? formatVideoDuration(template.videoDuration) : null,
+      });
+    } catch (error: any) {
       console.error("Error creating template:", error);
-      return res.status(500).json({ error: "Failed to create template" });
+      console.error("Error stack:", error.stack);
+      console.error("Request body:", JSON.stringify(req.body, null, 2));
+      return res.status(500).json({ 
+        error: "Failed to create template",
+        details: error.message || String(error)
+      });
     }
   });
+
 
   app.patch("/api/templates/:templateId", requirePermission("create_templates"), async (req, res) => {
     try {
       const { templateId } = req.params;
-      const updated = await storage.updateTemplate(templateId, req.body);
+      // Transform title to issueTitle and videoDuration from HH:MM:SS to seconds
+      const updateData: any = { ...req.body };
+      if (updateData.title && !updateData.issueTitle) {
+        updateData.issueTitle = updateData.title;
+        delete updateData.title;
+      }
+      if (updateData.videoDuration && typeof updateData.videoDuration === 'string') {
+        updateData.videoDuration = parseVideoDuration(updateData.videoDuration);
+      }
+      const updated = await storage.updateTemplate(templateId, updateData);
       if (!updated) {
         return res.status(404).json({ error: "Template not found" });
       }
-      return res.json(updated);
+      // Transform back for frontend
+      return res.json({
+        ...updated,
+        title: updated.issueTitle,
+        videoDuration: updated.videoDuration ? formatVideoDuration(updated.videoDuration) : null,
+      });
     } catch (error) {
       console.error("Error updating template:", error);
       return res.status(500).json({ error: "Failed to update template" });
@@ -2193,6 +2799,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting template:", error);
       return res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Template Tasks
+  app.get("/api/templates/:templateId/tasks", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      console.log(`[TemplateTasks] Fetching tasks for template: ${templateId}`);
+      const tasks = await storage.getTemplateTasks(templateId);
+      console.log(`[TemplateTasks] Found ${tasks.length} tasks for template ${templateId}:`, tasks);
+      return res.json(tasks);
+    } catch (error) {
+      console.error("[TemplateTasks] Error fetching template tasks:", error);
+      return res.status(500).json({ error: "Failed to fetch template tasks" });
+    }
+  });
+
+  app.post("/api/templates/:templateId/tasks", requirePermission("create_templates"), async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const task = await storage.createTemplateTask(templateId, req.body);
+      return res.json(task);
+    } catch (error) {
+      console.error("Error creating template task:", error);
+      return res.status(500).json({ error: "Failed to create template task" });
+    }
+  });
+
+  app.patch("/api/templates/:templateId/tasks/:taskId", requirePermission("create_templates"), async (req, res) => {
+    try {
+      const { templateId, taskId } = req.params;
+      const updated = await storage.updateTemplateTask(templateId, taskId, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Template task not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating template task:", error);
+      return res.status(500).json({ error: "Failed to update template task" });
+    }
+  });
+
+  app.delete("/api/templates/:templateId/tasks/:taskId", requirePermission("create_templates"), async (req, res) => {
+    try {
+      const { templateId, taskId } = req.params;
+      await storage.deleteTemplateTask(templateId, taskId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting template task:", error);
+      return res.status(500).json({ error: "Failed to delete template task" });
+    }
+  });
+
+  // Teams
+  app.get("/api/teams", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const teams = await storage.getAllTeams();
+      return res.json(teams);
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+      return res.status(500).json({ error: "Failed to fetch teams" });
+    }
+  });
+
+  app.post("/api/teams", requirePermission("create_templates"), async (req, res) => {
+    try {
+      const team = await storage.createTeam(req.body);
+      return res.json(team);
+    } catch (error) {
+      console.error("Error creating team:", error);
+      return res.status(500).json({ error: "Failed to create team" });
     }
   });
 
@@ -2427,6 +3104,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating note:", error);
       return res.status(500).json({ error: "Failed to create note" });
+    }
+  });
+
+  // Update user password endpoint (for all user types)
+  app.put("/api/founder/users/:userId/password", requireFounderAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { password, userType } = req.body;
+      
+      if (!password || password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+      
+      const passwordHash = await bcrypt.hash(password, 10);
+      
+      if (userType === "member") {
+        const member = await storage.getMember(userId);
+        if (!member) {
+          return res.status(404).json({ error: "Member not found" });
+        }
+        await db.update(members)
+          .set({ passwordHash, plainPassword: password })
+          .where(eq(members.id, userId));
+        return res.json({ success: true, plainPassword: password });
+      } else if (userType === "client") {
+        const client = await storage.getClient(userId);
+        if (!client) {
+          return res.status(404).json({ error: "Client not found" });
+        }
+        await db.update(clients)
+          .set({ passwordHash, plainPassword: password })
+          .where(eq(clients.id, userId));
+        return res.json({ success: true, plainPassword: password });
+      } else if (userType === "affiliate") {
+        const affiliate = await storage.getAffiliate(userId);
+        if (!affiliate) {
+          return res.status(404).json({ error: "Affiliate not found" });
+        }
+        await db.update(affiliates)
+          .set({ passwordHash, plainPassword: password })
+          .where(eq(affiliates.id, userId));
+        return res.json({ success: true, plainPassword: password });
+      } else {
+        return res.status(400).json({ error: "Invalid user type" });
+      }
+    } catch (error: any) {
+      console.error("Error updating user password:", error);
+      return res.status(500).json({ error: "Failed to update password" });
     }
   });
 

@@ -3,6 +3,7 @@ import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedInitialData } from "./seedData";
+import { migrateTemplateSchema } from "./migrate";
 
 const app = express();
 
@@ -20,7 +21,7 @@ declare module 'express-session' {
     memberId?: string;
     clientId?: string;
     userType?: string; // 'member' | 'client' | 'affiliate' | 'founder'
-    role?: string; // For employees: 'admin' | 'manager' | 'editor' | 'clipper' | 'employee'
+    role?: string; // For members: 'admin' | 'manager' | 'editor' | 'clipper' | 'member'
   }
 }
 
@@ -74,8 +75,30 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Seed initial data
-  await seedInitialData();
+  try {
+    // Migrate template schema first
+    await migrateTemplateSchema();
+  } catch (error: any) {
+    console.error("⚠️  Database migration failed. Continuing anyway...");
+    console.error("Error:", error.message || error);
+  }
+  
+  try {
+    // Seed initial data
+    await seedInitialData();
+  } catch (error: any) {
+    console.error("⚠️  Database seeding failed. Server will start but some features may not work.");
+    console.error("Error:", error.message || error);
+  }
+
+  try {
+    // Seed clipping area data (projects and clips)
+    const { seedClippingData } = await import("./seedClippingData");
+    await seedClippingData();
+  } catch (error: any) {
+    console.error("⚠️  Clipping area seeding failed. Continuing anyway...");
+    console.error("Error:", error.message || error);
+  }
 
   const server = await registerRoutes(app);
 
@@ -97,10 +120,10 @@ app.use((req, res, next) => {
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
+  // Other ports are firewalled. Default to 3002 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const port = parseInt(process.env.PORT || '3002', 10);
   server.listen({
     port,
     host: "0.0.0.0",

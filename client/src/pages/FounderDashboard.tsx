@@ -33,7 +33,8 @@ import {
   EyeOff,
   Edit,
   Trash2,
-  Search
+  Search,
+  Briefcase
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "wouter";
@@ -83,6 +84,8 @@ type Member = {
   fullName: string | null;
   role: string;
   passwordHash?: string;
+  createdAt: Date | string;
+  mustChangePassword?: boolean | null;
 };
 
 type Client = {
@@ -105,7 +108,7 @@ const createUserSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   fullName: z.string().optional(),
   accountType: z.enum(["member", "client", "affiliate"]),
-  role: z.enum(["admin", "manager", "editor", "clipper", "employee"]).optional(),
+  role: z.enum(["admin", "manager", "editor", "clipper", "member"]).optional(),
 });
 
 export default function FounderDashboard() {
@@ -126,6 +129,11 @@ export default function FounderDashboard() {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [selectedAffiliate, setSelectedAffiliate] = useState<AffiliateWithStats | null>(null);
   const [affiliateDetailDialogOpen, setAffiliateDetailDialogOpen] = useState(false);
+  
+  // Members section state (must be at top level for hooks)
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [memberDetailDialogOpen, setMemberDetailDialogOpen] = useState(false);
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
   
   // Update section when URL changes
   useEffect(() => {
@@ -151,7 +159,7 @@ export default function FounderDashboard() {
       password: "",
       fullName: "",
       accountType: "member" as const,
-      role: "employee" as const,
+      role: "member" as const,
     },
   });
 
@@ -210,7 +218,31 @@ export default function FounderDashboard() {
 
   const { data: members } = useQuery<Member[]>({
     queryKey: ["/api/members/list"],
-    enabled: !!founderSession && activeSection === "user-management",
+    enabled: !!founderSession && (activeSection === "user-management" || activeSection === "members"),
+  });
+
+  // Fetch member stats for all members (for points display)
+  const { data: allMemberStats } = useQuery<Record<string, { currentBalance: number; pointsEarned: number; pointsPaid: number }>>({
+    queryKey: ["/api/members/all-stats"],
+    queryFn: async () => {
+      if (!members || members.length === 0) return {};
+      const statsMap: Record<string, any> = {};
+      await Promise.all(
+        members.map(async (member) => {
+          try {
+            const res = await fetch(`/api/members/${member.id}/stats`, { credentials: "include" });
+            if (res.ok) {
+              const stats = await res.json();
+              statsMap[member.id] = stats;
+            }
+          } catch (error) {
+            console.error(`Error fetching stats for member ${member.id}:`, error);
+          }
+        })
+      );
+      return statsMap;
+    },
+    enabled: !!founderSession && !!members && members.length > 0 && (activeSection === "user-management" || activeSection === "members"),
   });
 
   const { data: clients } = useQuery<Array<Client & {
@@ -483,12 +515,6 @@ export default function FounderDashboard() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
-          <Link href="/">
-            <button className="mb-8 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-              Back to Home
-            </button>
-          </Link>
 
           <Card className="border-none shadow-lg">
             <CardHeader>
@@ -563,6 +589,9 @@ export default function FounderDashboard() {
     }
     if (activeSection === "clients") {
       return renderClientsSection();
+    }
+    if (activeSection === "members") {
+      return renderMembersSection();
     }
     if (activeSection === "bookings-clients") {
       return renderBookingsClientsSection();
@@ -1174,7 +1203,7 @@ export default function FounderDashboard() {
                           <div>
                             <Label className="text-xs text-gray-500">Client Since</Label>
                             <p className="text-sm font-medium">
-                              {new Date(client.clientSince || client.createdAt).toLocaleDateString()}
+                              {new Date(client.createdAt).toLocaleDateString()}
                             </p>
                           </div>
                           <div>
@@ -1545,6 +1574,269 @@ export default function FounderDashboard() {
     );
   };
 
+  const renderMembersSection = () => {
+    // Filter members based on search term
+    const filteredMembers = (members || []).filter((member) => {
+      const searchLower = memberSearchTerm.toLowerCase();
+      return (
+        member.username?.toLowerCase().includes(searchLower) ||
+        member.email?.toLowerCase().includes(searchLower) ||
+        member.fullName?.toLowerCase().includes(searchLower) ||
+        member.role?.toLowerCase().includes(searchLower)
+      );
+    });
+
+    // Group members by role
+    const membersByRole = filteredMembers.reduce((acc, member) => {
+      const role = member.role || "member";
+      if (!acc[role]) {
+        acc[role] = [];
+      }
+      acc[role].push(member);
+      return acc;
+    }, {} as Record<string, Member[]>);
+
+    const roleLabels: Record<string, string> = {
+      admin: "Admin",
+      manager: "Manager",
+      editor: "Editor",
+      clipper: "Clipper",
+      member: "Member",
+    };
+
+    const roleColors: Record<string, string> = {
+      admin: "bg-red-100 text-red-800 border-red-200",
+      manager: "bg-purple-100 text-purple-800 border-purple-200",
+      editor: "bg-blue-100 text-blue-800 border-blue-200",
+      clipper: "bg-green-100 text-green-800 border-green-200",
+      member: "bg-gray-100 text-gray-800 border-gray-200",
+    };
+
+    if (!founderSession) {
+      return null;
+    }
+
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Members</h1>
+            <p className="text-gray-600">Track and manage all members</p>
+          </div>
+          <Button
+            onClick={() => setCreateUserDialogOpen(true)}
+            className="bg-black text-white hover:bg-gray-900"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Member
+          </Button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search by name, email, username, or role..."
+              value={memberSearchTerm}
+              onChange={(e) => setMemberSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{members?.length || 0}</div>
+              <p className="text-sm text-gray-600">Total Members</p>
+            </CardContent>
+          </Card>
+          {Object.entries(roleLabels).map(([role, label]) => (
+            <Card key={role}>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">
+                  {membersByRole[role]?.length || 0}
+                </div>
+                <p className="text-sm text-gray-600">{label}s</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Members Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>All Members ({filteredMembers.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {filteredMembers.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Name</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Username</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Role</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Points</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Joined</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMembers.map((member) => (
+                      <tr
+                        key={member.id}
+                        className="border-b hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          setSelectedMember(member);
+                          setMemberDetailDialogOpen(true);
+                        }}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="font-medium">
+                            {member.fullName || member.username}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-gray-600">{member.username}</td>
+                        <td className="py-3 px-4 text-gray-600">{member.email}</td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${roleColors[member.role || "member"]}`}
+                          >
+                            {roleLabels[member.role || "member"]}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-600">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">
+                              {allMemberStats?.[member.id]?.currentBalance || 0} pts
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              Earned: {allMemberStats?.[member.id]?.pointsEarned || 0} | Paid: {allMemberStats?.[member.id]?.pointsPaid || 0}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-gray-600">
+                          {new Date(member.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedMember(member);
+                              setMemberDetailDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                {searchTerm ? "No members found matching your search" : "No members yet"}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Member Detail Dialog */}
+        <Dialog open={memberDetailDialogOpen} onOpenChange={setMemberDetailDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Member Details</DialogTitle>
+              <DialogDescription>
+                View and manage member information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedMember && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm text-gray-500">Full Name</Label>
+                    <p className="font-medium">{selectedMember.fullName || "Not set"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Username</Label>
+                    <p className="font-medium">{selectedMember.username}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Email</Label>
+                    <p className="font-medium">{selectedMember.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Role</Label>
+                    <p className="font-medium">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${roleColors[selectedMember.role || "member"]}`}
+                      >
+                        {roleLabels[selectedMember.role || "member"]}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Member Since</Label>
+                    <p className="font-medium">
+                      {new Date(selectedMember.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Must Change Password</Label>
+                    <p className="font-medium">
+                      {selectedMember.mustChangePassword ? "Yes" : "No"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Current Balance</Label>
+                    <p className="font-medium text-green-600">
+                      {allMemberStats?.[selectedMember.id]?.currentBalance || 0} pts
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Total Earned</Label>
+                    <p className="font-medium text-blue-600">
+                      {allMemberStats?.[selectedMember.id]?.pointsEarned || 0} pts
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-gray-500">Total Paid</Label>
+                    <p className="font-medium text-purple-600">
+                      {allMemberStats?.[selectedMember.id]?.pointsPaid || 0} pts
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditingUser(selectedMember);
+                      setEditUserDialogOpen(true);
+                      setMemberDetailDialogOpen(false);
+                    }}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Member
+                  </Button>
+                  <Button variant="outline" onClick={() => setMemberDetailDialogOpen(false)}>
+                    Close
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  };
+
   const renderUserManagementSection = () => {
     // Combine all users into a single array
     type UnifiedUser = (Member & { userType: "member"; type: "member" }) | 
@@ -1575,14 +1867,18 @@ export default function FounderDashboard() {
       }));
     };
 
-    const getPasswordForUser = (userId: string, userType: string) => {
-      // Check userPasswords first (for newly created users)
-      if (userPasswords[userId]) {
-        return userPasswords[userId];
+    const getPasswordForUser = (user: UnifiedUser) => {
+      // First check if user has plainPassword from database
+      if ((user as any).plainPassword) {
+        return (user as any).plainPassword;
+      }
+      // Check userPasswords (for newly created users)
+      if (userPasswords[user.id]) {
+        return userPasswords[user.id];
       }
       // Check affiliatePasswords for backward compatibility
-      if (userType === "affiliate" && affiliatePasswords[userId]) {
-        return affiliatePasswords[userId];
+      if (user.userType === "affiliate" && affiliatePasswords[user.id]) {
+        return affiliatePasswords[user.id];
       }
       return null;
     };
@@ -1640,7 +1936,7 @@ export default function FounderDashboard() {
                   ) : (
                     filteredUsers.map((user) => {
                       const userType = user.userType || (user as any).type || "unknown";
-                      const password = getPasswordForUser(user.id, userType);
+                      const password = getPasswordForUser(user);
                       const isPasswordRevealed = revealedPasswords[user.id];
                       
                       return (
@@ -1660,7 +1956,7 @@ export default function FounderDashboard() {
                               userType === "client" ? "bg-green-100 text-green-800" :
                               "bg-purple-100 text-purple-800"
                             }`}>
-                              {userType === "member" ? "Employee" :
+                              {userType === "member" ? "Member" :
                                userType === "client" ? "Client" :
                                "Affiliate"}
                             </span>
@@ -1953,7 +2249,7 @@ export default function FounderDashboard() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="member">Member (Employee)</SelectItem>
+                              <SelectItem value="member">Member</SelectItem>
                               <SelectItem value="client">Client</SelectItem>
                               <SelectItem value="affiliate">Affiliate</SelectItem>
                             </SelectContent>
@@ -2026,7 +2322,7 @@ export default function FounderDashboard() {
                           </FormControl>
                           <FormMessage />
                           <p className="text-xs text-muted-foreground">
-                            User will be required to change password on first login (for employees/clients)
+                            User will be required to change password on first login (for members/clients)
                           </p>
                         </FormItem>
                       )}
@@ -2053,7 +2349,7 @@ export default function FounderDashboard() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Role</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value || "employee"}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value || "member"}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select role" />
@@ -2064,7 +2360,7 @@ export default function FounderDashboard() {
                                 <SelectItem value="manager">Manager</SelectItem>
                                 <SelectItem value="editor">Editor</SelectItem>
                                 <SelectItem value="clipper">Clipper</SelectItem>
-                                <SelectItem value="employee">Employee</SelectItem>
+                                <SelectItem value="member">Member</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -2097,15 +2393,155 @@ export default function FounderDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user information and password.
+              </DialogDescription>
+            </DialogHeader>
+            {editingUser && (
+              <EditUserDialogContent
+                user={editingUser}
+                onClose={() => {
+                  setEditUserDialogOpen(false);
+                  setEditingUser(null);
+                }}
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/members/list"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/clients/list"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/founder/affiliates"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/founder/affiliates/all"] });
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   };
+
+  // Edit User Dialog Component
+  function EditUserDialogContent({ user, onClose, onSuccess }: { user: any; onClose: () => void; onSuccess: () => void }) {
+    const [newPassword, setNewPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const userType = user.userType || user.type || "unknown";
+    // Get password from stored passwords
+    const currentPassword = (user as any).plainPassword || userPasswords[user.id] || (userType === "affiliate" ? affiliatePasswords[user.id] : null) || null;
+
+    const updatePasswordMutation = useMutation({
+      mutationFn: async (password: string) => {
+        const response = await apiRequest("PUT", `/api/founder/users/${user.id}/password`, {
+          password,
+          userType,
+        });
+        return await response.json();
+      },
+      onSuccess: (data) => {
+        // Store the new password in state
+        setUserPasswords(prev => ({
+          ...prev,
+          [user.id]: data.plainPassword,
+        }));
+        onSuccess();
+        onClose();
+        toast({
+          title: "Success!",
+          description: "Password updated successfully.",
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update password",
+          variant: "destructive",
+        });
+      },
+    });
+
+    const handleUpdatePassword = () => {
+      if (!newPassword || newPassword.length < 8) {
+        toast({
+          title: "Error",
+          description: "Password must be at least 8 characters",
+          variant: "destructive",
+        });
+        return;
+      }
+      updatePasswordMutation.mutate(newPassword);
+    };
+
+    return (
+      <div className="space-y-4 py-4">
+        <div>
+          <Label>Username</Label>
+          <Input value={user.username} disabled className="bg-gray-50" />
+        </div>
+        <div>
+          <Label>Email</Label>
+          <Input value={user.email} disabled className="bg-gray-50" />
+        </div>
+        <div>
+          <Label>Current Password</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={currentPassword || "Not available"}
+              disabled
+              className="bg-gray-50 font-mono"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </Button>
+          </div>
+          {!currentPassword && (
+            <p className="text-xs text-gray-500 mt-1">
+              Password not available. Set a new password below.
+            </p>
+          )}
+        </div>
+        <div>
+          <Label>New Password</Label>
+          <Input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Enter new password (min 8 characters)"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Leave empty to keep current password
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdatePassword}
+            disabled={!newPassword || newPassword.length < 8 || updatePasswordMutation.isPending}
+            className="bg-black text-white hover:bg-gray-900"
+          >
+            {updatePasswordMutation.isPending ? "Updating..." : "Update Password"}
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+  }
 
   const menuItems = [
     { id: "members-dashboard", label: "Members Dashboard", icon: LayoutGrid },
     { id: "finances", label: "Finances", icon: DollarSign },
     { id: "affiliates", label: "Affiliates", icon: Users },
     { id: "clients", label: "Clients", icon: Building2 },
+    { id: "members", label: "Members", icon: Briefcase },
     { id: "bookings-clients", label: "Bookings & Clients", icon: Calendar },
     { id: "user-management", label: "User Management", icon: UserPlus },
   ];
@@ -2118,7 +2554,7 @@ export default function FounderDashboard() {
   return (
     <div className="min-h-screen bg-white flex">
       {/* Left Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen">
+      <div className="w-64 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen z-50">
         <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <Link href="/" className="flex items-center gap-2">
             <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />

@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CheckCircle2, XCircle, Plus, Edit2, Save, X } from "lucide-react";
+import { CheckCircle2, XCircle, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,28 +34,38 @@ type Project = {
   fileLocation: string | null;
 };
 
+type Template = {
+  id: string;
+  name: string;
+  title: string;
+  description: string | null;
+  teamId: string | null;
+};
+
 export default function ClippingArea() {
   const { toast } = useToast();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [addClipDialogOpen, setAddClipDialogOpen] = useState(false);
   const [addProjectDialogOpen, setAddProjectDialogOpen] = useState(false);
+  const [templateSelectDialogOpen, setTemplateSelectDialogOpen] = useState(false);
   const [selectedClip, setSelectedClip] = useState<Clip | null>(null);
-  const [editingClipId, setEditingClipId] = useState<string | null>(null);
-  const [editClipNumber, setEditClipNumber] = useState("");
-  const [editClipFilePath, setEditClipFilePath] = useState("");
   const [rejectionNote, setRejectionNote] = useState("");
   const [newClipNumber, setNewClipNumber] = useState("");
   const [newClipFilePath, setNewClipFilePath] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectFileLocation, setNewProjectFileLocation] = useState("");
-  const [projectFileLocation, setProjectFileLocation] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
-  const { data: clips, isLoading } = useQuery<Clip[]>({
+  const { data: templates } = useQuery<Template[]>({
+    queryKey: ["/api/templates"],
+  });
+
+  const { data: pendingClips, isLoading: isLoadingPending } = useQuery<Clip[]>({
     queryKey: ["/api/clips/pending", selectedProjectId],
     queryFn: async () => {
       const url = selectedProjectId 
@@ -67,89 +78,58 @@ export default function ClippingArea() {
     enabled: !!selectedProjectId,
   });
 
-  const selectedProject = projects?.find((p) => p.id === selectedProjectId);
-
-  // Update project file location state when project changes
-  useEffect(() => {
-    if (selectedProject) {
-      setProjectFileLocation(selectedProject.fileLocation || "");
-    }
-  }, [selectedProject]);
-
-  const pendingClips = clips || [];
-
-  const startEditing = (clip: Clip) => {
-    setEditingClipId(clip.id);
-    setEditClipNumber(clip.clipNumber.toString());
-    setEditClipFilePath(clip.filePath);
-  };
-
-  const cancelEditing = () => {
-    setEditingClipId(null);
-    setEditClipNumber("");
-    setEditClipFilePath("");
-  };
-
-  const updateClipMutation = useMutation({
-    mutationFn: async (data: { clipId: string; clipNumber?: number; filePath?: string }) => {
-      const response = await apiRequest("PATCH", `/api/clips/${data.clipId}`, {
-        clipNumber: data.clipNumber,
-        filePath: data.filePath,
-      });
-      return await response.json();
+  const { data: validClips, isLoading: isLoadingValid } = useQuery<Clip[]>({
+    queryKey: ["/api/clips/valid", selectedProjectId],
+    queryFn: async () => {
+      const url = selectedProjectId 
+        ? `/api/clips/valid?projectId=${selectedProjectId}`
+        : "/api/clips/valid";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch clips");
+      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clips/pending", selectedProjectId] });
-      setEditingClipId(null);
-      toast({
-        title: "Success!",
-        description: "Clip updated successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update clip",
-        variant: "destructive",
-      });
-    },
+    enabled: !!selectedProjectId,
   });
 
-  const handleSaveEdit = (clipId: string) => {
-    const clipNumber = parseInt(editClipNumber);
-    if (!clipNumber || !editClipFilePath.trim()) {
-      toast({
-        title: "Error",
-        description: "Clip number and file path are required",
-        variant: "destructive",
-      });
-      return;
-    }
-    updateClipMutation.mutate({
-      clipId,
-      clipNumber,
-      filePath: editClipFilePath.trim(),
-    });
-  };
+  const { data: invalidClips, isLoading: isLoadingInvalid } = useQuery<Clip[]>({
+    queryKey: ["/api/clips/invalid", selectedProjectId],
+    queryFn: async () => {
+      const url = selectedProjectId 
+        ? `/api/clips/invalid?projectId=${selectedProjectId}`
+        : "/api/clips/invalid";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch clips");
+      return res.json();
+    },
+    enabled: !!selectedProjectId,
+  });
 
-  const approveClipMutation = useMutation({
-    mutationFn: async (clipId: string) => {
-      const response = await apiRequest("PATCH", `/api/clips/${clipId}`, {
-        isValid: true,
+  const selectedProject = projects?.find((p) => p.id === selectedProjectId);
+
+  const validateClipMutation = useMutation({
+    mutationFn: async (data: { clipId: string; templateId?: string }) => {
+      const response = await apiRequest("PATCH", `/api/clips/${data.clipId}/validate`, {
+        status: "valid",
+        templateId: data.templateId,
       });
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clips/pending", selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clips/valid", selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "issues"] });
+      setTemplateSelectDialogOpen(false);
+      setSelectedClip(null);
+      setSelectedTemplateId("");
       toast({
         title: "Success!",
-        description: "Clip approved and moved to issues.",
+        description: "Clip validated and issue created in backlog.",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to approve clip",
+        description: error.message || "Failed to validate clip",
         variant: "destructive",
       });
     },
@@ -165,6 +145,7 @@ export default function ClippingArea() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clips/pending", selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clips/invalid", selectedProjectId] });
       setRejectDialogOpen(false);
       setRejectionNote("");
       setSelectedClip(null);
@@ -183,18 +164,28 @@ export default function ClippingArea() {
   });
 
   const addClipMutation = useMutation({
-    mutationFn: async (data: { clipNumber: number; filePath: string }) => {
+    mutationFn: async (data: { clipNumber: number; filePath?: string }) => {
       if (!selectedProjectId) {
-        throw new Error("No project selected");
+        throw new Error("Please select a project first");
       }
-      const response = await apiRequest("POST", "/api/clips", {
+      const requestBody: any = {
         projectId: selectedProjectId,
-        ...data,
-      });
+        clipNumber: data.clipNumber,
+      };
+      // Only include filePath if it's provided and not empty
+      // If empty or not provided, don't include it (backend will handle as null)
+      if (data.filePath && data.filePath.trim()) {
+        requestBody.filePath = data.filePath.trim();
+      }
+      // If filePath is empty, don't include it - backend will set to null
+      const response = await apiRequest("POST", "/api/clips", requestBody);
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clips/pending", selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clips/valid", selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clips/invalid", selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "clips"] });
       setAddClipDialogOpen(false);
       setNewClipNumber("");
       setNewClipFilePath("");
@@ -203,10 +194,57 @@ export default function ClippingArea() {
         description: "Clip added successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: async (error: any) => {
+      console.error("Add clip error:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error?.message);
+      
+      // Try to extract error message from response
+      let errorMessage = "Failed to add clip";
+      
+      if (error?.message) {
+        // Error format from apiRequest is usually "500: {\"error\":\"...\"}"
+        const message = error.message;
+        console.error("Raw error message:", message);
+        
+        // Try to extract JSON from the message
+        const jsonMatch = message.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const errorObj = JSON.parse(jsonMatch[0]);
+            console.error("Parsed error object:", errorObj);
+            errorMessage = errorObj.error || errorObj.details || errorObj.message || errorMessage;
+            if (errorObj.code) {
+              errorMessage += ` (Code: ${errorObj.code})`;
+            }
+          } catch (parseError) {
+            console.error("Failed to parse error JSON:", parseError);
+            // Fall back to extracting text after colon
+            const parts = message.split(":");
+            if (parts.length > 1) {
+              errorMessage = parts.slice(1).join(":").trim();
+            } else {
+              errorMessage = message;
+            }
+          }
+        } else {
+          // No JSON found, use the message as-is or extract after colon
+          if (message.includes(":")) {
+            const parts = message.split(":");
+            errorMessage = parts.slice(1).join(":").trim() || message;
+          } else {
+            errorMessage = message;
+          }
+        }
+      }
+      
+      // Show full error in console for debugging
+      console.error("Full error object:", error);
+      console.error("Final error message to display:", errorMessage);
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to add clip",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -236,31 +274,9 @@ export default function ClippingArea() {
     },
   });
 
-  const updateProjectMutation = useMutation({
-    mutationFn: async (data: { projectId: string; fileLocation?: string }) => {
-      const response = await apiRequest("PATCH", `/api/projects/${data.projectId}`, {
-        fileLocation: data.fileLocation,
-      });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      toast({
-        title: "Success!",
-        description: "Project file location updated.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update project",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleApprove = (clipId: string) => {
-    approveClipMutation.mutate(clipId);
+  const handleApprove = (clip: Clip) => {
+    setSelectedClip(clip);
+    setTemplateSelectDialogOpen(true);
   };
 
   const handleRejectClick = (clip: Clip) => {
@@ -277,19 +293,34 @@ export default function ClippingArea() {
     }
   };
 
-  const handleAddClip = () => {
-    const clipNumber = parseInt(newClipNumber);
-    if (!clipNumber || !newClipFilePath.trim()) {
+  const handleValidateWithTemplate = () => {
+    if (selectedClip && selectedTemplateId) {
+      validateClipMutation.mutate({
+        clipId: selectedClip.id,
+        templateId: selectedTemplateId,
+      });
+    } else {
       toast({
         title: "Error",
-        description: "Clip number and file path are required",
+        description: "Please select a template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddClip = () => {
+    const clipNumber = parseInt(newClipNumber);
+    if (!clipNumber) {
+      toast({
+        title: "Error",
+        description: "Clip number is required",
         variant: "destructive",
       });
       return;
     }
     addClipMutation.mutate({
       clipNumber,
-      filePath: newClipFilePath.trim(),
+      filePath: newClipFilePath.trim() || "",
     });
   };
 
@@ -308,14 +339,49 @@ export default function ClippingArea() {
     });
   };
 
-  const handleUpdateProjectFileLocation = () => {
-    if (!selectedProjectId) return;
-    updateProjectMutation.mutate({
-      projectId: selectedProjectId,
-      fileLocation: projectFileLocation.trim() || undefined,
-    });
-  };
+  const renderClipCard = (clip: Clip, showActions: boolean = true) => (
+    <Card key={clip.id} className="border border-gray-200 shadow-sm">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          {/* Left: Number Circle */}
+          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center font-bold text-xl text-gray-700 flex-shrink-0">
+            {clip.clipNumber}
+          </div>
+          
+          {/* Middle: Clip Info */}
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-gray-900 mb-1">Clip {clip.clipNumber}</div>
+            <div className="text-sm text-gray-600 mb-1">File Path / Location</div>
+            <div className="text-sm text-gray-900 font-mono">{clip.filePath}</div>
+          </div>
+          
+          {/* Right: Action Buttons */}
+          {showActions && (
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                onClick={() => handleApprove(clip)}
+                className="bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                disabled={validateClipMutation.isPending}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Valid
+              </Button>
+              <Button
+                onClick={() => handleRejectClick(clip)}
+                className="bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                disabled={rejectClipMutation.isPending}
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Not Valid
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
+  // If no project selected, show project selection
   if (!selectedProjectId) {
     return (
       <div className="p-6">
@@ -398,140 +464,152 @@ export default function ClippingArea() {
 
   return (
     <div className="p-6">
+      {/* Header Section */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex-1">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedProjectId(null)}
-              className="text-gray-600"
-            >
-              ← Back to Projects
-            </Button>
-            <h1 className="text-3xl font-bold">{selectedProject?.name}</h1>
-          </div>
-          <p className="text-gray-600 mb-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Clipping Area</h1>
+          <p className="text-gray-600">
             Review and approve clips that were chosen and highlighted in the Premiere project.
           </p>
-          <div className="flex items-center gap-2 mb-4">
-            <Label className="text-sm font-medium">Project File Location / Path:</Label>
-            <Input
-              value={projectFileLocation}
-              onChange={(e) => setProjectFileLocation(e.target.value)}
-              onBlur={handleUpdateProjectFileLocation}
-              placeholder="Drive path or cloud download link"
-              className="max-w-md"
-            />
-          </div>
         </div>
         <Button 
           onClick={() => setAddClipDialogOpen(true)}
-          className="bg-black text-white hover:bg-gray-900"
+          className="bg-black text-white hover:bg-gray-900 rounded-lg"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add New Clip
         </Button>
       </div>
 
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Pending Review ({pendingClips.length})</h2>
+      {/* Pending Review Section */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Pending Review ({pendingClips?.length || 0})
+        </h2>
         <div className="space-y-3">
-          {isLoading ? (
+          {isLoadingPending ? (
             <div className="text-center py-8 text-gray-500">Loading clips...</div>
-          ) : pendingClips.length === 0 ? (
+          ) : pendingClips && pendingClips.length > 0 ? (
+            pendingClips.map((clip) => renderClipCard(clip, true))
+          ) : (
             <div className="text-center py-8 text-gray-500">
               No clips pending review
             </div>
-          ) : (
-            pendingClips.map((clip) => (
-              <Card key={clip.id} className="border border-gray-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    {editingClipId === clip.id ? (
-                      <>
-                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center font-bold text-xl text-gray-700 flex-shrink-0">
-                          <Input
-                            type="number"
-                            value={editClipNumber}
-                            onChange={(e) => setEditClipNumber(e.target.value)}
-                            className="w-12 text-center font-bold"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-900 mb-1">Clip {editClipNumber}</div>
-                          <div className="text-sm text-gray-600 mb-1">File Path / Location:</div>
-                          <Input
-                            value={editClipFilePath}
-                            onChange={(e) => setEditClipFilePath(e.target.value)}
-                            className="text-sm font-mono"
-                            placeholder="/Projects/Client1/Episode_01/Clip_001.mp4"
-                          />
-                        </div>
-                        <div className="flex gap-2 flex-shrink-0">
-                          <Button
-                            onClick={() => handleSaveEdit(clip.id)}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                            disabled={updateClipMutation.isPending}
-                          >
-                            <Save className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={cancelEditing}
-                            size="sm"
-                            variant="outline"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center font-bold text-xl text-gray-700 flex-shrink-0">
-                          {clip.clipNumber}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-900 mb-1">Clip {clip.clipNumber}</div>
-                          <div className="text-sm text-gray-600 mb-1">File Path / Location:</div>
-                          <div className="text-sm text-gray-900 font-mono">{clip.filePath}</div>
-                        </div>
-                        <div className="flex gap-2 flex-shrink-0">
-                          <Button
-                            onClick={() => startEditing(clip)}
-                            size="sm"
-                            variant="outline"
-                            title="Edit clip"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleApprove(clip.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                            disabled={approveClipMutation.isPending}
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Valid
-                          </Button>
-                          <Button
-                            onClick={() => handleRejectClick(clip)}
-                            variant="destructive"
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                            disabled={rejectClipMutation.isPending}
-                          >
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Not Valid
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
           )}
         </div>
       </div>
 
+      {/* Valid Clips Section */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Valid Clips ({validClips?.length || 0})
+        </h2>
+        <div className="space-y-3">
+          {isLoadingValid ? (
+            <div className="text-center py-8 text-gray-500">Loading clips...</div>
+          ) : validClips && validClips.length > 0 ? (
+            validClips.map((clip) => (
+              <Card key={clip.id} className="border border-green-200 bg-green-50 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-green-200 rounded-full flex items-center justify-center font-bold text-xl text-green-700 flex-shrink-0">
+                      {clip.clipNumber}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-gray-900 mb-1">Clip {clip.clipNumber}</div>
+                      <div className="text-sm text-gray-600 mb-1">File Path / Location</div>
+                      <div className="text-sm text-gray-900 font-mono">{clip.filePath}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No valid clips
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Not Valid Clips Section */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Not Valid Clips ({invalidClips?.length || 0})
+        </h2>
+        <div className="space-y-3">
+          {isLoadingInvalid ? (
+            <div className="text-center py-8 text-gray-500">Loading clips...</div>
+          ) : invalidClips && invalidClips.length > 0 ? (
+            invalidClips.map((clip) => (
+              <Card key={clip.id} className="border border-red-200 bg-red-50 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-red-200 rounded-full flex items-center justify-center font-bold text-xl text-red-700 flex-shrink-0">
+                      {clip.clipNumber}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-gray-900 mb-1">Clip {clip.clipNumber}</div>
+                      <div className="text-sm text-gray-600 mb-1">File Path / Location</div>
+                      <div className="text-sm text-gray-900 font-mono">{clip.filePath}</div>
+                      {clip.rejectionNote && (
+                        <div className="text-sm text-red-600 mt-2">Note: {clip.rejectionNote}</div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No invalid clips
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Template Selection Dialog */}
+      <Dialog open={templateSelectDialogOpen} onOpenChange={setTemplateSelectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Template</DialogTitle>
+            <DialogDescription>
+              Choose an issue template to create an issue for this clip in the project board.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Template</Label>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates?.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTemplateSelectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleValidateWithTemplate}
+              disabled={!selectedTemplateId || validateClipMutation.isPending}
+              className="bg-black text-white hover:bg-gray-900"
+            >
+              {validateClipMutation.isPending ? "Creating..." : "Create Issue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -562,6 +640,7 @@ export default function ClippingArea() {
         </DialogContent>
       </Dialog>
 
+      {/* Add Clip Dialog */}
       <Dialog open={addClipDialogOpen} onOpenChange={setAddClipDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -570,6 +649,13 @@ export default function ClippingArea() {
               Add a new clip to the clipping area for review.
             </DialogDescription>
           </DialogHeader>
+          {!selectedProjectId && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+              <p className="text-sm text-yellow-800">
+                Please select a project first before adding a clip.
+              </p>
+            </div>
+          )}
           <div className="space-y-4 py-4">
             <div>
               <Label>Clip Number</Label>
@@ -578,14 +664,16 @@ export default function ClippingArea() {
                 value={newClipNumber}
                 onChange={(e) => setNewClipNumber(e.target.value)}
                 placeholder="Enter clip number (e.g., 1, 2, 3...)"
+                disabled={!selectedProjectId}
               />
             </div>
             <div>
-              <Label>File Path / Location</Label>
+              <Label>File Path / Location (Optional)</Label>
               <Input
                 value={newClipFilePath}
                 onChange={(e) => setNewClipFilePath(e.target.value)}
                 placeholder="/Projects/Client1/Episode_01/Clip_001.mp4"
+                disabled={!selectedProjectId}
               />
             </div>
           </div>
@@ -595,7 +683,7 @@ export default function ClippingArea() {
             </Button>
             <Button 
               onClick={handleAddClip}
-              disabled={addClipMutation.isPending}
+              disabled={addClipMutation.isPending || !selectedProjectId}
               className="bg-black text-white hover:bg-gray-900"
             >
               {addClipMutation.isPending ? "Adding..." : "Add Clip"}

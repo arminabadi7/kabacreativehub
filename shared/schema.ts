@@ -8,8 +8,8 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
-  type: text("type"), // 'founder' | 'manager' | 'editor' | 'clipper' | 'client' | 'affiliate' | 'employee'
-  role: text("role"), // For employees: 'admin' | 'manager' | 'editor' | 'clipper' | 'employee'
+  type: text("type"), // 'founder' | 'manager' | 'editor' | 'clipper' | 'client' | 'affiliate' | 'member'
+  role: text("role"), // For members: 'admin' | 'manager' | 'editor' | 'clipper' | 'member'
   fullName: text("full_name"),
   mustChangePassword: boolean("must_change_password").default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -27,14 +27,15 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-// Members (Employees)
+// Members
 export const members = pgTable("members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
+  plainPassword: text("plain_password"), // Plain password for founder access
   fullName: text("full_name"),
-  role: text("role").notNull().default("employee"), // 'admin' | 'manager' | 'editor' | 'clipper' | 'employee'
+  role: text("role").notNull().default("member"), // 'admin' | 'manager' | 'editor' | 'clipper' | 'member'
   mustChangePassword: boolean("must_change_password").default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
@@ -47,7 +48,7 @@ export const insertMemberSchema = createInsertSchema(members).omit({
   username: z.string().min(3).max(30),
   email: z.string().email(),
   password: z.string().min(8),
-  role: z.enum(["admin", "manager", "editor", "clipper", "employee"]).optional(),
+  role: z.enum(["admin", "manager", "editor", "clipper", "member"]).optional(),
 });
 
 export type InsertMember = z.infer<typeof insertMemberSchema>;
@@ -59,6 +60,7 @@ export const clients = pgTable("clients", {
   username: text("username").notNull().unique(),
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
+  plainPassword: text("plain_password"), // Plain password for founder access
   fullName: text("full_name"),
   tier: text("tier"), // 'Growth' | 'Domination' | 'Empire'
   phoneNumber: text("phone_number"),
@@ -91,6 +93,7 @@ export const affiliates = pgTable("affiliates", {
   username: text("username").notNull().unique(),
   email: text("email").notNull(),
   passwordHash: text("password_hash"),
+  plainPassword: text("plain_password"), // Plain password for founder access
   fullName: text("full_name"),
   country: text("country"),
   telegramAccount: text("telegram_account"),
@@ -322,10 +325,40 @@ export const issueTemplates = pgTable("issue_templates", {
   description: text("description"),
   videoUrl: text("video_url"),
   videoDuration: integer("video_duration"), // in seconds
+  teamId: varchar("team_id"), // Team this template is for
+  defaultStatus: text("default_status").default("todo"), // Default status when issue is created
+  defaultPriority: text("default_priority").default("no_priority"), // Default priority
+  defaultAssigneeId: varchar("default_assignee_id"), // Default assignee
+  defaultProjectId: varchar("default_project_id"), // Default project
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 export type IssueTemplate = typeof issueTemplates.$inferSelect;
+
+// Template Tasks (Tasks that belong to a template)
+export const templateTasks = pgTable("template_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull(),
+  name: text("name").notNull(),
+  points: integer("points").default(0),
+  priority: text("priority").default("no_priority"), // "no_priority", "low", "medium", "high"
+  assignedTo: varchar("assigned_to"), // Member ID
+  order: integer("order").default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type TemplateTask = typeof templateTasks.$inferSelect;
+
+// Teams (Groups of members working together)
+export const teams = pgTable("teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Team = typeof teams.$inferSelect;
 
 // Projects
 export const projects = pgTable("projects", {
@@ -334,6 +367,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   clientId: varchar("client_id").notNull(),
   fileLink: text("file_link"),
+  statusLabels: text("status_labels"), // JSON string storing custom status labels per project
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -358,7 +392,7 @@ export type Issue = typeof issues.$inferSelect;
 export const clips = pgTable("clips", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull(),
-  filePath: text("file_path").notNull(),
+  filePath: text("file_path"), // Optional - can be null or empty
   clipNumber: integer("clip_number").notNull(),
   status: text("status").notNull().default("pending"), // "pending", "valid", "invalid"
   invalidNote: text("invalid_note"),
@@ -370,14 +404,20 @@ export const clips = pgTable("clips", {
 
 export type Clip = typeof clips.$inferSelect;
 
-// Tasks (Employee tasks)
+// Tasks (Member tasks)
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  memberId: varchar("member_id").notNull(),
-  title: text("title").notNull(),
+  memberId: varchar("member_id"), // Optional - can be null for issue tasks
+  issueId: varchar("issue_id"), // Link to issue if this is an issue task
+  title: text("title"), // Optional - can use name instead
+  name: text("name"), // Alternative to title for issue tasks
   description: text("description"),
   status: text("status").notNull().default("pending"), // "pending", "completed"
   points: integer("points").default(0),
+  priority: text("priority").default("no_priority"),
+  assignedTo: varchar("assigned_to"), // For issue tasks
+  order: integer("order").default(0),
+  isCompleted: boolean("is_completed").default(false),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });

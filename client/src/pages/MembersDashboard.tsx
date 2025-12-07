@@ -13,8 +13,6 @@ import {
   LayoutGrid, 
   Folder, 
   Scissors, 
-  BarChart3, 
-  MoreHorizontal,
   Users,
   Calendar,
   Settings,
@@ -214,22 +212,6 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
         </div>
       );
     }
-    if (activeSection === "views") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Views</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
-    }
-    if (activeSection === "more") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">More</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
-    }
     if (activeSection === "persian") {
       return (
         <div className="p-6">
@@ -263,7 +245,7 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
   return (
     <div className="min-h-screen bg-white flex">
       {/* Left Sidebar - Fixed */}
-      <div className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-10">
+      <div className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-50">
             <div className="p-4 border-b border-gray-200 flex-shrink-0">
               <Link href="/" className="flex items-center gap-2">
                 <img src="/logo.png" alt="KabaContent" className="w-8 h-8 rounded-lg" />
@@ -333,29 +315,17 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   {(fromFounderDashboard || canAccessClipping(displayMember.role)) && (
                     <button
                       onClick={() => setActiveSection("clipping-area")}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
-                        activeSection === "clipping-area" ? "bg-blue-50 text-blue-700" : "text-gray-700"
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                        activeSection === "clipping-area" 
+                          ? "bg-blue-50 text-blue-700" 
+                          : "text-gray-700 hover:bg-gray-100"
                       }`}
                     >
-                      <Scissors className="w-5 h-5" />
+                      <Scissors className={`w-5 h-5 ${activeSection === "clipping-area" ? "text-blue-700" : ""}`} />
                       <span>Clipping Area</span>
                     </button>
-                  )}
-                  <button
-                    onClick={() => setActiveSection("views")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                  >
-                    <BarChart3 className="w-5 h-5" />
-                    <span>Views</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveSection("more")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                  >
-                    <MoreHorizontal className="w-5 h-5" />
-                    <span>More</span>
-                  </button>
-                </div>
+                )}
+              </div>
               </div>
 
               {/* YOUR TEAMS Section */}
@@ -387,9 +357,7 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                     setMenuMode("settings");
                     setActiveSection("profile");
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 ${
-                    menuMode === "settings" ? "bg-blue-50 text-blue-700" : "text-gray-700"
-                  }`}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                 >
                   <Settings className="w-5 h-5" />
                   <span>Settings</span>
@@ -422,7 +390,7 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   </button>
                 </div>
               )}
-              {!fromFounderDashboard && (
+              {!fromFounderDashboard && menuMode === "settings" && (
                 <div className="mb-4">
                   <button
                     onClick={() => setMenuMode("main")}

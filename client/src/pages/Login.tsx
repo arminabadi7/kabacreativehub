@@ -50,7 +50,7 @@ export default function Login() {
       } else if (userType === "founder") {
         setLocation("/founder-dashboard");
       } else {
-        // Employees/Members
+        // Members
         setLocation("/members-dashboard");
       }
     },
@@ -147,6 +147,7 @@ export default function Login() {
     </div>
   );
 }
+
 
 
 
