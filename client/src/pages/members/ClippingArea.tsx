@@ -114,10 +114,34 @@ export default function ClippingArea() {
       });
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      console.log("[ClippingArea] Clip validated, response data:", data);
+      
+      // Invalidate clips queries
       queryClient.invalidateQueries({ queryKey: ["/api/clips/pending", selectedProjectId] });
       queryClient.invalidateQueries({ queryKey: ["/api/clips/valid", selectedProjectId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "issues"] });
+      
+      // Invalidate issues query - this will cause the issues list to refetch
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "issues"] });
+      
+      // If an issue was created, invalidate its tasks query
+      if (data?.issueId) {
+        console.log("[ClippingArea] Issue created with ID:", data.issueId);
+        // Wait a bit to ensure tasks are fully created on the server
+        setTimeout(() => {
+          console.log("[ClippingArea] Invalidating task queries for issue:", data.issueId);
+          queryClient.invalidateQueries({ queryKey: ["/api/issues", data.issueId, "tasks"] });
+          // Invalidate all issue task queries to ensure fresh data
+          queryClient.invalidateQueries({ 
+            predicate: (query) => {
+              return Array.isArray(query.queryKey) &&
+                     query.queryKey[0] === "/api/issues" && 
+                     query.queryKey[2] === "tasks";
+            }
+          });
+        }, 1000); // 1 second delay to ensure server has finished creating tasks
+      }
+      
       setTemplateSelectDialogOpen(false);
       setSelectedClip(null);
       setSelectedTemplateId("");

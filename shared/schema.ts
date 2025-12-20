@@ -69,6 +69,7 @@ export const clients = pgTable("clients", {
   clientSince: timestamp("client_since").notNull().default(sql`now()`),
   monthlyPaymentDate: integer("monthly_payment_date"), // Day of month (1-31)
   contractFilePath: text("contract_file_path"),
+  teamId: varchar("team_id"), // Team assignment
   mustChangePassword: boolean("must_change_password").default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
@@ -366,6 +367,7 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   description: text("description"),
   clientId: varchar("client_id").notNull(),
+  teamId: varchar("team_id"), // Team assignment for the project
   fileLink: text("file_link"),
   statusLabels: text("status_labels"), // JSON string storing custom status labels per project
   createdAt: timestamp("created_at").notNull().default(sql`now()`),

@@ -47,7 +47,7 @@ import {
   type InsertAffiliateTransaction
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, or, gte, lte, like, sql } from "drizzle-orm";
+import { eq, and, desc, or, gte, lte, like, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -262,6 +262,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllClients(): Promise<Client[]> {
     return await db.select().from(clients).orderBy(clients.createdAt);
+  }
+
+  async updateClient(clientId: string, updates: any): Promise<Client | undefined> {
+    const [updated] = await db.update(clients).set(updates).where(eq(clients.id, clientId)).returning();
+    return updated || undefined;
   }
 
   async getAffiliate(id: string): Promise<Affiliate | undefined> {
@@ -891,12 +896,351 @@ export class DatabaseStorage implements IStorage {
 
   // Issues
   async getIssuesByProject(projectId: string): Promise<any[]> {
-    return await db.select().from(issues).where(eq(issues.projectId, projectId)).orderBy(issues.order);
+    try {
+      console.log(`[Storage] getIssuesByProject called for projectId: ${projectId}`);
+      
+      // Fetch issues - sort manually to avoid orderBy issues with null values
+      const issuesList = await db.select().from(issues).where(eq(issues.projectId, projectId));
+      // Sort manually
+      issuesList.sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        return orderA - orderB;
+      });
+      console.log(`[Storage] Found ${issuesList.length} issues`);
+      
+      // If no issues, return early
+      if (issuesList.length === 0) {
+        return [];
+      }
+      
+      // Fetch tasks for all issues - but don't fail if this fails
+      const issueIds = issuesList.map(issue => issue.id).filter(id => id);
+      let allTasks: any[] = [];
+      
+      if (issueIds.length > 0) {
+        try {
+          // Use Drizzle's inArray for proper parameterized queries
+          allTasks = await db.select().from(tasks).where(inArray(tasks.issueId, issueIds));
+          // Sort tasks manually
+          allTasks.sort((a, b) => {
+            const orderA = a.order ?? 0;
+            const orderB = b.order ?? 0;
+            return orderA - orderB;
+          });
+          console.log(`[Storage] Found ${allTasks.length} total tasks for ${issueIds.length} issues`);
+        } catch (taskError: any) {
+          // Log but don't fail - return issues without tasks
+          console.warn(`[Storage] Could not fetch tasks (non-critical):`, taskError?.message);
+          console.warn(`[Storage] Task error details:`, taskError?.code, taskError?.detail);
+          allTasks = [];
+        }
+      }
+      
+      // Group tasks by issueId (handle both camelCase and snake_case)
+      const tasksByIssueId = new Map<string, any[]>();
+      for (const task of allTasks) {
+        const taskIssueId = task.issueId || task.issue_id;
+        if (taskIssueId) {
+          if (!tasksByIssueId.has(taskIssueId)) {
+            tasksByIssueId.set(taskIssueId, []);
+          }
+          tasksByIssueId.get(taskIssueId)!.push(task);
+        }
+      }
+      
+      // Attach tasks to their issues and transform task field names
+      const result = issuesList.map(issue => {
+        const issueTasks = tasksByIssueId.get(issue.id) || [];
+        const transformedTasks = issueTasks.map((task: any) => ({
+          id: task.id,
+          name: task.name || task.title || "Untitled Task",
+          title: task.name || task.title || "Untitled Task",
+          points: task.points || 0,
+          assignedTo: task.assigned_to || task.assignedTo || null,
+          memberId: task.assigned_to || task.assignedTo || null,
+          priority: task.priority || "no_priority",
+          order: task.order || 0,
+          isCompleted: task.is_completed || task.isCompleted || false,
+          status: task.status || "pending",
+          issueId: task.issue_id || task.issueId,
+        }));
+        
+        console.log(`[Storage] Issue ${issue.id} "${issue.title}" has ${transformedTasks.length} tasks`);
+        if (transformedTasks.length > 0) {
+          console.log(`[Storage] Task names:`, transformedTasks.map((t: any) => t.name));
+        }
+        
+        return {
+          ...issue,
+          tasks: transformedTasks
+        };
+      });
+      
+      console.log(`[Storage] Successfully returning ${result.length} issues`);
+      // Log total tasks across all issues
+      const totalTasks = result.reduce((sum, issue) => sum + (issue.tasks?.length || 0), 0);
+      console.log(`[Storage] Total tasks across all issues: ${totalTasks}`);
+      return result;
+    } catch (error: any) {
+      console.error(`[Storage] CRITICAL Error in getIssuesByProject:`, error);
+      console.error(`[Storage] Error message:`, error?.message);
+      console.error(`[Storage] Error code:`, error?.code);
+      console.error(`[Storage] Error detail:`, error?.detail);
+      throw error;
+    }
+  }
+
+  async getIssueById(issueId: string): Promise<any | undefined> {
+    try {
+      const [issue] = await db.select().from(issues).where(eq(issues.id, issueId));
+      if (!issue) return undefined;
+      
+      // Fetch tasks for this issue
+      let issueTasks: any[] = [];
+      try {
+        // Use raw SQL to ensure we query by issue_id column (Drizzle might not map issueId correctly)
+        console.log(`[Storage] Fetching tasks for issue ${issueId}`);
+        const taskResult = await db.execute(sql`
+          SELECT * FROM tasks 
+          WHERE issue_id = ${issueId}
+          ORDER BY COALESCE("order", 0) ASC, created_at ASC
+        `);
+        issueTasks = taskResult.rows || [];
+        console.log(`[Storage] Fetched ${issueTasks.length} tasks for issue ${issueId}`);
+        if (issueTasks.length > 0) {
+          console.log(`[Storage] Task names:`, issueTasks.map((t: any) => t.name || t.title));
+        }
+      } catch (taskError: any) {
+        console.error(`[Storage] Error fetching tasks for issue ${issueId}:`, taskError);
+        console.error(`[Storage] Error details:`, taskError?.message, taskError?.code, taskError?.detail);
+        // Continue without tasks if there's an error
+        issueTasks = [];
+      }
+      
+      // Transform tasks to ensure consistent field names
+      const transformedTasks = issueTasks.map((task: any) => ({
+        id: task.id,
+        name: task.name || task.title || "Untitled Task",
+        title: task.name || task.title || "Untitled Task",
+        points: task.points || 0,
+        assignedTo: task.assigned_to || task.assignedTo || null,
+        memberId: task.assigned_to || task.assignedTo || null,
+        priority: task.priority || "no_priority",
+        order: task.order || 0,
+        isCompleted: task.is_completed || task.isCompleted || false,
+        status: task.status || "pending",
+        issueId: task.issue_id || task.issueId,
+      }));
+
+      return {
+        ...issue,
+        tasks: transformedTasks
+      };
+    } catch (error: any) {
+      console.error(`[Storage] Error in getIssueById:`, error);
+      throw error;
+    }
   }
 
   async createIssue(issueData: any): Promise<any> {
-    const [issue] = await db.insert(issues).values(issueData).returning();
-    return issue;
+    try {
+      const { tasks: tasksData, assigneeId, assignedTo, ...issueFields } = issueData;
+      console.log(`[Storage] createIssue called with fields:`, Object.keys(issueFields));
+      console.log(`[Storage] Tasks to create: ${tasksData?.length || 0}`);
+      
+      // Map assigneeId/assignedTo to assignee_id for database
+      const insertData: any = { ...issueFields };
+      if (assigneeId || assignedTo) {
+        insertData.assigneeId = assigneeId || assignedTo;
+      }
+      
+      const [issue] = await db.insert(issues).values(insertData).returning();
+      console.log(`[Storage] Created issue: ${issue.id}`);
+      
+      // Create tasks if provided
+      if (tasksData && Array.isArray(tasksData) && tasksData.length > 0) {
+        console.log(`[Storage] Processing ${tasksData.length} tasks for issue ${issue.id}`);
+        const tasksToCreate = tasksData
+          .filter((task: any) => task.name && task.name.trim())
+          .map((task: any, index: number) => ({
+            issueId: issue.id,
+            // Don't set memberId - it's optional and might cause issues
+            name: task.name.trim(),
+            title: task.name.trim(), // Also set title for compatibility
+            points: task.points || 0,
+            priority: task.priority || "no_priority",
+            assignedTo: task.assignedTo || null,
+            order: task.order !== undefined ? task.order : index,
+            isCompleted: false,
+            status: "pending",
+          }));
+        
+        console.log(`[Storage] Filtered to ${tasksToCreate.length} valid tasks:`, tasksToCreate.map(t => ({ name: t.name, points: t.points, assignedTo: t.assignedTo })));
+        
+        if (tasksToCreate.length > 0) {
+          try {
+            console.log(`[Storage] Creating ${tasksToCreate.length} tasks for issue ${issue.id}`);
+            console.log(`[Storage] Task data sample:`, tasksToCreate[0]);
+            console.log(`[Storage] Issue ID being used: ${issue.id}`);
+            
+            // Insert tasks using raw SQL to ensure correct column mapping
+            // This guarantees issue_id is set correctly in the database
+            const insertedTaskIds: string[] = [];
+            
+            for (const task of tasksToCreate) {
+              try {
+                const insertResult = await db.execute(sql`
+                  INSERT INTO tasks (
+                    issue_id, 
+                    name, 
+                    title, 
+                    points, 
+                    priority, 
+                    assigned_to, 
+                    "order", 
+                    is_completed, 
+                    status, 
+                    created_at
+                  )
+                  VALUES (
+                    ${issue.id},
+                    ${task.name},
+                    ${task.name},
+                    ${task.points},
+                    ${task.priority},
+                    ${task.assignedTo || null},
+                    ${task.order},
+                    false,
+                    'pending',
+                    NOW()
+                  )
+                  RETURNING id, name, issue_id
+                `);
+                
+                if (insertResult.rows && insertResult.rows.length > 0) {
+                  const insertedTask = insertResult.rows[0] as any;
+                  const taskId = String(insertedTask.id);
+                  insertedTaskIds.push(taskId);
+                  console.log(`[Storage] ✓ Created task "${task.name}" (ID: ${taskId}, issue_id: ${insertedTask.issue_id})`);
+                }
+              } catch (singleTaskError: any) {
+                const errorMessage = singleTaskError?.message || String(singleTaskError) || "Unknown error";
+                console.error(`[Storage] ✗ ERROR creating task "${task.name}":`, errorMessage);
+                console.error(`[Storage] Error code:`, singleTaskError?.code);
+                console.error(`[Storage] Error detail:`, singleTaskError?.detail);
+                // Continue with other tasks
+              }
+            }
+            
+            console.log(`[Storage] Successfully created ${insertedTaskIds.length} out of ${tasksToCreate.length} tasks`);
+            
+            // Immediately verify tasks were saved correctly
+            const verifyResult = await db.execute(sql`
+              SELECT id, name, issue_id, points FROM tasks WHERE issue_id = ${issue.id} ORDER BY "order" ASC
+            `);
+            const verifiedCount = verifyResult.rows?.length || 0;
+            console.log(`[Storage] Verification query: Found ${verifiedCount} tasks for issue ${issue.id}`);
+            
+            if (verifiedCount > 0) {
+              console.log(`[Storage] ✓ Tasks verified in database:`, verifyResult.rows?.map((r: any) => ({ 
+                id: r.id, 
+                name: r.name || r.title, 
+                issue_id: r.issue_id,
+                points: r.points
+              })));
+            } else {
+              console.error(`[Storage] ✗ CRITICAL: Verification query found NO tasks for issue ${issue.id}!`);
+              console.error(`[Storage] This means tasks were NOT saved to the database.`);
+            }
+          } catch (taskInsertError: any) {
+            console.error(`[Storage] ERROR creating tasks:`, taskInsertError);
+            console.error(`[Storage] Error message:`, taskInsertError?.message);
+            console.error(`[Storage] Error code:`, taskInsertError?.code);
+            console.error(`[Storage] Error detail:`, taskInsertError?.detail);
+            console.error(`[Storage] Error stack:`, taskInsertError?.stack);
+            // Don't throw - continue with issue creation even if tasks fail
+            // This allows the issue to be created, and tasks can be added later
+          }
+        } else {
+          console.warn(`[Storage] No valid tasks to create after filtering`);
+        }
+      } else {
+        console.log(`[Storage] No tasks data provided or empty array`);
+      }
+      
+      // Return issue with tasks attached
+      // Add a small delay to ensure tasks are committed to database
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Fetch tasks directly using raw SQL to ensure we get them
+      let fetchedTasks: any[] = [];
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries && fetchedTasks.length === 0 && tasksData && tasksData.length > 0) {
+        try {
+          const taskResult = await db.execute(sql`
+            SELECT * FROM tasks 
+            WHERE issue_id = ${issue.id}
+            ORDER BY COALESCE("order", 0) ASC, created_at ASC
+          `);
+          fetchedTasks = taskResult.rows || [];
+          console.log(`[Storage] Direct query (attempt ${retryCount + 1}) found ${fetchedTasks.length} tasks for issue ${issue.id}`);
+          
+          if (fetchedTasks.length === 0 && retryCount < maxRetries - 1) {
+            console.log(`[Storage] No tasks found, retrying in 200ms...`);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            retryCount++;
+          } else {
+            break;
+          }
+        } catch (taskFetchError: any) {
+          console.error(`[Storage] Error fetching tasks directly (attempt ${retryCount + 1}):`, taskFetchError?.message);
+          if (retryCount < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            retryCount++;
+          } else {
+            break;
+          }
+        }
+      }
+      
+      // Transform tasks to ensure consistent field names
+      const transformedTasks = fetchedTasks.map((task: any) => ({
+        id: task.id,
+        name: task.name || task.title || "Untitled Task",
+        title: task.name || task.title || "Untitled Task",
+        points: task.points || 0,
+        assignedTo: task.assigned_to || task.assignedTo || null,
+        memberId: task.assigned_to || task.assignedTo || null,
+        priority: task.priority || "no_priority",
+        order: task.order || 0,
+        isCompleted: task.is_completed || task.isCompleted || false,
+        status: task.status || "pending",
+        issueId: task.issue_id || task.issueId,
+      }));
+      
+      const issueWithTasks = {
+        ...issue,
+        tasks: transformedTasks
+      };
+      
+      console.log(`[Storage] Returning issue ${issue.id} with ${transformedTasks.length} tasks`);
+      if (transformedTasks.length > 0) {
+        console.log(`[Storage] ✓ Task details:`, transformedTasks.map((t: any) => ({ id: t.id, name: t.name, points: t.points, assignedTo: t.assignedTo })));
+      } else if (tasksData && tasksData.length > 0) {
+        console.error(`[Storage] ✗ WARNING: Expected ${tasksData.length} tasks but found 0 in database!`);
+      }
+      
+      return issueWithTasks;
+    } catch (error: any) {
+      console.error(`[Storage] Error in createIssue:`, error);
+      console.error(`[Storage] Error message:`, error?.message);
+      console.error(`[Storage] Error code:`, error?.code);
+      console.error(`[Storage] Error detail:`, error?.detail);
+      throw error;
+    }
   }
 
   async updateIssue(issueId: string, updates: any): Promise<any | undefined> {
@@ -905,20 +1249,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteIssue(issueId: string): Promise<void> {
+    // Delete associated tasks first
+    await db.delete(tasks).where(eq(tasks.issueId, issueId));
     await db.delete(issues).where(eq(issues.id, issueId));
   }
 
   // Issue Tasks
   async getIssueTasks(issueId: string): Promise<any[]> {
-    return await db.select().from(tasks)
-      .where(eq(tasks.issueId, issueId))
-      .orderBy(tasks.order);
+    try {
+      const taskResult = await db.execute(sql`
+        SELECT * FROM tasks 
+        WHERE issue_id = ${issueId}
+        ORDER BY COALESCE("order", 0) ASC, created_at ASC
+      `);
+      return taskResult.rows || [];
+    } catch (error: any) {
+      console.error(`[Storage] Error in getIssueTasks:`, error);
+      return [];
+    }
   }
 
   async createIssueTask(issueId: string, taskData: any): Promise<any> {
-    const [task] = await db.insert(tasks).values({
+    // Don't set memberId - it's optional and might cause database errors if column doesn't exist
+    const taskValues: any = {
       issueId: issueId,
-      memberId: null, // Issue tasks don't require memberId
       name: taskData.name,
       title: taskData.name, // Also set title for compatibility
       points: taskData.points || 0,
@@ -927,7 +1281,8 @@ export class DatabaseStorage implements IStorage {
       order: taskData.order || 0,
       status: "pending",
       isCompleted: false,
-    }).returning();
+    };
+    const [task] = await db.insert(tasks).values(taskValues).returning();
     return task;
   }
 
@@ -1174,6 +1529,20 @@ export class DatabaseStorage implements IStorage {
     return team;
   }
 
+  async updateTeam(teamId: string, updates: any): Promise<any | undefined> {
+    const [updated] = await db.update(teams).set(updates).where(eq(teams.id, teamId)).returning();
+    return updated || undefined;
+  }
+
+  async deleteTeam(teamId: string): Promise<void> {
+    await db.delete(teams).where(eq(teams.id, teamId));
+  }
+
+  async getTeamById(teamId: string): Promise<any | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.id, teamId));
+    return team || undefined;
+  }
+
   // Income & Expenses
   async getAllIncome(filters?: any): Promise<any[]> {
     const conditions = [];
@@ -1277,17 +1646,27 @@ export class DatabaseStorage implements IStorage {
 
   // Invoices
   async getAllInvoices(filters?: any): Promise<any[]> {
-    const conditions = [];
-    if (filters?.clientId) {
-      conditions.push(eq(invoices.clientId, filters.clientId));
+    try {
+      const conditions = [];
+      if (filters?.clientId) {
+        conditions.push(eq(invoices.clientId, filters.clientId));
+      }
+      if (filters?.status) {
+        conditions.push(eq(invoices.status, filters.status));
+      }
+      if (conditions.length > 0) {
+        return await db.select().from(invoices).where(and(...conditions)).orderBy(desc(invoices.createdAt));
+      }
+      return await db.select().from(invoices).orderBy(desc(invoices.createdAt));
+    } catch (error: any) {
+      // If invoices table doesn't exist, return empty array
+      if (error?.code === '42P01' || error?.message?.includes('does not exist')) {
+        console.warn('[Storage] Invoices table does not exist, returning empty array');
+        return [];
+      }
+      // Re-throw other errors
+      throw error;
     }
-    if (filters?.status) {
-      conditions.push(eq(invoices.status, filters.status));
-    }
-    if (conditions.length > 0) {
-      return await db.select().from(invoices).where(and(...conditions)).orderBy(desc(invoices.createdAt));
-    }
-    return await db.select().from(invoices).orderBy(desc(invoices.createdAt));
   }
 
   async createInvoice(invoiceData: any): Promise<any> {

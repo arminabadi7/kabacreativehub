@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -15,6 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -91,10 +93,41 @@ export default function ClientsSection() {
   const { toast } = useToast();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isCreateClientDialogOpen, setIsCreateClientDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<SocialMediaAccount | null>(null);
   const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  
+  // Check founder session
+  const { data: founderSession } = useQuery({
+    queryKey: ["/api/founder/session"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/founder/session", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          console.log("✅ Founder session found:", data);
+          return data;
+        }
+        return null;
+      } catch (e) {
+        console.log("Founder session check failed (not a founder):", e);
+        return null;
+      }
+    },
+    retry: false,
+  });
+  const [clientForm, setClientForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+    fullName: "",
+    tier: "",
+    phoneNumber: "",
+    instagramUsername: "",
+    teamId: "",
+  });
 
   const [formData, setFormData] = useState({
     accountName: "",
@@ -103,8 +136,137 @@ export default function ClientsSection() {
     platforms: [] as string[], // Array of selected platforms
   });
 
-  const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
+  const { data: clients, isLoading: clientsLoading, refetch: refetchClients } = useQuery<Client[]>({
+    queryKey: ["/api/clients/list"],
+    queryFn: async () => {
+      console.log("🔍 Fetching clients from /api/clients/list...");
+      console.log("🔍 Founder session:", founderSession);
+      console.log("🔍 Cookies:", document.cookie);
+      const res = await fetch("/api/clients/list", { 
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      console.log("📡 Response status:", res.status, res.statusText);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("❌ Failed to fetch clients:", res.status, errorText);
+        // If 401, try to get more info about the session
+        if (res.status === 401) {
+          console.warn("⚠️ Not authenticated (401)");
+          console.warn("⚠️ Session cookies:", document.cookie);
+          // Try to check founder session
+          try {
+            const founderCheck = await fetch("/api/founder/session", { credentials: "include" });
+            const founderData = await founderCheck.text();
+            console.log("🔍 Founder session check:", founderCheck.status, founderData);
+            if (founderCheck.ok) {
+              console.log("✅ Founder session exists but clients endpoint still returned 401");
+              console.log("⚠️ This might be a session cookie issue");
+            }
+          } catch (e) {
+            console.error("Error checking founder session:", e);
+          }
+          return [];
+        }
+        throw new Error("Failed to fetch clients");
+      }
+      const data = await res.json();
+      console.log("✅ Fetched response:", data);
+      console.log("📊 Is array?", Array.isArray(data));
+      console.log("📊 Data length:", Array.isArray(data) ? data.length : "N/A");
+      const clientsArray = Array.isArray(data) ? data : [];
+      console.log("✅ Returning clients array with", clientsArray.length, "items");
+      if (clientsArray.length > 0) {
+        console.log("📋 Client IDs:", clientsArray.map(c => c.id));
+        console.log("📋 First client:", clientsArray[0]);
+      }
+      return clientsArray;
+    },
+    staleTime: 0, // Always consider data stale, so it refetches when invalidated
+    refetchOnWindowFocus: true,
+    enabled: true, // Always try to fetch, even if founder session check fails
+  });
+  
+  // Debug: Log clients whenever they change
+  React.useEffect(() => {
+    console.log("🔔 Clients data changed:", {
+      isLoading: clientsLoading,
+      clients: clients,
+      clientsLength: clients?.length || 0,
+      isArray: Array.isArray(clients),
+    });
+  }, [clients, clientsLoading]);
+
+  const { data: teams } = useQuery({
+    queryKey: ["/api/teams"],
+    queryFn: async () => {
+      const res = await fetch("/api/teams", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch teams");
+      return res.json();
+    },
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: async (data: typeof clientForm) => {
+      const response = await apiRequest("POST", "/api/clients", {
+        username: data.username,
+        email: data.email,
+        password: data.password,
+        fullName: data.fullName || undefined,
+        tier: data.tier || undefined,
+        phoneNumber: data.phoneNumber || undefined,
+        instagramUsername: data.instagramUsername || undefined,
+        teamId: data.teamId && data.teamId.trim() !== "" ? data.teamId : undefined,
+      });
+      return await response.json();
+    },
+    onSuccess: async (data) => {
+      console.log("✅ Client created successfully:", data);
+      // Reset form first
+      setClientForm({
+        username: "",
+        email: "",
+        password: "",
+        fullName: "",
+        tier: "",
+        phoneNumber: "",
+        instagramUsername: "",
+        teamId: "",
+      });
+      // Close dialog
+      setIsCreateClientDialogOpen(false);
+      // Show success toast
+      toast({
+        title: "Success!",
+        description: "Client created successfully.",
+      });
+      // Immediately invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ["/api/clients/list"] });
+      // Also call refetch directly
+      setTimeout(async () => {
+        try {
+          console.log("🔄 Refetching clients list...");
+          const result = await refetchClients();
+          console.log("✅ Refetch completed!");
+          console.log("📊 Number of clients:", result.data?.length || 0);
+          if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+            console.log("✅ Clients are now visible:", result.data.map(c => ({ id: c.id, username: c.username, email: c.email })));
+          }
+        } catch (error) {
+          console.error("❌ Error during refetch:", error);
+        }
+      }, 100);
+    },
+    onError: (error: any) => {
+      console.error("Error creating client:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create client",
+        variant: "destructive",
+      });
+    },
   });
 
   const { data: clientDetails, isLoading: clientDetailsLoading } = useQuery<Client>({
@@ -389,9 +551,145 @@ export default function ClientsSection() {
   if (!selectedClientId) {
     return (
       <div className="p-6">
-        <h1 className="text-3xl font-bold mb-6">Clients</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Clients</h1>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => refetchClients()}
+              variant="outline"
+              className="mr-2"
+            >
+              Refresh
+            </Button>
+            <Button 
+              onClick={() => setIsCreateClientDialogOpen(true)}
+              className="bg-black text-white hover:bg-gray-900"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Client
+            </Button>
+          </div>
+          <Dialog open={isCreateClientDialogOpen} onOpenChange={setIsCreateClientDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Client</DialogTitle>
+                <DialogDescription>Add a new client to the system</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label htmlFor="client-username">Username *</Label>
+                  <Input
+                    id="client-username"
+                    value={clientForm.username}
+                    onChange={(e) => setClientForm({ ...clientForm, username: e.target.value })}
+                    placeholder="Enter username"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="client-email">Email *</Label>
+                  <Input
+                    id="client-email"
+                    type="email"
+                    value={clientForm.email}
+                    onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
+                    placeholder="Enter email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="client-password">Password *</Label>
+                  <Input
+                    id="client-password"
+                    type="password"
+                    value={clientForm.password}
+                    onChange={(e) => setClientForm({ ...clientForm, password: e.target.value })}
+                    placeholder="Enter password (min 8 characters)"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="client-fullname">Full Name</Label>
+                  <Input
+                    id="client-fullname"
+                    value={clientForm.fullName}
+                    onChange={(e) => setClientForm({ ...clientForm, fullName: e.target.value })}
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="client-tier">Tier</Label>
+                  <Select value={clientForm.tier} onValueChange={(value) => setClientForm({ ...clientForm, tier: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Growth">Growth</SelectItem>
+                      <SelectItem value="Domination">Domination</SelectItem>
+                      <SelectItem value="Empire">Empire</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="client-phone">Phone Number</Label>
+                  <Input
+                    id="client-phone"
+                    value={clientForm.phoneNumber}
+                    onChange={(e) => setClientForm({ ...clientForm, phoneNumber: e.target.value })}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="client-instagram">Instagram Username</Label>
+                  <Input
+                    id="client-instagram"
+                    value={clientForm.instagramUsername}
+                    onChange={(e) => setClientForm({ ...clientForm, instagramUsername: e.target.value })}
+                    placeholder="Enter Instagram username"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="client-team">Team</Label>
+                  <Select value={clientForm.teamId || undefined} onValueChange={(value) => setClientForm({ ...clientForm, teamId: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a team (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams?.map((team: any) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateClientDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!clientForm.username || !clientForm.email || !clientForm.password) {
+                      toast({
+                        title: "Error",
+                        description: "Username, email, and password are required",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    createClientMutation.mutate(clientForm);
+                  }}
+                  disabled={createClientMutation.isPending}
+                  className="bg-black text-white hover:bg-gray-900"
+                >
+                  {createClientMutation.isPending ? "Creating..." : "Create Client"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
         <div className="space-y-3">
-          {clients && clients.length > 0 ? (
+          {clientsLoading ? (
+            <div className="text-center py-8 text-gray-500">Loading clients...</div>
+          ) : clients && Array.isArray(clients) && clients.length > 0 ? (
             clients.map((client) => (
               <Card
                 key={client.id}
@@ -417,7 +715,16 @@ export default function ClientsSection() {
               </Card>
             ))
           ) : (
-            <div className="text-center py-8 text-gray-500">No clients found</div>
+            <div className="text-center py-8 text-gray-500">
+              <div>No clients found</div>
+              <div className="text-xs mt-2 text-gray-400">
+                {clientsLoading ? "Loading..." : 
+                 clients === undefined ? "Data not loaded yet" :
+                 clients === null ? "Data is null" :
+                 Array.isArray(clients) ? `Array with ${clients.length} items` :
+                 `Data type: ${typeof clients}`}
+              </div>
+            </div>
           )}
         </div>
       </div>

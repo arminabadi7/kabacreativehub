@@ -1,6 +1,7 @@
 import { useState } from "react";
 import * as React from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,11 @@ type Issue = {
   order: number;
   projectId: string | null;
   videoDuration: string | null;
+  videoDurationSeconds?: number | null;
+  priority?: string;
+  assigneeId?: string | null;
   createdAt: string;
+  tasks?: Task[];
 };
 
 type Task = {
@@ -91,11 +96,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function ProjectsBoard() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [newProjectClientId, setNewProjectClientId] = useState<string>("");
+  const [newProjectTeamId, setNewProjectTeamId] = useState<string>("");
   const [newProjectFileLink, setNewProjectFileLink] = useState("");
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [statusLabelEdit, setStatusLabelEdit] = useState<string>("");
@@ -133,16 +140,36 @@ export default function ProjectsBoard() {
     },
   });
 
-  const { data: issues } = useQuery<Issue[]>({
+  const { data: issues, isLoading: issuesLoading, error: issuesError } = useQuery<Issue[]>({
     queryKey: ["/api/projects", selectedProject, "issues"],
     queryFn: async () => {
       if (!selectedProject) return [];
+      console.log(`[ProjectsBoard] Fetching issues for project: ${selectedProject}`);
       const res = await fetch(`/api/projects/${selectedProject}/issues`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch issues");
-      return res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`[ProjectsBoard] Failed to fetch issues: ${res.status}`, errorText);
+        throw new Error(`Failed to fetch issues: ${res.status} ${errorText}`);
+      }
+      const data = await res.json();
+      console.log(`[ProjectsBoard] Fetched ${data.length} issues:`, data);
+      return data;
     },
     enabled: !!selectedProject,
   });
+
+  // Invalidate task queries when issues list changes (e.g., new issue created from template)
+  React.useEffect(() => {
+    if (issues && issues.length > 0) {
+      // Small delay to ensure server has finished creating tasks
+      const timer = setTimeout(() => {
+        issues.forEach((issue) => {
+          queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
+        });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [issues?.length]); // Only run when number of issues changes
 
   const { data: templates } = useQuery<any[]>({
     queryKey: ["/api/templates"],
@@ -274,17 +301,47 @@ export default function ProjectsBoard() {
   const handleTemplateChange = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (template) {
+      console.log("[TemplateChange] Loading template:", template);
+      
+      // Convert videoDuration from seconds to HH:MM:SS format if it's a number
+      let videoDuration = "0:01:00";
+      if (template.videoDuration) {
+        if (typeof template.videoDuration === 'number') {
+          const hours = Math.floor(template.videoDuration / 3600);
+          const minutes = Math.floor((template.videoDuration % 3600) / 60);
+          const seconds = template.videoDuration % 60;
+          videoDuration = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+          videoDuration = template.videoDuration;
+        }
+      }
+
+      const templateStatus = template.defaultStatus || createIssueStatus || "backlog";
+      const templatePriority = template.defaultPriority || "no_priority";
+      const templateAssignee = template.defaultAssigneeId || "";
+
+      console.log("[TemplateChange] Template data being applied:", {
+        title: template.title || template.issueTitle,
+        description: template.description,
+        teamId: template.teamId,
+        status: templateStatus,
+        priority: templatePriority,
+        assigneeId: templateAssignee,
+        videoUrl: template.videoUrl,
+        videoDuration: videoDuration,
+      });
+
       setIssueForm(prev => ({
         ...prev,
         templateId,
         title: template.title || template.issueTitle || "",
         description: template.description || "",
         teamId: template.teamId || "",
-        status: template.defaultStatus || prev.status,
-        priority: template.defaultPriority || "no_priority",
-        assigneeId: template.defaultAssigneeId || "",
+        status: templateStatus,
+        priority: templatePriority,
+        assigneeId: templateAssignee,
         videoUrl: template.videoUrl || "",
-        videoDuration: template.videoDuration || "0:01:00",
+        videoDuration: videoDuration,
       }));
     } else {
       setIssueForm(prev => ({ ...prev, templateId }));
@@ -320,6 +377,11 @@ export default function ProjectsBoard() {
 
   const createIssueMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log("[CreateIssueMutation] Received data:", data);
+      console.log("[CreateIssueMutation] Template ID:", data.templateId);
+      console.log("[CreateIssueMutation] Current tasks state:", tasks);
+      console.log("[CreateIssueMutation] Template tasks:", templateTasks);
+      
       // Convert video duration from HH:MM:SS to seconds
       let videoDurationSeconds = null;
       if (data.videoDuration && data.videoDuration !== "0:00:00") {
@@ -328,6 +390,36 @@ export default function ProjectsBoard() {
           videoDurationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
         }
       }
+      
+      // Prepare tasks array for inclusion in issue creation
+      // Use tasks state if available, otherwise fall back to templateTasks
+      let tasksToUse = tasks;
+      if ((!tasksToUse || tasksToUse.length === 0) && data.templateId && templateTasks && templateTasks.length > 0) {
+        console.log("[CreateIssueMutation] Tasks state is empty, using templateTasks directly");
+        tasksToUse = templateTasks.map((t: any, idx: number) => ({
+          id: `temp-${idx}`,
+          name: t.name,
+          points: t.points || 0,
+          priority: t.priority || "no_priority",
+          assignedTo: t.assignedTo || null,
+        }));
+      }
+      
+      console.log("[CreateIssueMutation] Tasks to use:", tasksToUse);
+      console.log("[CreateIssueMutation] Tasks to use length:", tasksToUse?.length || 0);
+      
+      const tasksToCreate = (tasksToUse || [])
+        .filter((task) => task.name && task.name.trim())
+        .map((task, index) => ({
+          name: task.name.trim(),
+          points: task.points || 0,
+          priority: task.priority || "no_priority",
+          assignedTo: task.assignedTo || null,
+          order: index,
+        }));
+      
+      console.log("[CreateIssueMutation] Tasks to create after filtering:", tasksToCreate);
+      console.log("[CreateIssueMutation] Tasks to create count:", tasksToCreate.length);
       
       const issueData = {
         projectId: selectedProject,
@@ -339,64 +431,46 @@ export default function ProjectsBoard() {
         order: 0,
         teamId: data.teamId || null,
         priority: data.priority || "no_priority",
-        assignedTo: data.assignedTo || null,
+        assigneeId: data.assigneeId || data.assignedTo || null,
+        dueDate: data.dueDate || null,
+        publishDate: data.publishDate || null,
+        templateId: data.templateId || issueForm.templateId || null, // Include templateId for fallback
+        tasks: tasksToCreate, // Include tasks in the issue creation
       };
+      
+      console.log("[CreateIssueMutation] Sending issue data to API with tasks:", {
+        ...issueData,
+        tasks: issueData.tasks.map(t => ({ name: t.name, points: t.points, assignedTo: t.assignedTo }))
+      });
       
       const response = await apiRequest("POST", "/api/issues", issueData);
       return await response.json();
     },
     onSuccess: async (issue) => {
-      console.log(`[CreateIssue] Issue created: ${issue.id}`, issue);
-      console.log(`[CreateIssue] Tasks to create: ${tasks.length}`, tasks);
+      console.log(`[CreateIssue] Issue created: ${issue.id}`);
+      console.log(`[CreateIssue] Issue tasks count: ${issue.tasks?.length || 0}`);
+      console.log(`[CreateIssue] Issue tasks:`, issue.tasks);
       
-      // Create tasks for the issue
-      if (tasks.length > 0) {
-        const tasksToCreate = tasks.filter((task) => task.name && task.name.trim());
-        console.log(`[CreateIssue] Filtered tasks to create: ${tasksToCreate.length}`, tasksToCreate);
+      // Issue is now created with tasks already attached, invalidate queries to refresh
+      // Add a delay to ensure tasks are committed to database
+      setTimeout(() => {
+        // Invalidate project issues first
+        queryClient.invalidateQueries({ queryKey: ["/api/issues", selectedProject] });
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProject, "issues"] });
         
-        try {
-          const createdTasks = await Promise.all(
-            tasksToCreate.map(async (task, idx) => {
-              console.log(`[CreateIssue] Creating task ${idx + 1}/${tasksToCreate.length}:`, task);
-              try {
-                const response = await apiRequest("POST", `/api/issues/${issue.id}/tasks`, {
-                  name: task.name.trim(),
-                  points: task.points || 0,
-                  priority: task.priority || "no_priority",
-                  assignedTo: task.assignedTo || null,
-                  order: idx,
-                });
-                const createdTask = await response.json();
-                console.log(`[CreateIssue] Task created successfully:`, createdTask);
-                return createdTask;
-              } catch (taskError: any) {
-                console.error(`[CreateIssue] Error creating task "${task.name}":`, taskError);
-                throw taskError;
-              }
-            })
-          );
-          console.log(`[CreateIssue] All ${createdTasks.length} tasks created successfully`);
-          
-          // Small delay to ensure tasks are saved before invalidating
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error: any) {
-          console.error("[CreateIssue] Error creating tasks:", error);
-          toast({
-            title: "Warning",
-            description: `Issue created but some tasks failed to create: ${error.message}`,
-            variant: "destructive",
+        // Invalidate the new issue's tasks specifically - this is critical
+        queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
+        
+        // Also invalidate individual issue task queries for all issues in the project
+        if (issues) {
+          issues.forEach((i) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/issues", i.id, "tasks"] });
           });
         }
-      } else {
-        console.log(`[CreateIssue] No tasks to create (tasks array is empty)`);
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProject, "issues"] });
-      // Invalidate tasks for the created issue - wait a bit to ensure tasks are saved
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
-        console.log(`[CreateIssue] Invalidated tasks query for issue ${issue.id}`);
-      }, 200);
+        
+        // Force refetch the new issue's tasks immediately
+        queryClient.refetchQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
+      }, 1000);
       if (!issueForm.createMore) {
         setIsCreateIssueDialogOpen(false);
         setIssueForm({
@@ -456,15 +530,38 @@ export default function ProjectsBoard() {
       return;
     }
 
-    createIssueMutation.mutate({
+    // Convert videoDuration from template (seconds) to HH:MM:SS format if needed
+    let videoDuration = issueForm.videoDuration;
+    if (selectedTemplateData?.videoDuration && typeof selectedTemplateData.videoDuration === 'number') {
+      // Template has videoDuration in seconds, convert to HH:MM:SS
+      const hours = Math.floor(selectedTemplateData.videoDuration / 3600);
+      const minutes = Math.floor((selectedTemplateData.videoDuration % 3600) / 60);
+      const seconds = selectedTemplateData.videoDuration % 60;
+      videoDuration = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    const issueData = {
       ...issueForm,
       title: issueTitle || issueForm.description.trim(),
       status: issueForm.status || createIssueStatus || "backlog",
+      assignedTo: issueForm.assigneeId || null, // Map assigneeId to assignedTo
+      videoDuration: videoDuration || "0:01:00",
+      dueDate: dueDate || null,
+      publishDate: publishDate || null,
+    };
+
+    console.log("[CreateIssue] Creating issue with data from template:", {
+      templateId: issueForm.templateId,
+      templateData: selectedTemplateData,
+      issueData: issueData,
+      tasks: tasks,
     });
+
+    createIssueMutation.mutate(issueData);
   };
 
   const createProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string; clientId: string; fileLink?: string }) => {
+    mutationFn: async (data: { name: string; description?: string; clientId: string; teamId?: string; fileLink?: string }) => {
       const response = await apiRequest("POST", "/api/projects", data);
       return await response.json();
     },
@@ -474,6 +571,7 @@ export default function ProjectsBoard() {
       setNewProjectName("");
       setNewProjectDescription("");
       setNewProjectClientId("");
+      setNewProjectTeamId("");
       setNewProjectFileLink("");
       toast({
         title: "Success!",
@@ -502,6 +600,7 @@ export default function ProjectsBoard() {
       name: newProjectName.trim(),
       description: newProjectDescription.trim() || undefined,
       clientId: newProjectClientId,
+      teamId: newProjectTeamId || undefined,
       fileLink: newProjectFileLink.trim() || undefined,
     });
   };
@@ -608,6 +707,18 @@ export default function ProjectsBoard() {
     return acc;
   }, {} as Record<string, Issue[]>);
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log(`[ProjectsBoard] Issues state:`, {
+      selectedProject,
+      issuesCount: issues?.length || 0,
+      issues,
+      issuesLoading,
+      issuesError,
+      issuesByStatus,
+    });
+  }, [selectedProject, issues, issuesLoading, issuesError]);
+
   // Format date like "Sep 15"
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -684,6 +795,22 @@ export default function ProjectsBoard() {
                     {clients?.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.fullName || client.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="project-team">Team</Label>
+                <Select value={newProjectTeamId} onValueChange={setNewProjectTeamId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a team (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no-team">No Team</SelectItem>
+                    {teams?.map((team: { id: string; name: string }) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -777,7 +904,30 @@ export default function ProjectsBoard() {
           </Button>
         </div>
 
+        {/* Loading State */}
+        {issuesLoading && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Loading issues...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {issuesError && (
+          <div className="text-center py-12">
+            <p className="text-red-500">Error loading issues: {issuesError instanceof Error ? issuesError.message : "Unknown error"}</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!issuesLoading && !issuesError && (!issues || issues.length === 0) && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No issues found</p>
+            <p className="text-gray-400 text-sm mt-2">Click the + button on any column to create an issue</p>
+          </div>
+        )}
+
         {/* Kanban Board */}
+        {!issuesLoading && !issuesError && issues && issues.length > 0 && (
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: "calc(100vh - 200px)" }}>
           {STATUSES.map((status) => {
             const statusIssues = issuesByStatus[status] || [];
@@ -861,6 +1011,8 @@ export default function ProjectsBoard() {
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           isDragging={draggedIssueId === issue.id}
+                          setLocation={setLocation}
+                          projectId={selectedProject}
                         />
                       ))}
                       {dragOverStatus === status && draggedIssueId && !statusIssues.find(i => i.id === draggedIssueId) && (
@@ -875,6 +1027,7 @@ export default function ProjectsBoard() {
             );
           })}
         </div>
+        )}
       </div>
 
       {/* Create Issue Dialog */}
@@ -896,7 +1049,7 @@ export default function ProjectsBoard() {
           <div className="px-6 py-4 space-y-3">
             {/* Header Section - Team and Template Dropdowns */}
             <div className="flex items-center gap-3">
-              <Select value={issueForm.teamId} onValueChange={(value) => setIssueForm(prev => ({ ...prev, teamId: value }))}>
+              <Select value={issueForm.teamId || "no-team"} onValueChange={(value) => setIssueForm(prev => ({ ...prev, teamId: value === "no-team" ? "" : value }))}>
                 <SelectTrigger className="w-[140px] h-9 border-gray-300">
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-gray-500" />
@@ -904,7 +1057,7 @@ export default function ProjectsBoard() {
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {teams?.map((team) => (
+                  {teams?.map((team: { id: string; name: string }) => (
                     <SelectItem key={team.id} value={team.id}>
                       {team.name}
                     </SelectItem>
@@ -1221,32 +1374,55 @@ function IssueCard({
   issue, 
   onDragStart, 
   onDragEnd,
-  isDragging 
+  isDragging,
+  setLocation,
+  projectId
 }: { 
   issue: Issue; 
   onDragStart: (e: React.DragEvent, issue: Issue) => void;
   onDragEnd: () => void;
   isDragging?: boolean;
+  setLocation: (path: string) => void;
+  projectId: string | null;
 }) {
   const { toast } = useToast();
   
-  const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery<Task[]>({
+  // Always fetch tasks for this issue to ensure we have the latest data
+  const { data: fetchedTasks, isLoading: tasksLoading, refetch: refetchTasks } = useQuery<any[]>({
     queryKey: ["/api/issues", issue.id, "tasks"],
     queryFn: async () => {
-      console.log(`[IssueCard] Fetching tasks for issue: ${issue.id}`);
       const res = await fetch(`/api/issues/${issue.id}/tasks`, { credentials: "include" });
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error(`[IssueCard] Failed to fetch tasks: ${res.status} ${res.statusText}`, errorText);
-        throw new Error("Failed to fetch tasks");
+        console.warn(`[IssueCard] Failed to fetch tasks for issue ${issue.id}: ${res.status}`);
+        return [];
       }
-      const data = await res.json();
-      console.log(`[IssueCard] Received ${data.length} tasks for issue ${issue.id}:`, data);
-      return data;
+      const tasks = await res.json();
+      console.log(`[IssueCard] Fetched ${tasks.length} tasks for issue ${issue.id}:`, tasks.map((t: any) => ({ name: t.name, points: t.points })));
+      return tasks;
     },
-    enabled: !!issue.id, // Always enabled if issue has an id
-    retry: 2,
+    enabled: !!issue.id,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    staleTime: 0, // Always consider data stale to ensure fresh fetch
+    retry: 2, // Retry failed requests
   });
+
+  // Use fetched tasks if available, otherwise fall back to tasks from issue object
+  // Prioritize fetched tasks even if loading (to show loading state)
+  const issueTasks = fetchedTasks && fetchedTasks.length > 0 
+    ? fetchedTasks 
+    : (!tasksLoading && issue.tasks && issue.tasks.length > 0)
+    ? issue.tasks
+    : [];
+  
+  // Debug logging
+  if (issueTasks.length === 0 && !tasksLoading) {
+    console.log(`[IssueCard] No tasks found for issue ${issue.id} "${issue.title}"`, {
+      fetchedTasks: fetchedTasks?.length || 0,
+      issueTasks: issue.tasks?.length || 0,
+      tasksLoading,
+    });
+  }
 
   const { data: members } = useQuery<Array<{ id: string; fullName: string | null; username: string; profilePicture: string | null }>>({
     queryKey: ["/api/members/assignees"],
@@ -1256,6 +1432,11 @@ function IssueCard({
       return res.json();
     },
   });
+
+  const getMember = (memberId: string | null) => {
+    if (!memberId || !members) return null;
+    return members.find((m) => m.id === memberId);
+  };
 
   const updateTaskMutation = useMutation({
     mutationFn: async (data: { taskId: string; isCompleted: boolean }) => {
@@ -1268,7 +1449,11 @@ function IssueCard({
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
+      // Invalidate issues query to refetch with updated tasks
+      queryClient.invalidateQueries({ queryKey: ["/api/issues", projectId] });
+      if (issue.projectId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", issue.projectId, "issues"] });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -1285,73 +1470,148 @@ function IssueCard({
     return `${months[date.getMonth()]} ${date.getDate()}`;
   };
 
-  const getMember = (memberId: string | null) => {
-    if (!memberId || !members) return null;
-    return members.find((m) => m.id === memberId);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('select') || target.closest('textarea') || target.closest('[role="checkbox"]')) {
+      return;
+    }
+    if (issue.projectId) {
+      setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+    }
   };
 
-  const issueTasks = tasks || [];
-  
-  // Debug logging
-  React.useEffect(() => {
-    console.log(`[IssueCard] Issue: ${issue.title} (${issue.id}):`, {
-      issueId: issue.id,
-      tasksCount: issueTasks.length,
-      tasks: issueTasks,
-      tasksLoading,
-      tasksError,
-      rawTasks: tasks,
-    });
-  }, [issue.id, issue.title, issueTasks.length, tasksLoading, tasksError, tasks]);
+  // Format video duration from seconds to HH:MM:SS
+  const formatVideoDuration = (duration: string | number | null | undefined): string => {
+    if (!duration) return "0:01:00";
+    
+    let seconds = 0;
+    if (typeof duration === 'string') {
+      // Check if it's already in HH:MM:SS format
+      const parts = duration.split(':');
+      if (parts.length === 3) {
+        return duration; // Already formatted
+      }
+      seconds = parseInt(duration) || 0;
+    } else {
+      seconds = duration;
+    }
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get status color for the orange dot
+  const getStatusColor = (status: string): string => {
+    return STATUS_COLORS[status] || "bg-orange-500";
+  };
+
+  // Get issue assignee (check both assigneeId and assignee_id for compatibility)
+  const issueAssigneeId = issue.assigneeId || (issue as any).assignee_id || null;
+  const issueAssignee = issueAssigneeId ? getMember(issueAssigneeId) : null;
 
   return (
     <Card
       draggable
       onDragStart={(e) => onDragStart(e, issue)}
       onDragEnd={onDragEnd}
-      className={`cursor-move transition-all duration-200 bg-white border-gray-200 ${
+      onClick={handleCardClick}
+      className={`cursor-pointer transition-all duration-200 bg-white border-gray-200 ${
         isDragging 
           ? "opacity-50 scale-95 rotate-1 shadow-lg" 
           : "hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
       }`}
       style={{
-        cursor: isDragging ? "grabbing" : "grab",
+        cursor: isDragging ? "grabbing" : "pointer",
       }}
     >
       <CardContent className="p-3">
-        {/* Issue Title */}
-        <h4 className="font-semibold text-gray-900 text-sm mb-3">{issue.title}</h4>
+        {/* Issue Title Row */}
+        <div className="flex items-center gap-2 mb-2">
+          {/* Orange Status Dot */}
+          <div className={`w-2 h-2 rounded-full ${getStatusColor(issue.status)} flex-shrink-0`}></div>
+          
+          {/* Issue Title */}
+          <h4 className="font-semibold text-gray-900 text-sm flex-1">{issue.title}</h4>
+          
+          {/* Icons Row */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Three Horizontal Lines Icon (Menu) */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                // TODO: Open issue menu/detail view
+              }}
+              className="p-0.5 hover:bg-gray-100 rounded"
+            >
+              <MoreHorizontal className="w-3.5 h-3.5 text-gray-500" />
+            </button>
+            
+            {/* User Icon (Assignee) */}
+            {issueAssignee ? (
+              <Avatar className="w-5 h-5 flex-shrink-0">
+                <AvatarImage src={issueAssignee.profilePicture || undefined} />
+                <AvatarFallback className="text-[8px] bg-gray-200">
+                  {issueAssignee.fullName?.[0] || issueAssignee.username[0] || "?"}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="w-5 h-5 rounded-full border border-gray-300 bg-gray-100 flex items-center justify-center flex-shrink-0">
+                <UserCircle className="w-3 h-3 text-gray-400" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Three Dots Icon (More Options) */}
+        <div className="mb-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Open more options menu
+            }}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Tasks List - Always show if tasks exist */}
         {tasksLoading ? (
-          <div className="mb-3 text-xs text-gray-500">Loading tasks...</div>
-        ) : tasksError ? (
-          <div className="mb-3 text-xs text-red-500">Error loading tasks: {tasksError.message}</div>
+          <div className="mb-3 text-xs text-gray-400">Loading tasks...</div>
         ) : issueTasks && issueTasks.length > 0 ? (
           <div className="mb-3">
             <div className="text-xs font-medium text-gray-700 mb-2">Tasks ({issueTasks.length})</div>
             <div className="space-y-1.5">
-              {issueTasks.map((task) => {
-                const memberId = task.assignedTo || task.memberId;
+              {issueTasks.map((task, idx) => {
+                const memberId = task.assignedTo || task.memberId || task.assigned_to || null;
                 const member = getMember(memberId);
                 const taskName = task.name || task.title || "Untitled Task";
-                const isCompleted = task.isCompleted || task.status === "completed";
+                const isCompleted = task.isCompleted || task.is_completed || task.status === "completed";
+                const taskPoints = task.points || 0;
+                const taskId = task.id || `task-${idx}`;
+                
                 return (
-                  <div key={task.id} className="flex items-center gap-2 text-xs">
+                  <div key={taskId} className="flex items-center gap-2 text-xs">
                     <Checkbox 
                       checked={isCompleted} 
                       onCheckedChange={(checked) => {
-                        updateTaskMutation.mutate({
-                          taskId: task.id,
-                          isCompleted: checked as boolean,
-                        });
+                        if (task.id) {
+                          updateTaskMutation.mutate({
+                            taskId: task.id,
+                            isCompleted: checked as boolean,
+                          });
+                        }
                       }}
                       className="w-3.5 h-3.5 rounded border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black"
                     />
                     <span className={`flex-1 text-gray-900 ${isCompleted ? "line-through text-gray-500" : ""}`}>
                       {taskName}
                     </span>
-                    <span className="text-gray-600 font-medium">{task.points || 0} pts</span>
+                    <span className="text-gray-600 font-medium">{taskPoints} pts</span>
                     {member ? (
                       <Avatar className="w-5 h-5 flex-shrink-0">
                         <AvatarImage src={member.profilePicture || undefined} />
@@ -1367,13 +1627,16 @@ function IssueCard({
               })}
             </div>
           </div>
-        ) : (
-          <div className="mb-3 text-xs text-gray-400">No tasks</div>
-        )}
+        ) : null}
 
-        {/* Creation Date - Bottom Left */}
-        <div className="text-xs text-gray-500 pt-2 border-t border-gray-100">
+        {/* Footer: Creation Date and Video Duration */}
+        <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
           <span>Created: {formatDate(issue.createdAt)}</span>
+          {(issue.videoDuration || issue.videoDurationSeconds) && (
+            <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-mono">
+              {formatVideoDuration(issue.videoDurationSeconds || issue.videoDuration)}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>

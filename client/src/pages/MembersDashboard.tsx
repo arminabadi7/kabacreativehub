@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -44,7 +44,9 @@ import PaymentsSection from "./members/PaymentsSection";
 import ClippingArea from "./members/ClippingArea";
 import ProjectsBoard from "./members/ProjectsBoard";
 import TemplatesPage from "./members/TemplatesPage";
+import TeamsPage from "./members/TeamsPage";
 import ClientsSection from "./members/ClientsSection";
+import IssueDetailPage from "./members/IssueDetailPage";
 import { canAccessClipping, canAccessAdmin, canAccessSettings } from "@/lib/permissions";
 
 type Member = {
@@ -64,15 +66,40 @@ type MembersDashboardProps = {
 
 export default function MembersDashboard(props: MembersDashboardProps = {}) {
   const { fromFounderDashboard = false, onBackToFounder } = props;
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
-  const [activeSection, setActiveSection] = useState("profile");
+  
+  // Parse issue detail route manually
+  const issueDetailMatch = location.match(/^\/member-dashboard\/projects\/([^\/]+)\/issues\/([^\/]+)$/);
+  const issueDetailParams = issueDetailMatch ? {
+    projectId: issueDetailMatch[1],
+    issueId: issueDetailMatch[2]
+  } : null;
+  
+  // Debug logging
+  console.log("[MembersDashboard] Current location:", location);
+  console.log("[MembersDashboard] Issue detail match:", issueDetailMatch);
+  console.log("[MembersDashboard] Issue detail params:", issueDetailParams);
+  const [activeSection, setActiveSection] = useState("clients");
   const [activeSubSection, setActiveSubSection] = useState<string | null>(null);
   const [menuMode, setMenuMode] = useState<"main" | "settings">("main");
 
   const { data: member, isLoading: memberLoading } = useQuery<Member>({
     queryKey: ["/api/members/session"],
     retry: false,
+    // Don't fail on error - use mock member instead
+    throwOnError: false,
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/members/session", { credentials: "include" });
+        if (!res.ok) {
+          return null; // Return null on error, we'll use mock member
+        }
+        return await res.json();
+      } catch (error) {
+        return null; // Return null on error, we'll use mock member
+      }
+    },
   });
 
   const logoutMutation = useMutation({
@@ -119,7 +146,8 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
     role: "MEMBER",
     memberSince: new Date().toISOString(),
   };
-
+  
+  // Use mock member if real member is not loaded (for testing)
   const displayMember = member || mockMember;
 
   const handleLogout = () => {
@@ -127,6 +155,17 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
   };
 
   const renderContent = () => {
+    // Check if we're viewing an issue detail page (regardless of activeSection)
+    if (issueDetailParams) {
+      console.log("[MembersDashboard] Rendering IssueDetailPage");
+      return (
+        <IssueDetailPage 
+          fromFounderDashboard={fromFounderDashboard}
+          onBackToFounder={onBackToFounder}
+        />
+      );
+    }
+
     if (activeSection === "profile") {
       return <ProfileSection member={displayMember} />;
     }
@@ -145,12 +184,7 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
       );
     }
     if (activeSection === "teams") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Teams</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <TeamsPage />;
     }
     if (activeSection === "members") {
       return (

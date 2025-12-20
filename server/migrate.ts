@@ -548,6 +548,49 @@ export async function migrateTemplateSchema() {
       console.log("✓ team_id column already exists in members table");
     }
 
+    // Add priority and assignee_id columns to issues table if they don't exist
+    const checkIssuePriority = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'issues' AND column_name = 'priority'
+    `);
+    if (!checkIssuePriority || checkIssuePriority.rows.length === 0) {
+      try {
+        await db.execute(sql`
+          ALTER TABLE issues 
+          ADD COLUMN priority TEXT DEFAULT 'no_priority'
+        `);
+        console.log("✓ Added priority column to issues table");
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) {
+          console.error("Error adding priority to issues:", err.message);
+        }
+      }
+    } else {
+      console.log("✓ priority column already exists in issues table");
+    }
+
+    const checkIssueAssigneeId = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'issues' AND column_name = 'assignee_id'
+    `);
+    if (!checkIssueAssigneeId || checkIssueAssigneeId.rows.length === 0) {
+      try {
+        await db.execute(sql`
+          ALTER TABLE issues 
+          ADD COLUMN assignee_id VARCHAR
+        `);
+        console.log("✓ Added assignee_id column to issues table");
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) {
+          console.error("Error adding assignee_id to issues:", err.message);
+        }
+      }
+    } else {
+      console.log("✓ assignee_id column already exists in issues table");
+    }
+
     // Ensure clips table has all required columns
     console.log("Checking and migrating clips table structure...");
     
@@ -671,6 +714,54 @@ export async function migrateTemplateSchema() {
     }
     
     console.log("✓ Clips table migration complete");
+
+    // Add team_id column to clients table if it doesn't exist
+    const checkClientTeamId = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'clients' AND column_name = 'team_id'
+    `);
+    if (!checkClientTeamId || checkClientTeamId.rows.length === 0) {
+      console.log("Adding team_id column to clients table...");
+      try {
+        await db.execute(sql`
+          ALTER TABLE clients 
+          ADD COLUMN team_id VARCHAR
+        `);
+        console.log("✓ Added team_id column to clients table");
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) {
+          console.error("Error adding team_id to clients:", err.message);
+        }
+      }
+    } else {
+      console.log("✓ team_id column already exists in clients table");
+    }
+
+    // Add team_id column to projects table if it doesn't exist
+    const checkProjectTeamId = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'projects' AND column_name = 'team_id'
+    `);
+    if (!checkProjectTeamId || checkProjectTeamId.rows.length === 0) {
+      console.log("Adding team_id column to projects table...");
+      try {
+        await db.execute(sql`
+          ALTER TABLE projects 
+          ADD COLUMN team_id VARCHAR
+        `);
+        console.log("✓ Added team_id column to projects table");
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) {
+          console.error("Error adding team_id to projects:", err.message);
+        }
+      }
+    } else {
+      console.log("✓ team_id column already exists in projects table");
+    }
+
+    console.log("✓ All migrations complete");
   } catch (error: any) {
     console.error("Error migrating template schema:", error);
     // Don't throw - allow server to start even if migration fails

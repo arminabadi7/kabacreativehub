@@ -104,3 +104,6 @@ export async function seedClippingData() {
 
 // Note: This file is imported as an ES module, so we don't check for direct execution
 // The function is called from server/index.ts
+
+
+

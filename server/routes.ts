@@ -132,6 +132,17 @@ function requireRole(roles: string[]) {
 function requirePermission(permission: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     // Debug logging for authentication issues
+    console.log(`[requirePermission] Checking permission '${permission}' for path: ${req.path}`);
+    console.log(`[requirePermission] Session data:`, {
+      hasSession: !!req.session,
+      memberId: req.session?.memberId,
+      isFounder: req.session?.isFounder,
+      userType: req.session?.userType,
+      role: req.session?.role,
+      username: req.session?.username,
+      sessionId: req.sessionID,
+    });
+    
     if (!req.session?.memberId && !req.session?.isFounder) {
       console.error("Authentication failed - session data:", {
         hasSession: !!req.session,
@@ -142,12 +153,15 @@ function requirePermission(permission: string) {
         username: req.session?.username,
         path: req.path,
         method: req.method,
+        sessionId: req.sessionID,
+        cookies: req.headers.cookie,
       });
       return res.status(401).json({ error: "Authentication required" });
     }
     
     // Founder has all permissions
     if (req.session.isFounder) {
+      console.log(`[requirePermission] Founder access granted for ${req.path}`);
       return next();
     }
     
@@ -427,8 +441,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid founder password" });
       }
       
+      // Set founder session
       req.session.isFounder = true;
-      return res.json({ success: true });
+      req.session.userType = "founder";
+      console.log(`[Routes] Founder login successful. Session ID: ${req.sessionID}`);
+      console.log(`[Routes] Session after login:`, {
+        isFounder: req.session.isFounder,
+        userType: req.session.userType,
+        sessionId: req.sessionID,
+      });
+      
+      // Return response - session will be saved automatically by express-session
+      return res.json({ success: true, isFounder: true });
     } catch (error) {
       console.error("Error logging in as founder:", error);
       return res.status(500).json({ error: "Failed to authenticate" });
@@ -838,7 +862,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username already exists" });
       }
       
-      const affiliate = await storage.createAffiliate(validatedData);
+      const affiliate = await storage.createAffiliate({
+        ...validatedData,
+        plainPassword: validatedData.plainPassword || undefined,
+      } as any);
       
       return res.status(201).json(affiliate);
     } catch (error: any) {
@@ -1914,10 +1941,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get All Clients - For both Members and Founder dashboards
+  app.get("/api/clients", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      console.log(`[Routes] GET /api/clients called`);
+      const allClients = await storage.getAllClients();
+      console.log(`[Routes] Found ${allClients.length} clients`);
+      
+      // Calculate stats for each client
+      const clientsWithStats = await Promise.all(
+        allClients.map(async (client) => {
+          const { passwordHash: _, ...clientWithoutPassword } = client;
+          
+          // Get total spent from invoices (handles missing invoices table gracefully)
+          let totalSpent = 0;
+          try {
+            const invoices = await storage.getAllInvoices({ clientId: client.id });
+            totalSpent = invoices
+              .filter(inv => inv.status === "paid")
+              .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+          } catch (error: any) {
+            // If invoices can't be fetched, use client's totalSpent or default to 0
+            console.warn(`[Routes] Could not fetch invoices for client ${client.id}:`, error.message);
+            totalSpent = (client.totalSpent || 0);
+          }
+          
+          // Calculate client duration
+          const clientSince = new Date(client.clientSince || client.createdAt);
+          const now = new Date();
+          const diffTime = Math.abs(now.getTime() - clientSince.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const durationMonths = Math.floor(diffDays / 30);
+          const durationYears = Math.floor(diffDays / 365);
+          
+          let durationText = "";
+          if (durationYears > 0) {
+            durationText = `${durationYears} year${durationYears > 1 ? 's' : ''}`;
+            const remainingMonths = durationMonths % 12;
+            if (remainingMonths > 0) {
+              durationText += `, ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
+            }
+          } else if (durationMonths > 0) {
+            durationText = `${durationMonths} month${durationMonths > 1 ? 's' : ''}`;
+          } else {
+            durationText = `${diffDays} day${diffDays > 1 ? 's' : ''}`;
+          }
+          
+          // Calculate next payment date (if monthlyPaymentDate is set)
+          let nextPaymentDate = null;
+          if (client.monthlyPaymentDate) {
+            const today = new Date();
+            const paymentDay = client.monthlyPaymentDate;
+            nextPaymentDate = new Date(today.getFullYear(), today.getMonth(), paymentDay);
+            if (nextPaymentDate < today) {
+              nextPaymentDate = new Date(today.getFullYear(), today.getMonth() + 1, paymentDay);
+            }
+          }
+          
+          return {
+            ...clientWithoutPassword,
+            totalSpent,
+            durationText,
+            nextPaymentDate: nextPaymentDate ? nextPaymentDate.toISOString() : null,
+            clientSince: client.clientSince || client.createdAt,
+          };
+        })
+      );
+      
+      console.log(`[Routes] Returning ${clientsWithStats.length} clients with stats`);
+      // Always return an array, even if empty
+      return res.json(clientsWithStats || []);
+    } catch (error: any) {
+      console.error("Error fetching clients:", error);
+      console.error("Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.detail,
+        stack: error?.stack,
+      });
+      return res.status(500).json({ 
+        error: "Failed to fetch clients",
+        details: error?.message || "Unknown error",
+        code: error?.code
+      });
+    }
+  });
+
   // Get All Clients - Founder Only (with plain passwords)
   app.get("/api/clients/list", requirePermission("view_clipping"), async (req, res) => {
     try {
+      console.log(`[Routes] GET /api/clients/list called`);
+      console.log(`[Routes] Session info:`, {
+        isFounder: req.session?.isFounder,
+        memberId: req.session?.memberId,
+        username: req.session?.username,
+        userType: req.session?.userType,
+        role: req.session?.role,
+      });
       const allClients = await storage.getAllClients();
+      console.log(`[Routes] Found ${allClients.length} clients`);
       
       // If founder, return with stats
       if (req.session?.isFounder) {
@@ -1931,11 +2053,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               plainPassword: (client as any).plainPassword || null,
             };
             
-            // Get total spent from invoices
-            const invoices = await storage.getAllInvoices({ clientId: client.id });
-            const totalSpent = invoices
-              .filter(inv => inv.status === "paid")
-              .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+            // Get total spent from invoices (handles missing invoices table gracefully)
+            let totalSpent = 0;
+            try {
+              const invoices = await storage.getAllInvoices({ clientId: client.id });
+              totalSpent = invoices
+                .filter(inv => inv.status === "paid")
+                .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+            } catch (error: any) {
+              // If invoices can't be fetched, use client's totalSpent or default to 0
+              console.warn(`[Routes] Could not fetch invoices for client ${client.id}:`, error.message);
+              totalSpent = (client.totalSpent || 0);
+            }
             
             // Calculate client duration
             const clientSince = new Date(client.clientSince || client.createdAt);
@@ -1978,6 +2107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
         );
         
+        console.log(`[Routes] Returning ${clientsWithStats.length} clients with stats`);
         return res.json(clientsWithStats);
       } else {
         // For members, return simple client list without stats
@@ -1985,11 +2115,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { passwordHash: _, ...clientWithoutPassword } = client;
           return clientWithoutPassword;
         });
+        console.log(`[Routes] Returning ${simpleClients.length} clients (simple list)`);
         return res.json(simpleClients);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching clients:", error);
-      return res.status(500).json({ error: "Failed to fetch clients" });
+      console.error("Error stack:", error?.stack);
+      console.error("Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.detail,
+      });
+      return res.status(500).json({ 
+        error: "Failed to fetch clients",
+        details: error?.message || "Unknown error",
+        code: error?.code
+      });
     }
   });
 
@@ -2048,6 +2189,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.username = member.username;
       req.session.userType = "member";
       req.session.role = member.role;
+      console.log(`[Routes] Member login successful. Session ID: ${req.sessionID}`);
+      console.log(`[Routes] Member session after login:`, {
+        memberId: req.session.memberId,
+        username: req.session.username,
+        role: req.session.role,
+        userType: req.session.userType,
+        sessionId: req.sessionID,
+      });
       
       // Handle remember me
       if (rememberMe) {
@@ -2216,21 +2365,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/issues", requirePermission("view_clipping"), async (req, res) => {
     try {
       const { projectId } = req.params;
+      console.log(`[Routes] GET /api/projects/${projectId}/issues called`);
       const issuesList = await storage.getIssuesByProject(projectId);
+      console.log(`[Routes] Returning ${issuesList.length} issues for project ${projectId}`);
       return res.json(issuesList);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching issues:", error);
-      return res.status(500).json({ error: "Failed to fetch issues" });
+      console.error("Error stack:", error?.stack);
+      console.error("Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.detail,
+      });
+      return res.status(500).json({ 
+        error: "Failed to fetch issues",
+        details: error?.message || "Unknown error",
+        code: error?.code
+      });
     }
   });
 
   app.post("/api/issues", requirePermission("create_projects"), async (req, res) => {
     try {
+      console.log(`[Routes] POST /api/issues called`);
+      console.log(`[Routes] Request body tasks count: ${req.body.tasks?.length || 0}`);
+      console.log(`[Routes] Request body:`, JSON.stringify({
+        ...req.body,
+        tasks: req.body.tasks?.map((t: any) => ({ name: t.name, points: t.points, assignedTo: t.assignedTo }))
+      }, null, 2));
+      
       const issue = await storage.createIssue(req.body);
+      
+      console.log(`[Routes] Created issue ${issue.id}`);
+      console.log(`[Routes] Issue has ${issue.tasks?.length || 0} tasks attached`);
+      if (issue.tasks && issue.tasks.length > 0) {
+        console.log(`[Routes] Task names:`, issue.tasks.map((t: any) => t.name || t.title));
+      }
+      
       return res.json(issue);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating issue:", error);
-      return res.status(500).json({ error: "Failed to create issue" });
+      console.error("Error stack:", error?.stack);
+      console.error("Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.detail,
+      });
+      return res.status(500).json({ 
+        error: "Failed to create issue",
+        details: error?.message || "Unknown error",
+        code: error?.code
+      });
+    }
+  });
+
+  // Issues - Support query param for projectId (must be before /api/issues/:issueId)
+  app.get("/api/issues", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const { projectId } = req.query;
+      console.log(`[Routes] GET /api/issues called with projectId: ${projectId}`);
+      if (projectId && typeof projectId === "string") {
+        const issuesList = await storage.getIssuesByProject(projectId);
+        console.log(`[Routes] Returning ${issuesList.length} issues for project ${projectId}`);
+        return res.json(issuesList);
+      }
+      // If no projectId, return empty array
+      console.log(`[Routes] No projectId provided, returning empty array`);
+      return res.json([]);
+    } catch (error: any) {
+      console.error("Error fetching issues:", error);
+      console.error("Error stack:", error?.stack);
+      console.error("Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.detail,
+      });
+      return res.status(500).json({ 
+        error: "Failed to fetch issues",
+        details: error?.message || "Unknown error",
+        code: error?.code
+      });
+    }
+  });
+
+  app.get("/api/issues/:issueId", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const { issueId } = req.params;
+      const issue = await db.execute(sql`
+        SELECT * FROM issues WHERE id = ${issueId}
+      `);
+      if (!issue.rows || issue.rows.length === 0) {
+        return res.status(404).json({ error: "Issue not found" });
+      }
+      return res.json(issue.rows[0]);
+    } catch (error) {
+      console.error("Error fetching issue:", error);
+      return res.status(500).json({ error: "Failed to fetch issue" });
     }
   });
 
@@ -2292,19 +2522,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/issues/:issueId/tasks", requirePermission("view_clipping"), async (req, res) => {
     try {
       const { issueId } = req.params;
-      console.log(`Fetching tasks for issue: ${issueId}`);
+      console.log(`[Routes] Fetching tasks for issue: ${issueId}`);
       
       // Query tasks by issueId (using raw SQL since schema might not be updated yet)
       const tasksList = await db.execute(sql`
         SELECT * FROM tasks 
         WHERE issue_id = ${issueId}
-        ORDER BY created_at ASC
+        ORDER BY COALESCE("order", 0) ASC, created_at ASC
       `);
       
-      console.log(`Found ${tasksList.rows?.length || 0} tasks for issue ${issueId}`);
+      const rawTasks = tasksList.rows || [];
+      console.log(`[Routes] Found ${rawTasks.length} tasks for issue ${issueId}`);
+      if (rawTasks.length > 0) {
+        console.log(`[Routes] Task names:`, rawTasks.map((t: any) => t.name || t.title));
+      }
       
       // Transform to match frontend expectations
-      const transformedTasks = (tasksList.rows || []).map((task: any) => {
+      const transformedTasks = rawTasks.map((task: any) => {
         // Handle both snake_case and camelCase column names
         const taskName = task.name || task.title || task.name || "Untitled Task";
         const assignedTo = task.assigned_to || task.assignedTo || task.member_id || task.memberId || null;
@@ -2336,11 +2570,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      console.log(`Returning ${transformedTasks.length} transformed tasks`);
+      console.log(`[Routes] Returning ${transformedTasks.length} transformed tasks for issue ${issueId}`);
+      if (transformedTasks.length > 0) {
+        console.log(`[Routes] Task details:`, transformedTasks.map((t: any) => ({ 
+          id: t.id, 
+          name: t.name, 
+          points: t.points, 
+          assignedTo: t.assignedTo,
+          isCompleted: t.isCompleted 
+        })));
+      }
       return res.json(transformedTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       return res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
+  app.patch("/api/issues/:issueId/tasks/:taskId", requirePermission("create_projects"), async (req, res) => {
+    try {
+      const { issueId, taskId } = req.params;
+      const updates = req.body;
+      
+      // Update task fields using raw SQL
+      if (updates.name !== undefined) {
+        await db.execute(sql`UPDATE tasks SET name = ${updates.name} WHERE issue_id = ${issueId} AND id = ${taskId}`);
+      }
+      if (updates.points !== undefined) {
+        await db.execute(sql`UPDATE tasks SET points = ${updates.points} WHERE issue_id = ${issueId} AND id = ${taskId}`);
+      }
+      if (updates.priority !== undefined) {
+        await db.execute(sql`UPDATE tasks SET priority = ${updates.priority} WHERE issue_id = ${issueId} AND id = ${taskId}`);
+      }
+      if (updates.assignedTo !== undefined) {
+        await db.execute(sql`UPDATE tasks SET assigned_to = ${updates.assignedTo || null} WHERE issue_id = ${issueId} AND id = ${taskId}`);
+      }
+      if (updates.isCompleted !== undefined) {
+        await db.execute(sql`UPDATE tasks SET is_completed = ${updates.isCompleted} WHERE issue_id = ${issueId} AND id = ${taskId}`);
+      }
+      
+      // Fetch updated task
+      const updatedTask = await db.execute(sql`
+        SELECT * FROM tasks WHERE issue_id = ${issueId} AND id = ${taskId}
+      `);
+      
+      if (!updatedTask.rows || updatedTask.rows.length === 0) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      const task = updatedTask.rows[0];
+      return res.json({
+        id: task.id,
+        name: task.name || task.title,
+        points: task.points || 0,
+        assignedTo: task.assigned_to || task.assignedTo,
+        isCompleted: task.is_completed !== undefined ? task.is_completed : (task.status === "completed"),
+        priority: task.priority || "no_priority",
+      });
+    } catch (error) {
+      console.error("Error updating issue task:", error);
+      return res.status(500).json({ error: "Failed to update issue task" });
+    }
+  });
+
+  app.delete("/api/issues/:issueId/tasks/:taskId", requirePermission("create_projects"), async (req, res) => {
+    try {
+      const { issueId, taskId } = req.params;
+      await db.execute(sql`
+        DELETE FROM tasks WHERE issue_id = ${issueId} AND id = ${taskId}
+      `);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting issue task:", error);
+      return res.status(500).json({ error: "Failed to delete issue task" });
     }
   });
 
@@ -2674,6 +2976,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           updates.issueId = issue.id;
           console.log("Successfully created issue and tasks from template");
+          
+          // Return issue info in response so frontend can invalidate task queries
+          updates._createdIssue = {
+            id: issue.id,
+            projectId: issue.projectId,
+          };
         } catch (issueError: any) {
           console.error("Error creating issue from template:", issueError);
           console.error("Error details:", JSON.stringify(issueError, Object.getOwnPropertyNames(issueError), 2));
@@ -2684,7 +2992,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updated) {
         return res.status(404).json({ error: "Clip not found" });
       }
-      return res.json(updated);
+      
+      // Include issueId in response if it was created
+      const response: any = { ...updated };
+      if (updates.issueId) {
+        response.issueId = updates.issueId;
+      }
+      
+      return res.json(response);
     } catch (error: any) {
       console.error("Error validating clip:", error);
       console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
@@ -2870,6 +3185,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating team:", error);
       return res.status(500).json({ error: "Failed to create team" });
+    }
+  });
+
+  app.patch("/api/teams/:teamId", requirePermission("create_templates"), async (req, res) => {
+    try {
+      const { teamId } = req.params;
+      const updated = await storage.updateTeam(teamId, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating team:", error);
+      return res.status(500).json({ error: "Failed to update team" });
+    }
+  });
+
+  app.delete("/api/teams/:teamId", requirePermission("create_templates"), async (req, res) => {
+    try {
+      const { teamId } = req.params;
+      await storage.deleteTeam(teamId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting team:", error);
+      return res.status(500).json({ error: "Failed to delete team" });
+    }
+  });
+
+  // Assign client to team
+  app.patch("/api/clients/:clientId/team", requirePermission("create_templates"), async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const { teamId } = req.body; // teamId can be null to unassign
+      const updated = await storage.updateClient(clientId, { teamId: teamId || null });
+      if (!updated) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error assigning client to team:", error);
+      return res.status(500).json({ error: "Failed to assign client to team" });
+    }
+  });
+
+  // Create client endpoint for members (simpler than founder endpoint)
+  // Allow members with view_clipping permission to create clients (they can view, so they can create)
+  app.post("/api/clients", requirePermission("view_clipping"), async (req, res) => {
+    try {
+      const { username, email, password, fullName, tier, phoneNumber, instagramUsername, teamId } = req.body;
+      
+      if (!username || !email || !password) {
+        return res.status(400).json({ error: "Username, email, and password are required" });
+      }
+
+      // Check if username or email already exists
+      const existingClient = await storage.getClientByUsername(username) || await storage.getClientByEmail(email);
+      if (existingClient) {
+        return res.status(400).json({ error: "Username or email already exists" });
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const clientData = {
+        username,
+        email,
+        password,
+        passwordHash,
+        fullName: fullName || null,
+        tier: tier || null,
+        phoneNumber: phoneNumber || null,
+        instagramUsername: instagramUsername || null,
+        teamId: teamId || null,
+        mustChangePassword: true,
+      };
+
+      const createdClient = await storage.createClient(clientData);
+      const { passwordHash: _, ...clientWithoutPassword } = createdClient;
+      return res.json(clientWithoutPassword);
+    } catch (error: any) {
+      console.error("Error creating client:", error);
+      if (error.code === "23505") {
+        return res.status(400).json({ error: "Username or email already exists" });
+      }
+      return res.status(500).json({ error: "Failed to create client" });
     }
   });
 
