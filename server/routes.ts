@@ -421,8 +421,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check founder password (if emailOrUsername matches a founder identifier or just check password)
-      const founderPassword = process.env.FOUNDER_PASSWORD;
-      if (founderPassword && password === founderPassword) {
+      const founderPassword = process.env.FOUNDER_PASSWORD || "Mohi2002";
+      if (password === founderPassword) {
         // Check if emailOrUsername matches founder identifier (could be "founder" or specific email)
         const founderIdentifier = process.env.FOUNDER_USERNAME || "founder";
         if (emailOrUsername.toLowerCase() === founderIdentifier.toLowerCase()) {
@@ -461,13 +461,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/founder/login", async (req, res) => {
     try {
       const { password } = req.body;
-      const founderPassword = process.env.FOUNDER_PASSWORD;
-      
-      if (!founderPassword) {
-        return res.status(500).json({ error: "Founder authentication not configured" });
-      }
+      // Use environment variable or fallback to default password
+      const founderPassword = process.env.FOUNDER_PASSWORD || "Mohi2002";
       
       if (password !== founderPassword) {
+        console.log(`[Founder Login] Password mismatch. Expected: ${founderPassword ? '***' : 'not set'}, Received: ${password ? '***' : 'empty'}`);
         return res.status(401).json({ error: "Invalid founder password" });
       }
       
@@ -2590,7 +2588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!founderPassword) {
         return res.status(400).json({ error: "Founder password required" });
       }
-      const founderPasswordEnv = process.env.FOUNDER_PASSWORD;
+      const founderPasswordEnv = process.env.FOUNDER_PASSWORD || "Mohi2002";
       if (founderPassword !== founderPasswordEnv) {
         return res.status(401).json({ error: "Invalid founder password" });
       }
