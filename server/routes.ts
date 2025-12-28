@@ -234,6 +234,36 @@ function canAccessAdmin(user: { role?: string; isFounder?: boolean }): boolean {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint - should be first to help diagnose deployment issues
+  app.get("/api/health", async (req, res) => {
+    try {
+      const health = {
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || "development",
+        port: process.env.PORT || 3002,
+        database: "unknown",
+      };
+      
+      // Try to check database connection
+      try {
+        const { db } = await import("./db");
+        await db.execute(sql`SELECT 1`);
+        health.database = "connected";
+      } catch (dbError: any) {
+        health.database = `error: ${dbError.message}`;
+      }
+      
+      return res.json(health);
+    } catch (error: any) {
+      return res.status(500).json({
+        status: "error",
+        message: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+  
   // Register Calendly routes
   registerCalendlyRoutes(app);
   

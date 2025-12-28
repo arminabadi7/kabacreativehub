@@ -75,6 +75,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  console.log("🚀 Starting server...");
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Port: ${process.env.PORT || 3002}`);
+  
   try {
     // Migrate template schema first
     await migrateTemplateSchema();
@@ -166,14 +170,39 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 3002
-  // This serves both the API and the client.
-  const port = 3002;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  // Use PORT from environment variable (for Replit deployments) or default to 3002
+  const port = Number(process.env.PORT) || 3002;
+  
+  server.listen(port, "0.0.0.0", () => {
+    log(`✓ Server started successfully on port ${port}`);
+    console.log(`✓ Server is running at http://0.0.0.0:${port}`);
   });
-})();
+
+  // Handle server errors
+  server.on('error', (error: any) => {
+    console.error('❌ Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Please use a different port.`);
+    }
+  });
+})().catch((error) => {
+  console.error('❌ Fatal error during server startup:', error);
+  console.error('Error stack:', error.stack);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Log the full error stack if available
+  if (reason instanceof Error) {
+    console.error('Error stack:', reason.stack);
+  }
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  console.error('Error stack:', error.stack);
+  // Don't exit immediately - let the server try to continue
+});
