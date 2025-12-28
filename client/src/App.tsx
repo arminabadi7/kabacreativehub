@@ -14,6 +14,7 @@ import MembersDashboard from "@/pages/MembersDashboard";
 import TeamsPage from "@/pages/members/TeamsPage";
 import ClientsSection from "@/pages/members/ClientsSection";
 import ClientDashboard from "@/pages/ClientDashboard";
+import ClientLogin from "@/pages/ClientLogin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,7 +30,8 @@ function Router() {
       <Route path="/member-dashboard/*" component={MembersDashboard} />
       <Route path="/teams" component={TeamsPage} />
       <Route path="/clients" component={ClientsSection} />
-      <Route path="/client-dashboard" component={ClientDashboard} />
+      <Route path="/client" component={ClientDashboard} />
+      <Route path="/client-login" component={ClientLogin} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -25,6 +25,8 @@ import {
   memberStats,
   transactions,
   recurringSubscriptions,
+  paymentPlans,
+  paymentPlanInstallments,
   type User, 
   type InsertUser,
   type Affiliate,
@@ -44,7 +46,9 @@ import {
   type InsertAppointment,
   type FounderSettings,
   type AffiliateTransaction,
-  type InsertAffiliateTransaction
+  type InsertAffiliateTransaction,
+  type PaymentPlan,
+  type PaymentPlanInstallment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, or, gte, lte, like, sql, inArray } from "drizzle-orm";
@@ -59,6 +63,7 @@ export interface IStorage {
   getMemberByEmail(email: string): Promise<Member | undefined>;
   createMember(member: InsertMember & { passwordHash: string }): Promise<Member>;
   getAllMembers(): Promise<Member[]>;
+  updateMember(memberId: string, updates: any): Promise<Member | undefined>;
   
   getClient(id: string): Promise<Client | undefined>;
   getClientByUsername(username: string): Promise<Client | undefined>;
@@ -167,6 +172,14 @@ export interface IStorage {
   createInvoice(invoice: any): Promise<any>;
   updateInvoice(invoiceId: string, updates: any): Promise<any | undefined>;
   
+  // Payment Plans
+  createPaymentPlan(planData: { clientId: string; month: number; year: number; totalAmount: number; currency?: string; note?: string; installments: Array<{ amount: number; dueDate: Date }> }): Promise<PaymentPlan>;
+  getPaymentPlansByClient(clientId: string): Promise<any[]>;
+  getPaymentPlanById(planId: string): Promise<any | undefined>;
+  updatePaymentPlanInstallment(installmentId: string, updates: { status?: string; paidAt?: Date; incomeId?: string }): Promise<any | undefined>;
+  markPaymentPlanInstallmentAsPaid(installmentId: string, incomeId: string): Promise<any | undefined>;
+  getPendingInstallmentsForClient(clientId: string, amount?: number, date?: Date): Promise<any[]>;
+  
   // Notes
   getNotes(filters?: any): Promise<any[]>;
   createNote(note: any): Promise<any>;
@@ -262,6 +275,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllClients(): Promise<Client[]> {
     return await db.select().from(clients).orderBy(clients.createdAt);
+  }
+
+  async updateMember(memberId: string, updates: any): Promise<Member | undefined> {
+    const [updated] = await db.update(members).set(updates).where(eq(members.id, memberId)).returning();
+    return updated || undefined;
   }
 
   async updateClient(clientId: string, updates: any): Promise<Client | undefined> {
@@ -900,94 +918,115 @@ export class DatabaseStorage implements IStorage {
       console.log(`[Storage] getIssuesByProject called for projectId: ${projectId}`);
       
       // Fetch issues - sort manually to avoid orderBy issues with null values
-      const issuesList = await db.select().from(issues).where(eq(issues.projectId, projectId));
+      let issuesList: any[] = [];
+      try {
+        issuesList = await db.select().from(issues).where(eq(issues.projectId, projectId));
+        console.log(`[Storage] ✓ Successfully fetched ${issuesList.length} issues from database`);
+      } catch (dbError: any) {
+        console.error(`[Storage] ❌ ERROR fetching issues from database:`, dbError?.message);
+        console.error(`[Storage] Error details:`, dbError?.code, dbError?.detail);
+        throw dbError;
+      }
+      
       // Sort manually
       issuesList.sort((a, b) => {
         const orderA = a.order ?? 0;
         const orderB = b.order ?? 0;
         return orderA - orderB;
       });
-      console.log(`[Storage] Found ${issuesList.length} issues`);
+      console.log(`[Storage] Found ${issuesList.length} issues after sorting`);
       
       // If no issues, return early
       if (issuesList.length === 0) {
         return [];
       }
       
-      // Fetch tasks for all issues - but don't fail if this fails
-      const issueIds = issuesList.map(issue => issue.id).filter(id => id);
-      let allTasks: any[] = [];
+      // Tasks are now stored in the JSON column of each issue - parse them directly
+      console.log(`[Storage] Parsing tasks from JSON column for ${issuesList.length} issues`);
       
-      if (issueIds.length > 0) {
-        try {
-          // Use Drizzle's inArray for proper parameterized queries
-          allTasks = await db.select().from(tasks).where(inArray(tasks.issueId, issueIds));
-          // Sort tasks manually
-          allTasks.sort((a, b) => {
-            const orderA = a.order ?? 0;
-            const orderB = b.order ?? 0;
-            return orderA - orderB;
-          });
-          console.log(`[Storage] Found ${allTasks.length} total tasks for ${issueIds.length} issues`);
-        } catch (taskError: any) {
-          // Log but don't fail - return issues without tasks
-          console.warn(`[Storage] Could not fetch tasks (non-critical):`, taskError?.message);
-          console.warn(`[Storage] Task error details:`, taskError?.code, taskError?.detail);
-          allTasks = [];
-        }
-      }
-      
-      // Group tasks by issueId (handle both camelCase and snake_case)
-      const tasksByIssueId = new Map<string, any[]>();
-      for (const task of allTasks) {
-        const taskIssueId = task.issueId || task.issue_id;
-        if (taskIssueId) {
-          if (!tasksByIssueId.has(taskIssueId)) {
-            tasksByIssueId.set(taskIssueId, []);
-          }
-          tasksByIssueId.get(taskIssueId)!.push(task);
-        }
-      }
-      
-      // Attach tasks to their issues and transform task field names
+      // CRITICAL: Attach tasks to their issues - tasks are ALWAYS part of the issue
+      // Every issue MUST have a tasks property, even if it's an empty array
       const result = issuesList.map(issue => {
-        const issueTasks = tasksByIssueId.get(issue.id) || [];
+        let issueTasks: any[] = [];
+        try {
+          if (issue.tasks) {
+            // Parse JSON if it's a string, otherwise use as-is
+            issueTasks = typeof issue.tasks === 'string' ? JSON.parse(issue.tasks) : issue.tasks;
+            if (!Array.isArray(issueTasks)) {
+              console.warn(`[Storage] Issue ${issue.id} tasks is not an array, defaulting to empty array`);
+              issueTasks = [];
+            }
+          }
+        } catch (parseError: any) {
+          console.error(`[Storage] Error parsing tasks JSON for issue ${issue.id}:`, parseError?.message);
+          issueTasks = [];
+        }
+        
+        // Ensure tasks have all required fields
         const transformedTasks = issueTasks.map((task: any) => ({
-          id: task.id,
-          name: task.name || task.title || "Untitled Task",
-          title: task.name || task.title || "Untitled Task",
+          id: task.id || `temp-${Date.now()}`,
+          name: task.name || "Untitled Task",
+          title: task.name || "Untitled Task", // For compatibility
           points: task.points || 0,
-          assignedTo: task.assigned_to || task.assignedTo || null,
-          memberId: task.assigned_to || task.assignedTo || null,
+          assignedTo: task.assignedTo || null,
+          memberId: task.assignedTo || null,
           priority: task.priority || "no_priority",
           order: task.order || 0,
-          isCompleted: task.is_completed || task.isCompleted || false,
-          status: task.status || "pending",
-          issueId: task.issue_id || task.issueId,
+          isCompleted: task.isCompleted || false,
+          status: (task.isCompleted || task.status === "completed") ? "completed" : "pending",
+          createdAt: task.createdAt || new Date().toISOString(),
         }));
         
-        console.log(`[Storage] Issue ${issue.id} "${issue.title}" has ${transformedTasks.length} tasks`);
+        // Sort by order
+        transformedTasks.sort((a, b) => a.order - b.order);
+        
+        console.log(`[Storage] getIssuesByProject - Issue ${issue.id} "${issue.title}" has ${transformedTasks.length} tasks (from JSON column)`);
         if (transformedTasks.length > 0) {
-          console.log(`[Storage] Task names:`, transformedTasks.map((t: any) => t.name));
+          console.log(`[Storage] getIssuesByProject - Task names:`, transformedTasks.map((t: any) => t.name));
         }
         
-        return {
+        // ALWAYS return issue with tasks property - tasks are part of the issue
+        const issueWithTasks = {
           ...issue,
-          tasks: transformedTasks
+          tasks: transformedTasks // Always include tasks array, even if empty
         };
+        
+        // Double-check tasks is an array
+        if (!Array.isArray(issueWithTasks.tasks)) {
+          console.error(`[Storage] CRITICAL: Issue ${issue.id} tasks is not an array!`, typeof issueWithTasks.tasks, issueWithTasks.tasks);
+          issueWithTasks.tasks = [];
+        }
+        
+        return issueWithTasks;
       });
       
       console.log(`[Storage] Successfully returning ${result.length} issues`);
       // Log total tasks across all issues
       const totalTasks = result.reduce((sum, issue) => sum + (issue.tasks?.length || 0), 0);
       console.log(`[Storage] Total tasks across all issues: ${totalTasks}`);
+      
+      // Log sample issue structure for debugging
+      if (result.length > 0) {
+        console.log(`[Storage] Sample issue structure:`, {
+          id: result[0].id,
+          title: result[0].title,
+          hasTasks: !!result[0].tasks,
+          taskCount: result[0].tasks?.length || 0,
+          tasksIsArray: Array.isArray(result[0].tasks),
+          allKeys: Object.keys(result[0])
+        });
+      }
+      
       return result;
     } catch (error: any) {
-      console.error(`[Storage] CRITICAL Error in getIssuesByProject:`, error);
+      console.error(`[Storage] CRITICAL Error in getIssuesByProject for projectId ${projectId}:`, error);
       console.error(`[Storage] Error message:`, error?.message);
       console.error(`[Storage] Error code:`, error?.code);
       console.error(`[Storage] Error detail:`, error?.detail);
-      throw error;
+      console.error(`[Storage] Error stack:`, error?.stack);
+      // Don't throw - return empty array to prevent breaking the UI
+      console.error(`[Storage] Returning empty array due to error`);
+      return [];
     }
   }
 
@@ -996,47 +1035,49 @@ export class DatabaseStorage implements IStorage {
       const [issue] = await db.select().from(issues).where(eq(issues.id, issueId));
       if (!issue) return undefined;
       
-      // Fetch tasks for this issue
+      // Tasks are stored in the JSON column - parse them
       let issueTasks: any[] = [];
       try {
-        // Use raw SQL to ensure we query by issue_id column (Drizzle might not map issueId correctly)
-        console.log(`[Storage] Fetching tasks for issue ${issueId}`);
-        const taskResult = await db.execute(sql`
-          SELECT * FROM tasks 
-          WHERE issue_id = ${issueId}
-          ORDER BY COALESCE("order", 0) ASC, created_at ASC
-        `);
-        issueTasks = taskResult.rows || [];
-        console.log(`[Storage] Fetched ${issueTasks.length} tasks for issue ${issueId}`);
+        if (issue.tasks) {
+          // Parse JSON if it's a string, otherwise use as-is
+          issueTasks = typeof issue.tasks === 'string' ? JSON.parse(issue.tasks) : issue.tasks;
+          if (!Array.isArray(issueTasks)) {
+            console.warn(`[Storage] getIssueById - tasks is not an array for issue ${issueId}, defaulting to empty array`);
+            issueTasks = [];
+          }
+        }
+        console.log(`[Storage] getIssueById - Parsed ${issueTasks.length} tasks from JSON column for issue ${issueId}`);
         if (issueTasks.length > 0) {
-          console.log(`[Storage] Task names:`, issueTasks.map((t: any) => t.name || t.title));
+          console.log(`[Storage] getIssueById - Task names:`, issueTasks.map((t: any) => t.name || t.title));
         }
       } catch (taskError: any) {
-        console.error(`[Storage] Error fetching tasks for issue ${issueId}:`, taskError);
-        console.error(`[Storage] Error details:`, taskError?.message, taskError?.code, taskError?.detail);
-        // Continue without tasks if there's an error
+        console.error(`[Storage] getIssueById - Error parsing tasks JSON for issue ${issueId}:`, taskError);
         issueTasks = [];
       }
       
-      // Transform tasks to ensure consistent field names
+      // Ensure tasks have all required fields
       const transformedTasks = issueTasks.map((task: any) => ({
-        id: task.id,
-        name: task.name || task.title || "Untitled Task",
-        title: task.name || task.title || "Untitled Task",
+        id: task.id || `temp-${Date.now()}`,
+        name: task.name || "Untitled Task",
+        title: task.name || "Untitled Task", // For compatibility
         points: task.points || 0,
-        assignedTo: task.assigned_to || task.assignedTo || null,
-        memberId: task.assigned_to || task.assignedTo || null,
+        assignedTo: task.assignedTo || null,
+        memberId: task.assignedTo || null,
         priority: task.priority || "no_priority",
         order: task.order || 0,
-        isCompleted: task.is_completed || task.isCompleted || false,
-        status: task.status || "pending",
-        issueId: task.issue_id || task.issueId,
+        isCompleted: task.isCompleted || false,
+        status: (task.isCompleted || task.status === "completed") ? "completed" : "pending",
+        createdAt: task.createdAt || new Date().toISOString(),
       }));
 
-      return {
+      // ALWAYS return issue with tasks property - tasks are part of the issue
+      const issueWithTasks = {
         ...issue,
-        tasks: transformedTasks
+        tasks: transformedTasks // Always include tasks array, even if empty
       };
+      
+      console.log(`[Storage] getIssueById - Returning issue ${issueId} with ${transformedTasks.length} tasks (from JSON column)`);
+      return issueWithTasks;
     } catch (error: any) {
       console.error(`[Storage] Error in getIssueById:`, error);
       throw error;
@@ -1045,9 +1086,36 @@ export class DatabaseStorage implements IStorage {
 
   async createIssue(issueData: any): Promise<any> {
     try {
-      const { tasks: tasksData, assigneeId, assignedTo, ...issueFields } = issueData;
+      const { tasks: tasksData, assigneeId, assignedTo, templateId, ...issueFields } = issueData;
       console.log(`[Storage] createIssue called with fields:`, Object.keys(issueFields));
+      console.log(`[Storage] Template ID: ${templateId || 'none'}`);
       console.log(`[Storage] Tasks to create: ${tasksData?.length || 0}`);
+      
+      // NEW WORKFLOW: If templateId is provided and no tasks are provided, automatically fetch template tasks
+      let finalTasksData = tasksData;
+      
+      if (templateId && (!finalTasksData || finalTasksData.length === 0)) {
+        console.log(`[Storage] Template ID provided but no tasks - fetching template tasks automatically`);
+        try {
+          const templateTasks = await this.getTemplateTasks(templateId);
+          console.log(`[Storage] Template has ${templateTasks.length} tasks`);
+          
+          if (templateTasks.length > 0) {
+            // Map template tasks to issue task format
+            finalTasksData = templateTasks.map((task: any, index: number) => ({
+              name: task.name,
+              points: task.points || 0,
+              priority: task.priority || "no_priority",
+              assignedTo: task.assignedTo || null,
+              order: task.order !== undefined ? task.order : index,
+            }));
+            console.log(`[Storage] Mapped ${finalTasksData.length} template tasks for issue creation`);
+          }
+        } catch (templateError: any) {
+          console.error(`[Storage] Error fetching template tasks:`, templateError);
+          // Continue without template tasks - issue can still be created
+        }
+      }
       
       // Map assigneeId/assignedTo to assignee_id for database
       const insertData: any = { ...issueFields };
@@ -1055,184 +1123,47 @@ export class DatabaseStorage implements IStorage {
         insertData.assigneeId = assigneeId || assignedTo;
       }
       
-      const [issue] = await db.insert(issues).values(insertData).returning();
-      console.log(`[Storage] Created issue: ${issue.id}`);
-      
-      // Create tasks if provided
-      if (tasksData && Array.isArray(tasksData) && tasksData.length > 0) {
-        console.log(`[Storage] Processing ${tasksData.length} tasks for issue ${issue.id}`);
-        const tasksToCreate = tasksData
-          .filter((task: any) => task.name && task.name.trim())
-          .map((task: any, index: number) => ({
-            issueId: issue.id,
-            // Don't set memberId - it's optional and might cause issues
-            name: task.name.trim(),
-            title: task.name.trim(), // Also set title for compatibility
-            points: task.points || 0,
-            priority: task.priority || "no_priority",
-            assignedTo: task.assignedTo || null,
-            order: task.order !== undefined ? task.order : index,
-            isCompleted: false,
-            status: "pending",
-          }));
-        
-        console.log(`[Storage] Filtered to ${tasksToCreate.length} valid tasks:`, tasksToCreate.map(t => ({ name: t.name, points: t.points, assignedTo: t.assignedTo })));
-        
-        if (tasksToCreate.length > 0) {
-          try {
-            console.log(`[Storage] Creating ${tasksToCreate.length} tasks for issue ${issue.id}`);
-            console.log(`[Storage] Task data sample:`, tasksToCreate[0]);
-            console.log(`[Storage] Issue ID being used: ${issue.id}`);
+      // Prepare tasks to store in JSON column - tasks are now part of the issue
+      let tasksToStore: any[] = [];
+      if (finalTasksData && Array.isArray(finalTasksData) && finalTasksData.length > 0) {
+        // Generate UUIDs for each task
+        for (const taskData of finalTasksData) {
+          if (taskData.name && taskData.name.trim()) {
+            const uuidResult = await db.execute(sql`SELECT gen_random_uuid() as id`);
+            const taskId = uuidResult.rows[0]?.id || `temp-${Date.now()}-${tasksToStore.length}`;
             
-            // Insert tasks using raw SQL to ensure correct column mapping
-            // This guarantees issue_id is set correctly in the database
-            const insertedTaskIds: string[] = [];
-            
-            for (const task of tasksToCreate) {
-              try {
-                const insertResult = await db.execute(sql`
-                  INSERT INTO tasks (
-                    issue_id, 
-                    name, 
-                    title, 
-                    points, 
-                    priority, 
-                    assigned_to, 
-                    "order", 
-                    is_completed, 
-                    status, 
-                    created_at
-                  )
-                  VALUES (
-                    ${issue.id},
-                    ${task.name},
-                    ${task.name},
-                    ${task.points},
-                    ${task.priority},
-                    ${task.assignedTo || null},
-                    ${task.order},
-                    false,
-                    'pending',
-                    NOW()
-                  )
-                  RETURNING id, name, issue_id
-                `);
-                
-                if (insertResult.rows && insertResult.rows.length > 0) {
-                  const insertedTask = insertResult.rows[0] as any;
-                  const taskId = String(insertedTask.id);
-                  insertedTaskIds.push(taskId);
-                  console.log(`[Storage] ✓ Created task "${task.name}" (ID: ${taskId}, issue_id: ${insertedTask.issue_id})`);
-                }
-              } catch (singleTaskError: any) {
-                const errorMessage = singleTaskError?.message || String(singleTaskError) || "Unknown error";
-                console.error(`[Storage] ✗ ERROR creating task "${task.name}":`, errorMessage);
-                console.error(`[Storage] Error code:`, singleTaskError?.code);
-                console.error(`[Storage] Error detail:`, singleTaskError?.detail);
-                // Continue with other tasks
-              }
-            }
-            
-            console.log(`[Storage] Successfully created ${insertedTaskIds.length} out of ${tasksToCreate.length} tasks`);
-            
-            // Immediately verify tasks were saved correctly
-            const verifyResult = await db.execute(sql`
-              SELECT id, name, issue_id, points FROM tasks WHERE issue_id = ${issue.id} ORDER BY "order" ASC
-            `);
-            const verifiedCount = verifyResult.rows?.length || 0;
-            console.log(`[Storage] Verification query: Found ${verifiedCount} tasks for issue ${issue.id}`);
-            
-            if (verifiedCount > 0) {
-              console.log(`[Storage] ✓ Tasks verified in database:`, verifyResult.rows?.map((r: any) => ({ 
-                id: r.id, 
-                name: r.name || r.title, 
-                issue_id: r.issue_id,
-                points: r.points
-              })));
-            } else {
-              console.error(`[Storage] ✗ CRITICAL: Verification query found NO tasks for issue ${issue.id}!`);
-              console.error(`[Storage] This means tasks were NOT saved to the database.`);
-            }
-          } catch (taskInsertError: any) {
-            console.error(`[Storage] ERROR creating tasks:`, taskInsertError);
-            console.error(`[Storage] Error message:`, taskInsertError?.message);
-            console.error(`[Storage] Error code:`, taskInsertError?.code);
-            console.error(`[Storage] Error detail:`, taskInsertError?.detail);
-            console.error(`[Storage] Error stack:`, taskInsertError?.stack);
-            // Don't throw - continue with issue creation even if tasks fail
-            // This allows the issue to be created, and tasks can be added later
+            tasksToStore.push({
+              id: taskId,
+              name: taskData.name.trim(),
+              points: taskData.points || 0,
+              priority: taskData.priority || "no_priority",
+              assignedTo: taskData.assignedTo || taskData.assigned_to || null,
+              order: taskData.order !== undefined ? taskData.order : tasksToStore.length,
+              isCompleted: false,
+              createdAt: new Date().toISOString(),
+            });
           }
-        } else {
-          console.warn(`[Storage] No valid tasks to create after filtering`);
         }
+        
+        // Sort by order
+        tasksToStore.sort((a, b) => a.order - b.order);
+        
+        insertData.tasks = JSON.stringify(tasksToStore);
+        console.log(`[Storage] Prepared ${tasksToStore.length} tasks to store in JSON column`);
       } else {
-        console.log(`[Storage] No tasks data provided or empty array`);
+        insertData.tasks = JSON.stringify([]); // Empty array
       }
       
-      // Return issue with tasks attached
-      // Add a small delay to ensure tasks are committed to database
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const [issue] = await db.insert(issues).values(insertData).returning();
+      console.log(`[Storage] Created issue: ${issue.id} with ${tasksToStore.length} tasks stored in JSON column`);
       
-      // Fetch tasks directly using raw SQL to ensure we get them
-      let fetchedTasks: any[] = [];
-      let retryCount = 0;
-      const maxRetries = 3;
-      
-      while (retryCount < maxRetries && fetchedTasks.length === 0 && tasksData && tasksData.length > 0) {
-        try {
-          const taskResult = await db.execute(sql`
-            SELECT * FROM tasks 
-            WHERE issue_id = ${issue.id}
-            ORDER BY COALESCE("order", 0) ASC, created_at ASC
-          `);
-          fetchedTasks = taskResult.rows || [];
-          console.log(`[Storage] Direct query (attempt ${retryCount + 1}) found ${fetchedTasks.length} tasks for issue ${issue.id}`);
-          
-          if (fetchedTasks.length === 0 && retryCount < maxRetries - 1) {
-            console.log(`[Storage] No tasks found, retrying in 200ms...`);
-            await new Promise(resolve => setTimeout(resolve, 200));
-            retryCount++;
-          } else {
-            break;
-          }
-        } catch (taskFetchError: any) {
-          console.error(`[Storage] Error fetching tasks directly (attempt ${retryCount + 1}):`, taskFetchError?.message);
-          if (retryCount < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-            retryCount++;
-          } else {
-            break;
-          }
-        }
-      }
-      
-      // Transform tasks to ensure consistent field names
-      const transformedTasks = fetchedTasks.map((task: any) => ({
-        id: task.id,
-        name: task.name || task.title || "Untitled Task",
-        title: task.name || task.title || "Untitled Task",
-        points: task.points || 0,
-        assignedTo: task.assigned_to || task.assignedTo || null,
-        memberId: task.assigned_to || task.assignedTo || null,
-        priority: task.priority || "no_priority",
-        order: task.order || 0,
-        isCompleted: task.is_completed || task.isCompleted || false,
-        status: task.status || "pending",
-        issueId: task.issue_id || task.issueId,
-      }));
-      
+      // Return issue with tasks parsed from JSON
       const issueWithTasks = {
         ...issue,
-        tasks: transformedTasks
+        tasks: tasksToStore // Tasks are already parsed
       };
       
-      console.log(`[Storage] Returning issue ${issue.id} with ${transformedTasks.length} tasks`);
-      if (transformedTasks.length > 0) {
-        console.log(`[Storage] ✓ Task details:`, transformedTasks.map((t: any) => ({ id: t.id, name: t.name, points: t.points, assignedTo: t.assignedTo })));
-      } else if (tasksData && tasksData.length > 0) {
-        console.error(`[Storage] ✗ WARNING: Expected ${tasksData.length} tasks but found 0 in database!`);
-      }
-      
+      console.log(`[Storage] Returning issue ${issue.id} with ${tasksToStore.length} tasks`);
       return issueWithTasks;
     } catch (error: any) {
       console.error(`[Storage] Error in createIssue:`, error);
@@ -1258,90 +1189,263 @@ export class DatabaseStorage implements IStorage {
   async getIssueTasks(issueId: string): Promise<any[]> {
     try {
       const taskResult = await db.execute(sql`
-        SELECT * FROM tasks 
+        SELECT id, issue_id, name, points, priority, assigned_to, "order", is_completed, created_at
+        FROM tasks 
         WHERE issue_id = ${issueId}
         ORDER BY COALESCE("order", 0) ASC, created_at ASC
       `);
       return taskResult.rows || [];
     } catch (error: any) {
-      console.error(`[Storage] Error in getIssueTasks:`, error);
+      console.error(`[Storage] Could not fetch tasks (non-critical):`, error?.message);
       return [];
     }
   }
 
   async createIssueTask(issueId: string, taskData: any): Promise<any> {
-    // Don't set memberId - it's optional and might cause database errors if column doesn't exist
-    const taskValues: any = {
-      issueId: issueId,
-      name: taskData.name,
-      title: taskData.name, // Also set title for compatibility
-      points: taskData.points || 0,
-      priority: taskData.priority || "no_priority",
-      assignedTo: taskData.assignedTo || null,
-      order: taskData.order || 0,
-      status: "pending",
-      isCompleted: false,
-    };
-    const [task] = await db.insert(tasks).values(taskValues).returning();
-    return task;
+    try {
+      // CRITICAL: Tasks are now stored in the issue's JSON column - add task to the array
+      const name = String(taskData.name).trim();
+      const priority = String(taskData.priority || "no_priority");
+      const assignedTo = taskData.assignedTo || null;
+      const points = parseInt(String(taskData.points || 0));
+      const order = parseInt(String(taskData.order || 0));
+      
+      console.log(`[Storage] createIssueTask - Creating task for issue ${issueId}:`, { name, points, priority, assignedTo, order });
+      
+      // Get the current issue to access its tasks JSON column
+      const [issue] = await db.select().from(issues).where(eq(issues.id, issueId));
+      if (!issue) {
+        throw new Error(`Issue ${issueId} not found`);
+      }
+      
+      // Parse existing tasks from JSON column
+      let currentTasks: any[] = [];
+      try {
+        if (issue.tasks) {
+          currentTasks = typeof issue.tasks === 'string' ? JSON.parse(issue.tasks) : issue.tasks;
+          if (!Array.isArray(currentTasks)) {
+            console.warn(`[Storage] Issue ${issueId} tasks is not an array, starting fresh`);
+            currentTasks = [];
+          }
+        }
+      } catch (parseError: any) {
+        console.warn(`[Storage] Error parsing existing tasks, starting fresh:`, parseError?.message);
+        currentTasks = [];
+      }
+      
+      // Generate UUID for new task
+      const uuidResult = await db.execute(sql`SELECT gen_random_uuid() as id`);
+      const taskId = uuidResult.rows[0]?.id || `temp-${Date.now()}`;
+      
+      // Create new task object
+      const newTask = {
+        id: taskId,
+        name: name,
+        points: points,
+        priority: priority,
+        assignedTo: assignedTo,
+        order: order !== undefined ? order : currentTasks.length,
+        isCompleted: false,
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Add new task to array
+      currentTasks.push(newTask);
+      
+      // Sort by order
+      currentTasks.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // Update issue with new tasks array in JSON column
+      await db.update(issues)
+        .set({ tasks: JSON.stringify(currentTasks) })
+        .where(eq(issues.id, issueId));
+      
+      console.log(`[Storage] ✓ Added task "${name}" to issue ${issueId} (stored in JSON column)`);
+      
+      // Return the new task with status derived from isCompleted
+      return {
+        ...newTask,
+        title: newTask.name, // For compatibility
+        memberId: newTask.assignedTo,
+        status: newTask.isCompleted ? "completed" : "pending",
+        issueId: issueId,
+      };
+    } catch (error: any) {
+      console.error(`[Storage] ❌ Error creating issue task:`, error);
+      console.error(`   Error code:`, error?.code);
+      console.error(`   Error message:`, error?.message);
+      console.error(`   Error detail:`, error?.detail);
+      console.error(`   Error position:`, error?.position);
+      console.error(`   Error stack:`, error?.stack);
+      throw error;
+    }
   }
 
   // Clips
   async getClipsByProject(projectId: string): Promise<any[]> {
-    return await db.select().from(clips).where(eq(clips.projectId, projectId)).orderBy(clips.clipNumber);
+    // Use raw SQL to avoid selecting title column which may not exist
+    const result = await db.execute(sql`
+      SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+      FROM clips
+      WHERE project_id = ${projectId}
+      ORDER BY clip_number
+    `);
+    // Transform snake_case to camelCase for frontend
+    return (result.rows || []).map((row: any) => ({
+      id: row.id,
+      projectId: row.project_id,
+      clipNumber: row.clip_number,
+      filePath: row.file_path,
+      status: row.status,
+      invalidNote: row.invalid_note,
+      validatedBy: row.validated_by,
+      validatedAt: row.validated_at,
+      issueId: row.issue_id,
+      createdAt: row.created_at,
+    }));
   }
 
   async getPendingClips(projectId?: string): Promise<any[]> {
+    // Use raw SQL to avoid selecting title column which may not exist
+    let result;
     if (projectId) {
-      return await db.select().from(clips)
-        .where(and(eq(clips.projectId, projectId), eq(clips.status, "pending")))
-        .orderBy(clips.clipNumber);
+      result = await db.execute(sql`
+        SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+        FROM clips
+        WHERE project_id = ${projectId} AND status = 'pending'
+        ORDER BY clip_number
+      `);
+    } else {
+      result = await db.execute(sql`
+        SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+        FROM clips
+        WHERE status = 'pending'
+        ORDER BY clip_number
+      `);
     }
-    return await db.select().from(clips)
-      .where(eq(clips.status, "pending"))
-      .orderBy(clips.clipNumber);
+    // Transform snake_case to camelCase for frontend
+    return (result.rows || []).map((row: any) => ({
+      id: row.id,
+      projectId: row.project_id,
+      clipNumber: row.clip_number,
+      filePath: row.file_path,
+      status: row.status,
+      invalidNote: row.invalid_note,
+      validatedBy: row.validated_by,
+      validatedAt: row.validated_at,
+      issueId: row.issue_id,
+      createdAt: row.created_at,
+    }));
   }
 
   async getValidClips(projectId?: string): Promise<any[]> {
+    // Use raw SQL to avoid selecting title column which may not exist
+    let result;
     if (projectId) {
-      return await db.select().from(clips)
-        .where(and(eq(clips.projectId, projectId), eq(clips.status, "valid")))
-        .orderBy(clips.clipNumber);
+      result = await db.execute(sql`
+        SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+        FROM clips
+        WHERE project_id = ${projectId} AND status = 'valid'
+        ORDER BY clip_number
+      `);
+    } else {
+      result = await db.execute(sql`
+        SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+        FROM clips
+        WHERE status = 'valid'
+        ORDER BY clip_number
+      `);
     }
-    return await db.select().from(clips)
-      .where(eq(clips.status, "valid"))
-      .orderBy(clips.clipNumber);
+    // Transform snake_case to camelCase for frontend
+    return (result.rows || []).map((row: any) => ({
+      id: row.id,
+      projectId: row.project_id,
+      clipNumber: row.clip_number,
+      filePath: row.file_path,
+      status: row.status,
+      invalidNote: row.invalid_note,
+      validatedBy: row.validated_by,
+      validatedAt: row.validated_at,
+      issueId: row.issue_id,
+      createdAt: row.created_at,
+    }));
   }
 
   async getInvalidClips(projectId?: string): Promise<any[]> {
+    // Use raw SQL to avoid selecting title column which may not exist
+    let result;
     if (projectId) {
-      return await db.select().from(clips)
-        .where(and(eq(clips.projectId, projectId), eq(clips.status, "invalid")))
-        .orderBy(clips.clipNumber);
+      result = await db.execute(sql`
+        SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+        FROM clips
+        WHERE project_id = ${projectId} AND status = 'invalid'
+        ORDER BY clip_number
+      `);
+    } else {
+      result = await db.execute(sql`
+        SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+        FROM clips
+        WHERE status = 'invalid'
+        ORDER BY clip_number
+      `);
     }
-    return await db.select().from(clips)
-      .where(eq(clips.status, "invalid"))
-      .orderBy(clips.clipNumber);
+    // Transform snake_case to camelCase for frontend
+    return (result.rows || []).map((row: any) => ({
+      id: row.id,
+      projectId: row.project_id,
+      clipNumber: row.clip_number,
+      filePath: row.file_path,
+      status: row.status,
+      invalidNote: row.invalid_note,
+      validatedBy: row.validated_by,
+      validatedAt: row.validated_at,
+      issueId: row.issue_id,
+      createdAt: row.created_at,
+    }));
   }
 
   async createClip(clipData: any): Promise<any> {
     try {
-      // Build insert data - use exact field names from schema
-      // Drizzle automatically maps camelCase (schema) to snake_case (database)
-      const insertData: any = {
-        projectId: String(clipData.projectId),
-        clipNumber: parseInt(String(clipData.clipNumber)),
-        status: String(clipData.status || "pending"),
-        filePath: clipData.filePath !== undefined && clipData.filePath !== null 
-          ? String(clipData.filePath) 
-          : "", // Always include filePath, use empty string if not provided
-      };
+      // Use raw SQL to insert clip without title column (which may not exist in database)
+      const projectId = String(clipData.projectId);
+      const clipNumber = parseInt(String(clipData.clipNumber));
+      const status = String(clipData.status || "pending");
+      const filePath = clipData.filePath !== undefined && clipData.filePath !== null 
+        ? String(clipData.filePath) 
+        : "";
       
       console.log("Storage createClip - input:", JSON.stringify(clipData, null, 2));
-      console.log("Storage createClip - insertData:", JSON.stringify(insertData, null, 2));
+      console.log("Storage createClip - inserting:", { projectId, clipNumber, status, filePath });
       
-      // Insert using Drizzle - it will map projectId -> project_id, clipNumber -> clip_number, etc.
-      const [clip] = await db.insert(clips).values(insertData).returning();
+      // Insert using raw SQL to avoid title column issues
+      // Use sql.raw() with string interpolation and proper escaping
+      const projectIdEscaped = String(projectId).replace(/'/g, "''");
+      const statusEscaped = String(status).replace(/'/g, "''");
+      const filePathEscaped = String(filePath).replace(/'/g, "''");
+      const result = await db.execute(sql.raw(`
+        INSERT INTO clips (project_id, clip_number, status, file_path, created_at)
+        VALUES ('${projectIdEscaped}', ${clipNumber}, '${statusEscaped}', '${filePathEscaped}', NOW())
+        RETURNING id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+      `));
+      
+      if (!result.rows || result.rows.length === 0) {
+        throw new Error("Failed to create clip - no rows returned");
+      }
+      
+      const rawClip = result.rows[0];
+      // Transform snake_case to camelCase for frontend
+      const clip = {
+        id: rawClip.id,
+        projectId: rawClip.project_id,
+        clipNumber: rawClip.clip_number,
+        filePath: rawClip.file_path,
+        status: rawClip.status,
+        invalidNote: rawClip.invalid_note,
+        validatedBy: rawClip.validated_by,
+        validatedAt: rawClip.validated_at,
+        issueId: rawClip.issue_id,
+        createdAt: rawClip.created_at,
+      };
       console.log("✓ Storage createClip - success, created clip:", clip.id);
       return clip;
     } catch (error: any) {
@@ -1375,8 +1479,113 @@ export class DatabaseStorage implements IStorage {
       updates.invalidNote = updates.rejectionNote;
       delete updates.rejectionNote;
     }
-    const [updated] = await db.update(clips).set(updates).where(eq(clips.id, clipId)).returning();
-    return updated || undefined;
+    
+    // Use raw SQL to update clip without title column issues
+    // Build SET clause dynamically based on what fields are being updated
+    const setClauses: string[] = [];
+    
+    if (updates.status !== undefined) {
+      const statusEscaped = String(updates.status).replace(/'/g, "''");
+      setClauses.push(`status = '${statusEscaped}'`);
+    }
+    if (updates.filePath !== undefined) {
+      const filePathEscaped = String(updates.filePath).replace(/'/g, "''");
+      setClauses.push(`file_path = '${filePathEscaped}'`);
+    }
+    if (updates.invalidNote !== undefined) {
+      if (updates.invalidNote === null) {
+        setClauses.push(`invalid_note = NULL`);
+      } else {
+        const invalidNoteEscaped = String(updates.invalidNote).replace(/'/g, "''");
+        setClauses.push(`invalid_note = '${invalidNoteEscaped}'`);
+      }
+    }
+    if (updates.validatedBy !== undefined) {
+      if (updates.validatedBy === null) {
+        setClauses.push(`validated_by = NULL`);
+      } else {
+        const validatedByEscaped = String(updates.validatedBy).replace(/'/g, "''");
+        setClauses.push(`validated_by = '${validatedByEscaped}'`);
+      }
+    }
+    if (updates.validatedAt !== undefined) {
+      if (updates.validatedAt === null) {
+        setClauses.push(`validated_at = NULL`);
+      } else {
+        const validatedAtValue = updates.validatedAt instanceof Date 
+          ? updates.validatedAt.toISOString()
+          : String(updates.validatedAt);
+        const validatedAtEscaped = validatedAtValue.replace(/'/g, "''");
+        setClauses.push(`validated_at = '${validatedAtEscaped}'`);
+      }
+    }
+    if (updates.issueId !== undefined) {
+      if (updates.issueId === null) {
+        setClauses.push(`issue_id = NULL`);
+      } else {
+        const issueIdEscaped = String(updates.issueId).replace(/'/g, "''");
+        setClauses.push(`issue_id = '${issueIdEscaped}'`);
+      }
+    }
+    
+    // Don't include title in updates - it may not exist in database
+    
+    if (setClauses.length === 0) {
+      // No updates to make, just return the existing clip
+      const result = await db.execute(sql`
+        SELECT id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+        FROM clips
+        WHERE id = ${clipId}
+      `);
+      if (!result.rows || result.rows.length === 0) {
+        return undefined;
+      }
+      const rawClip = result.rows[0];
+      // Transform snake_case to camelCase for frontend
+      return {
+        id: rawClip.id,
+        projectId: rawClip.project_id,
+        clipNumber: rawClip.clip_number,
+        filePath: rawClip.file_path,
+        status: rawClip.status,
+        invalidNote: rawClip.invalid_note,
+        validatedBy: rawClip.validated_by,
+        validatedAt: rawClip.validated_at,
+        issueId: rawClip.issue_id,
+        createdAt: rawClip.created_at,
+      };
+    }
+    
+    // Use string interpolation with proper escaping
+    const setClause = setClauses.join(', ');
+    const clipIdEscaped = String(clipId).replace(/'/g, "''");
+    
+    const result = await db.execute(sql.raw(`
+      UPDATE clips
+      SET ${setClause}
+      WHERE id = '${clipIdEscaped}'
+      RETURNING id, project_id, file_path, clip_number, status, invalid_note, validated_by, validated_at, issue_id, created_at
+    `));
+    
+    if (!result.rows || result.rows.length === 0) {
+      return undefined;
+    }
+    
+    const rawClip = result.rows[0];
+    // Transform snake_case to camelCase for frontend
+    const updated = {
+      id: rawClip.id,
+      projectId: rawClip.project_id,
+      clipNumber: rawClip.clip_number,
+      filePath: rawClip.file_path,
+      status: rawClip.status,
+      invalidNote: rawClip.invalid_note,
+      validatedBy: rawClip.validated_by,
+      validatedAt: rawClip.validated_at,
+      issueId: rawClip.issue_id,
+      createdAt: rawClip.created_at,
+    };
+    return updated;
   }
 
   async deleteClip(clipId: string): Promise<void> {
@@ -1488,9 +1697,33 @@ export class DatabaseStorage implements IStorage {
 
   // Template Tasks
   async getTemplateTasks(templateId: string): Promise<any[]> {
-    return await db.select().from(templateTasks)
+    const tasks = await db.select().from(templateTasks)
       .where(eq(templateTasks.templateId, templateId))
       .orderBy(templateTasks.order);
+    
+    // Transform to ensure consistent field names (handle both camelCase and snake_case)
+    const transformedTasks = tasks.map((task: any) => ({
+      id: task.id,
+      templateId: task.templateId || task.template_id,
+      name: task.name,
+      points: task.points || 0,
+      priority: task.priority || "no_priority",
+      assignedTo: task.assignedTo || task.assigned_to || null,
+      order: task.order || 0,
+      createdAt: task.createdAt || task.created_at,
+    }));
+    
+    console.log(`[Storage] getTemplateTasks - Template ${templateId} has ${transformedTasks.length} tasks`);
+    if (transformedTasks.length > 0) {
+      console.log(`[Storage] getTemplateTasks - Task details:`, transformedTasks.map(t => ({ 
+        name: t.name, 
+        points: t.points, 
+        priority: t.priority, 
+        assignedTo: t.assignedTo 
+      })));
+    }
+    
+    return transformedTasks;
   }
 
   async createTemplateTask(templateId: string, taskData: any): Promise<any> {
@@ -1554,6 +1787,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.source) {
       conditions.push(eq(income.source, filters.source));
+    }
+    if (filters?.clientId) {
+      conditions.push(eq(income.clientId, filters.clientId));
     }
     if (conditions.length > 0) {
       return await db.select().from(income).where(and(...conditions)).orderBy(desc(income.date));
@@ -1631,8 +1867,107 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSocialMediaAccount(accountData: any): Promise<any> {
-    const [account] = await db.insert(socialMediaAccounts).values(accountData).returning();
-    return account;
+    try {
+      console.log("[Storage] createSocialMediaAccount called with:", {
+        clientId: accountData.clientId,
+        username: accountData.username,
+        hasPassword: !!accountData.password,
+        platforms: accountData.platforms,
+        accountName: accountData.accountName,
+      });
+
+      // Validate required fields first
+      if (!accountData.clientId || typeof accountData.clientId !== 'string' || accountData.clientId.trim() === '') {
+        throw new Error("clientId is required and must be a non-empty string");
+      }
+      if (!accountData.username || typeof accountData.username !== 'string' || accountData.username.trim() === '') {
+        throw new Error("username is required and must be a non-empty string");
+      }
+      if (!accountData.platforms) {
+        throw new Error("platforms is required");
+      }
+
+      // Handle platforms - convert array to JSON string if needed
+      let platformsString: string;
+      if (typeof accountData.platforms === 'string') {
+        // Already a string, validate it's valid JSON
+        try {
+          const parsed = JSON.parse(accountData.platforms);
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            throw new Error("platforms must be a non-empty array");
+          }
+          platformsString = accountData.platforms;
+        } catch (e) {
+          throw new Error("platforms must be a valid JSON array string");
+        }
+      } else if (Array.isArray(accountData.platforms)) {
+        if (accountData.platforms.length === 0) {
+          throw new Error("platforms array cannot be empty");
+        }
+        platformsString = JSON.stringify(accountData.platforms);
+      } else {
+        throw new Error("platforms must be an array or JSON string");
+      }
+
+      // Prepare insert data - use exact schema field names
+      const insertData = {
+        clientId: accountData.clientId.trim(),
+        username: accountData.username.trim(),
+        password: (accountData.password && accountData.password.trim()) || null,
+        platforms: platformsString,
+        accountName: (accountData.accountName && accountData.accountName.trim()) || null,
+      };
+
+      console.log("[Storage] Inserting data:", {
+        clientId: insertData.clientId,
+        username: insertData.username,
+        hasPassword: !!insertData.password,
+        platforms: insertData.platforms,
+        accountName: insertData.accountName,
+      });
+
+      // Perform the insert
+      const [account] = await db.insert(socialMediaAccounts).values(insertData).returning();
+      
+      if (!account) {
+        throw new Error("Failed to create account - database returned no data");
+      }
+      
+      console.log("[Storage] Account created successfully:", account.id);
+      return account;
+    } catch (error: any) {
+      // Enhanced error logging
+      const errorDetails = {
+        message: error?.message || String(error),
+        code: error?.code,
+        constraint: error?.constraint,
+        detail: error?.detail,
+        table: error?.table,
+        column: error?.column,
+        stack: error?.stack,
+        accountData: {
+          clientId: accountData?.clientId,
+          username: accountData?.username,
+          hasPassword: !!accountData?.password,
+          platforms: accountData?.platforms,
+        },
+      };
+      
+      console.error("[Storage] Error in createSocialMediaAccount:", errorDetails);
+      
+      // Re-throw with enhanced context for database errors
+      if (error?.code) {
+        const dbError: any = new Error(error.message || `Database error: ${error.code}`);
+        dbError.code = error.code;
+        dbError.constraint = error.constraint;
+        dbError.detail = error.detail;
+        dbError.table = error.table;
+        dbError.column = error.column;
+        throw dbError;
+      }
+      
+      throw error;
+    }
   }
 
   async updateSocialMediaAccount(accountId: string, updates: any): Promise<any | undefined> {
@@ -1642,6 +1977,104 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSocialMediaAccount(accountId: string): Promise<void> {
     await db.delete(socialMediaAccounts).where(eq(socialMediaAccounts.id, accountId));
+  }
+
+  // Payment Plans
+  async createPaymentPlan(planData: { clientId: string; month: number; year: number; totalAmount: number; currency?: string; note?: string; installments: Array<{ amount: number; dueDate: Date }> }): Promise<PaymentPlan> {
+    const [plan] = await db.insert(paymentPlans).values({
+      clientId: planData.clientId,
+      month: planData.month,
+      year: planData.year,
+      totalAmount: planData.totalAmount,
+      currency: planData.currency || "USD",
+      note: planData.note || null,
+    }).returning();
+
+    // Create installments
+    for (const installment of planData.installments) {
+      await db.insert(paymentPlanInstallments).values({
+        paymentPlanId: plan.id,
+        amount: installment.amount,
+        dueDate: installment.dueDate,
+        status: "pending",
+      });
+    }
+
+    return plan;
+  }
+
+  async getPaymentPlansByClient(clientId: string): Promise<any[]> {
+    const plans = await db.select().from(paymentPlans).where(eq(paymentPlans.clientId, clientId)).orderBy(desc(paymentPlans.year), desc(paymentPlans.month));
+    
+    // Fetch installments for each plan
+    const plansWithInstallments = await Promise.all(
+      plans.map(async (plan) => {
+        const installments = await db.select().from(paymentPlanInstallments).where(eq(paymentPlanInstallments.paymentPlanId, plan.id)).orderBy(paymentPlanInstallments.dueDate);
+        return {
+          ...plan,
+          installments,
+        };
+      })
+    );
+
+    return plansWithInstallments;
+  }
+
+  async getPaymentPlanById(planId: string): Promise<any | undefined> {
+    const [plan] = await db.select().from(paymentPlans).where(eq(paymentPlans.id, planId));
+    if (!plan) return undefined;
+
+    const installments = await db.select().from(paymentPlanInstallments).where(eq(paymentPlanInstallments.paymentPlanId, planId)).orderBy(paymentPlanInstallments.dueDate);
+    return {
+      ...plan,
+      installments,
+    };
+  }
+
+  async updatePaymentPlanInstallment(installmentId: string, updates: { status?: string; paidAt?: Date; incomeId?: string }): Promise<any | undefined> {
+    const [updated] = await db.update(paymentPlanInstallments)
+      .set(updates)
+      .where(eq(paymentPlanInstallments.id, installmentId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async markPaymentPlanInstallmentAsPaid(installmentId: string, incomeId: string): Promise<any | undefined> {
+    return await this.updatePaymentPlanInstallment(installmentId, {
+      status: "paid",
+      paidAt: new Date(),
+      incomeId,
+    });
+  }
+
+  async getPendingInstallmentsForClient(clientId: string, amount?: number, date?: Date): Promise<any[]> {
+    // Get all payment plans for the client
+    const plans = await db.select().from(paymentPlans).where(eq(paymentPlans.clientId, clientId));
+    const planIds = plans.map(p => p.id);
+    
+    if (planIds.length === 0) return [];
+
+    // Get pending installments
+    const conditions = [
+      inArray(paymentPlanInstallments.paymentPlanId, planIds),
+      eq(paymentPlanInstallments.status, "pending"),
+    ];
+
+    if (amount !== undefined) {
+      conditions.push(eq(paymentPlanInstallments.amount, amount));
+    }
+
+    if (date !== undefined) {
+      // Match installments due on the same date (within same day)
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(gte(paymentPlanInstallments.dueDate, startOfDay));
+      conditions.push(lte(paymentPlanInstallments.dueDate, endOfDay));
+    }
+
+    return await db.select().from(paymentPlanInstallments).where(and(...conditions)).orderBy(paymentPlanInstallments.dueDate);
   }
 
   // Invoices

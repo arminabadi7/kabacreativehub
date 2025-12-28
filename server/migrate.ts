@@ -768,3 +768,74 @@ export async function migrateTemplateSchema() {
   }
 }
 
+export async function migrateIssuesTasksColumn() {
+  try {
+    console.log("Checking and migrating issues.tasks JSONB column...");
+    
+    // Check if tasks column exists
+    const checkTasksColumn = await db.execute(sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'issues' AND column_name = 'tasks'
+    `);
+    
+    if (!checkTasksColumn || checkTasksColumn.rows.length === 0) {
+      console.log("Adding tasks JSONB column to issues table...");
+      try {
+        await db.execute(sql`
+          ALTER TABLE issues 
+          ADD COLUMN tasks JSONB DEFAULT '[]'::jsonb
+        `);
+        console.log("✓ Added tasks JSONB column to issues table");
+        
+        // Migrate existing tasks from tasks table to issues.tasks JSON column
+        console.log("Migrating existing tasks to issues.tasks column...");
+        const issuesWithTasks = await db.execute(sql`
+          SELECT i.id, 
+                 json_agg(
+                   json_build_object(
+                     'id', t.id,
+                     'name', COALESCE(t.name, t.title, 'Untitled Task'),
+                     'points', COALESCE(t.points, 0),
+                     'priority', COALESCE(t.priority, 'no_priority'),
+                     'assignedTo', t.assigned_to,
+                     'order', COALES(t."order", 0),
+                     'isCompleted', COALES(t.is_completed, false),
+                     'createdAt', t.created_at
+                   ) ORDER BY COALESCE(t."order", 0), t.created_at
+                 ) FILTER (WHERE t.id IS NOT NULL) as tasks_array
+          FROM issues i
+          LEFT JOIN tasks t ON t.issue_id = i.id
+          GROUP BY i.id
+          HAVING COUNT(t.id) > 0
+        `);
+        
+        let migratedCount = 0;
+        for (const row of issuesWithTasks.rows as any[]) {
+          if (row.tasks_array && row.tasks_array.length > 0) {
+            await db.execute(sql`
+              UPDATE issues 
+              SET tasks = ${JSON.stringify(row.tasks_array)}::jsonb
+              WHERE id = ${row.id}
+            `);
+            migratedCount++;
+          }
+        }
+        console.log(`✓ Migrated tasks for ${migratedCount} issues`);
+      } catch (err: any) {
+        if (err.message && err.message.includes('already exists')) {
+          console.log("tasks column already exists");
+        } else {
+          console.error("Error adding tasks column:", err.message);
+          throw err;
+        }
+      }
+    } else {
+      console.log("✓ tasks column already exists");
+    }
+  } catch (error: any) {
+    console.error("Error migrating issues.tasks column:", error);
+    throw error;
+  }
+}
+

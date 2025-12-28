@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Edit, BarChart3, User, Filter, ChevronDown, ChevronUp, ArrowLeft, Pencil, Check, X, Folder, Video, Calendar, Flag, UserCircle, Globe, MoreHorizontal, Circle } from "lucide-react";
+import { Plus, Edit, BarChart3, User, Filter, ChevronDown, ChevronUp, ArrowLeft, Pencil, Check, X, Folder, Video, Calendar, Flag, UserCircle, Globe, MoreHorizontal, Circle, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,7 @@ type Issue = {
   priority?: string;
   assigneeId?: string | null;
   createdAt: string;
-  tasks?: Task[];
+  tasks?: Task[]; // Tasks should always be included with issues from the API
 };
 
 type Task = {
@@ -94,7 +95,11 @@ const STATUS_COLORS: Record<string, string> = {
   ready_for_upload: "bg-orange-500",
 };
 
-export default function ProjectsBoard() {
+type ProjectsBoardProps = {
+  allowCreateProject?: boolean;
+};
+
+export default function ProjectsBoard({ allowCreateProject = false }: ProjectsBoardProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -152,7 +157,40 @@ export default function ProjectsBoard() {
         throw new Error(`Failed to fetch issues: ${res.status} ${errorText}`);
       }
       const data = await res.json();
-      console.log(`[ProjectsBoard] Fetched ${data.length} issues:`, data);
+      console.log(`[ProjectsBoard] Fetched ${data.length} issues from API`);
+      
+      // Log tasks for each issue to verify they're included
+      data.forEach((issue: Issue, index: number) => {
+        const taskCount = issue.tasks?.length || 0;
+        console.log(`[ProjectsBoard] Issue ${index + 1}: "${issue.title}" (${issue.id})`, {
+          hasTasks: !!issue.tasks,
+          taskCount,
+          tasks: issue.tasks,
+          issueKeys: Object.keys(issue),
+        });
+        if (taskCount > 0) {
+          console.log(`[ProjectsBoard] ✓ Issue "${issue.title}" has ${taskCount} tasks:`, issue.tasks?.map(t => ({ 
+            id: t.id, 
+            name: t.name || t.title, 
+            points: t.points,
+            assignedTo: t.assignedTo 
+          })));
+        } else {
+          console.warn(`[ProjectsBoard] ✗ Issue "${issue.title}" has NO tasks!`);
+        }
+      });
+      
+      // Verify data structure
+      if (data.length > 0) {
+        console.log(`[ProjectsBoard] Sample issue structure:`, {
+          id: data[0].id,
+          title: data[0].title,
+          hasTasks: !!data[0].tasks,
+          taskCount: data[0].tasks?.length || 0,
+          allKeys: Object.keys(data[0]),
+        });
+      }
+      
       return data;
     },
     enabled: !!selectedProject,
@@ -164,7 +202,8 @@ export default function ProjectsBoard() {
       // Small delay to ensure server has finished creating tasks
       const timer = setTimeout(() => {
         issues.forEach((issue) => {
-          queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id] });
+          queryClient.invalidateQueries({ queryKey: ["/api/projects", issue.projectId, "issues"] });
         });
       }, 500);
       return () => clearTimeout(timer);
@@ -201,6 +240,7 @@ export default function ProjectsBoard() {
     },
   });
 
+  // OPTIONAL: Fetch template tasks for display in form (backend will handle automatically when creating issue)
   const { data: templateTasks } = useQuery<any[]>({
     queryKey: ["/api/templates", issueForm.templateId, "tasks"],
     queryFn: async () => {
@@ -210,9 +250,24 @@ export default function ProjectsBoard() {
       return res.json();
     },
     enabled: !!issueForm.templateId,
+    // This is optional - backend will automatically fetch and include tasks when templateId is provided
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   const selectedProjectData = projects?.find((p) => p.id === selectedProject);
+
+  // Fetch default statuses from API
+  const { data: defaultStatuses = DEFAULT_STATUSES } = useQuery<string[]>({
+    queryKey: ["/api/settings/default-statuses"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/default-statuses", { credentials: "include" });
+      if (!res.ok) {
+        // Fall back to hardcoded defaults if API fails
+        return DEFAULT_STATUSES;
+      }
+      return res.json();
+    },
+  });
 
   // Get status labels for the selected project (with default fallback)
   const getStatusLabels = (): Record<string, string> => {
@@ -229,7 +284,7 @@ export default function ProjectsBoard() {
   };
 
   const statusLabels = getStatusLabels();
-  const STATUSES = DEFAULT_STATUSES; // Use default statuses in order
+  const STATUSES = defaultStatuses; // Use configurable default statuses
 
   const updateStatusLabelMutation = useMutation({
     mutationFn: async (data: { projectId: string; status: string; label: string }) => {
@@ -378,9 +433,8 @@ export default function ProjectsBoard() {
   const createIssueMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("[CreateIssueMutation] Received data:", data);
-      console.log("[CreateIssueMutation] Template ID:", data.templateId);
+      console.log("[CreateIssueMutation] Template ID:", data.templateId || issueForm.templateId);
       console.log("[CreateIssueMutation] Current tasks state:", tasks);
-      console.log("[CreateIssueMutation] Template tasks:", templateTasks);
       
       // Convert video duration from HH:MM:SS to seconds
       let videoDurationSeconds = null;
@@ -391,37 +445,32 @@ export default function ProjectsBoard() {
         }
       }
       
-      // Prepare tasks array for inclusion in issue creation
-      // Use tasks state if available, otherwise fall back to templateTasks
-      let tasksToUse = tasks;
-      if ((!tasksToUse || tasksToUse.length === 0) && data.templateId && templateTasks && templateTasks.length > 0) {
-        console.log("[CreateIssueMutation] Tasks state is empty, using templateTasks directly");
-        tasksToUse = templateTasks.map((t: any, idx: number) => ({
-          id: `temp-${idx}`,
-          name: t.name,
-          points: t.points || 0,
-          priority: t.priority || "no_priority",
-          assignedTo: t.assignedTo || null,
-        }));
+      // NEW WORKFLOW: Backend automatically fetches template tasks when templateId is provided
+      // We can optionally send tasks if user manually edited them, otherwise backend handles it
+      const templateId = data.templateId || issueForm.templateId || null;
+      
+      // If user manually edited tasks in the form, include them
+      // Otherwise, backend will automatically fetch from template
+      let tasksToSend: any[] | undefined = undefined;
+      if (tasks && tasks.length > 0) {
+        // User has manually set tasks - send them
+        tasksToSend = tasks
+          .filter((task) => task.name && task.name.trim())
+          .map((task, index) => ({
+            name: task.name.trim(),
+            points: task.points || 0,
+            priority: task.priority || "no_priority",
+            assignedTo: task.assignedTo || null,
+            order: task.order !== undefined ? task.order : index,
+          }));
+        console.log("[CreateIssueMutation] Sending manually edited tasks:", tasksToSend.length);
+      } else if (templateId) {
+        // No manual tasks, but templateId provided - backend will fetch automatically
+        console.log("[CreateIssueMutation] No manual tasks - backend will automatically fetch from template");
+        tasksToSend = undefined; // Don't send tasks - let backend handle it
       }
       
-      console.log("[CreateIssueMutation] Tasks to use:", tasksToUse);
-      console.log("[CreateIssueMutation] Tasks to use length:", tasksToUse?.length || 0);
-      
-      const tasksToCreate = (tasksToUse || [])
-        .filter((task) => task.name && task.name.trim())
-        .map((task, index) => ({
-          name: task.name.trim(),
-          points: task.points || 0,
-          priority: task.priority || "no_priority",
-          assignedTo: task.assignedTo || null,
-          order: index,
-        }));
-      
-      console.log("[CreateIssueMutation] Tasks to create after filtering:", tasksToCreate);
-      console.log("[CreateIssueMutation] Tasks to create count:", tasksToCreate.length);
-      
-      const issueData = {
+      const issueData: any = {
         projectId: selectedProject,
         title: data.title,
         description: data.description || null,
@@ -434,42 +483,91 @@ export default function ProjectsBoard() {
         assigneeId: data.assigneeId || data.assignedTo || null,
         dueDate: data.dueDate || null,
         publishDate: data.publishDate || null,
-        templateId: data.templateId || issueForm.templateId || null, // Include templateId for fallback
-        tasks: tasksToCreate, // Include tasks in the issue creation
+        templateId: templateId, // CRITICAL: Include templateId - backend will automatically fetch template and tasks
       };
       
-      console.log("[CreateIssueMutation] Sending issue data to API with tasks:", {
+      // Only include tasks if user manually edited them
+      // Otherwise, backend will automatically fetch from template
+      if (tasksToSend && tasksToSend.length > 0) {
+        issueData.tasks = tasksToSend;
+        console.log("[CreateIssueMutation] Including manually edited tasks in request");
+      } else {
+        console.log("[CreateIssueMutation] Not sending tasks - backend will fetch from template automatically");
+      }
+      
+      console.log("[CreateIssueMutation] Sending issue data:", {
         ...issueData,
-        tasks: issueData.tasks.map(t => ({ name: t.name, points: t.points, assignedTo: t.assignedTo }))
+        tasks: issueData.tasks ? `${issueData.tasks.length} tasks` : "will be fetched by backend"
       });
       
       const response = await apiRequest("POST", "/api/issues", issueData);
-      return await response.json();
+      const issue = await response.json();
+      
+      console.log("[CreateIssueMutation] Issue created with tasks:", issue.tasks?.length || 0);
+      return issue;
     },
     onSuccess: async (issue) => {
       console.log(`[CreateIssue] Issue created: ${issue.id}`);
       console.log(`[CreateIssue] Issue tasks count: ${issue.tasks?.length || 0}`);
       console.log(`[CreateIssue] Issue tasks:`, issue.tasks);
       
-      // Issue is now created with tasks already attached, invalidate queries to refresh
-      // Add a delay to ensure tasks are committed to database
-      setTimeout(() => {
-        // Invalidate project issues first
-        queryClient.invalidateQueries({ queryKey: ["/api/issues", selectedProject] });
-        queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProject, "issues"] });
-        
-        // Invalidate the new issue's tasks specifically - this is critical
-        queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
-        
-        // Also invalidate individual issue task queries for all issues in the project
-        if (issues) {
-          issues.forEach((i) => {
-            queryClient.invalidateQueries({ queryKey: ["/api/issues", i.id, "tasks"] });
-          });
+      // CRITICAL: Verify tasks are in the response
+      if (!issue.tasks || issue.tasks.length === 0) {
+        console.error(`[CreateIssue] WARNING: Issue ${issue.id} was created but has NO tasks!`);
+        console.error(`[CreateIssue] This might indicate a problem with task creation in the backend.`);
+        // Try to refetch the issue to get tasks
+        setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/issues/${issue.id}`, { credentials: "include" });
+            if (res.ok) {
+              const refetchedIssue = await res.json();
+              console.log(`[CreateIssue] Refetched issue has ${refetchedIssue.tasks?.length || 0} tasks`);
+              if (refetchedIssue.tasks && refetchedIssue.tasks.length > 0) {
+                issue.tasks = refetchedIssue.tasks;
+                // Update cache with refetched issue
+                queryClient.setQueryData(["/api/issues", issue.id], issue);
+              }
+            }
+          } catch (error) {
+            console.error(`[CreateIssue] Error refetching issue:`, error);
+          }
+        }, 1000);
+      }
+      
+      // Issue is now created with tasks already attached
+      // CRITICAL: Set the cache for the individual issue query FIRST
+      // This ensures when we navigate to the issue detail page, it has the tasks
+      console.log(`[CreateIssue] Setting cache for issue ${issue.id} with ${issue.tasks?.length || 0} tasks`);
+      queryClient.setQueryData(
+        ["/api/issues", issue.id],
+        issue
+      );
+      
+      // Update the cache for the project issues list
+      queryClient.setQueryData(
+        ["/api/projects", selectedProject, "issues"],
+        (oldData: Issue[] | undefined) => {
+          if (!oldData) return [issue];
+          // Check if issue already exists (shouldn't, but just in case)
+          const existingIndex = oldData.findIndex((i) => i.id === issue.id);
+          if (existingIndex >= 0) {
+            // Update existing issue with tasks
+            const updated = [...oldData];
+            updated[existingIndex] = { ...updated[existingIndex], tasks: issue.tasks || [] };
+            return updated;
+          }
+          // Add new issue at the beginning
+          return [issue, ...oldData];
         }
-        
-        // Force refetch the new issue's tasks immediately
-        queryClient.refetchQueries({ queryKey: ["/api/issues", issue.id, "tasks"] });
+      );
+      
+      // Don't invalidate immediately - let the cache be used first
+      // Only refetch after a delay to ensure tasks are committed
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProject, "issues"] });
+        queryClient.refetchQueries({ queryKey: ["/api/issues", issue.id] });
+        queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProject, "issues"] });
       }, 1000);
       if (!issueForm.createMore) {
         setIsCreateIssueDialogOpen(false);
@@ -732,13 +830,15 @@ export default function ProjectsBoard() {
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Projects</h1>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-black text-white hover:bg-gray-900"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Project
-          </Button>
+          {allowCreateProject && (
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="bg-black text-white hover:bg-gray-900"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Project
+            </Button>
+          )}
         </div>
         {projects && projects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -763,7 +863,9 @@ export default function ProjectsBoard() {
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">No projects found</p>
-            <p className="text-gray-400 text-sm mt-2">Click "New Project" to create your first project</p>
+            {allowCreateProject && (
+              <p className="text-gray-400 text-sm mt-2">Click "New Project" to create your first project</p>
+            )}
           </div>
         )}
 
@@ -1387,42 +1489,20 @@ function IssueCard({
 }) {
   const { toast } = useToast();
   
-  // Always fetch tasks for this issue to ensure we have the latest data
-  const { data: fetchedTasks, isLoading: tasksLoading, refetch: refetchTasks } = useQuery<any[]>({
-    queryKey: ["/api/issues", issue.id, "tasks"],
-    queryFn: async () => {
-      const res = await fetch(`/api/issues/${issue.id}/tasks`, { credentials: "include" });
-      if (!res.ok) {
-        console.warn(`[IssueCard] Failed to fetch tasks for issue ${issue.id}: ${res.status}`);
-        return [];
-      }
-      const tasks = await res.json();
-      console.log(`[IssueCard] Fetched ${tasks.length} tasks for issue ${issue.id}:`, tasks.map((t: any) => ({ name: t.name, points: t.points })));
-      return tasks;
-    },
-    enabled: !!issue.id,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-    staleTime: 0, // Always consider data stale to ensure fresh fetch
-    retry: 2, // Retry failed requests
-  });
-
-  // Use fetched tasks if available, otherwise fall back to tasks from issue object
-  // Prioritize fetched tasks even if loading (to show loading state)
-  const issueTasks = fetchedTasks && fetchedTasks.length > 0 
-    ? fetchedTasks 
-    : (!tasksLoading && issue.tasks && issue.tasks.length > 0)
-    ? issue.tasks
-    : [];
+  // Tasks are always part of the issue object - no separate fetching needed
+  const issueTasks = issue.tasks || [];
   
-  // Debug logging
-  if (issueTasks.length === 0 && !tasksLoading) {
-    console.log(`[IssueCard] No tasks found for issue ${issue.id} "${issue.title}"`, {
-      fetchedTasks: fetchedTasks?.length || 0,
-      issueTasks: issue.tasks?.length || 0,
-      tasksLoading,
-    });
-  }
+  // Debug logging to verify tasks are present
+  React.useEffect(() => {
+    if (issue.id) {
+      console.log(`[IssueCard] Issue "${issue.title}" (${issue.id}):`, {
+        hasTasks: !!issue.tasks,
+        taskCount: issue.tasks?.length || 0,
+        tasks: issue.tasks,
+        issueKeys: Object.keys(issue),
+      });
+    }
+  }, [issue.id, issue.tasks]);
 
   const { data: members } = useQuery<Array<{ id: string; fullName: string | null; username: string; profilePicture: string | null }>>({
     queryKey: ["/api/members/assignees"],
@@ -1439,20 +1519,37 @@ function IssueCard({
   };
 
   const updateTaskMutation = useMutation({
-    mutationFn: async (data: { taskId: string; isCompleted: boolean }) => {
-      // Update task status via direct database update
-      const response = await apiRequest("PATCH", `/api/tasks/${data.taskId}`, {
-        status: data.isCompleted ? "completed" : "pending",
+    mutationFn: async (data: { taskId: string; isCompleted: boolean; issueId: string }) => {
+      // Use the correct endpoint for updating tasks in the JSON column
+      const response = await apiRequest("PATCH", `/api/issues/${data.issueId}/tasks/${data.taskId}`, {
         isCompleted: data.isCompleted,
-        completedAt: data.isCompleted ? new Date().toISOString() : null,
       });
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       // Invalidate issues query to refetch with updated tasks
-      queryClient.invalidateQueries({ queryKey: ["/api/issues", projectId] });
+      // Tasks are part of the issue, so invalidating the project issues query will refetch with tasks
       if (issue.projectId) {
         queryClient.invalidateQueries({ queryKey: ["/api/projects", issue.projectId, "issues"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/issues", issue.id] });
+      }
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
+      }
+      // CRITICAL: Invalidate member stats if task has an assigned member
+      // Find the task to get its assignedTo
+      const task = issue.tasks?.find((t: any) => t.id === variables.taskId);
+      if (task?.assignedTo) {
+        console.log(`[ProjectsBoard] Invalidating queries for member ${task.assignedTo} after task completion`);
+        // Invalidate specific member stats queries
+        queryClient.invalidateQueries({ queryKey: ["/api/members", task.assignedTo, "stats"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/members", task.assignedTo, "transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/members", task.assignedTo, "statistics"] });
+        // Also invalidate all member stats for founder dashboard
+        queryClient.invalidateQueries({ queryKey: ["/api/members/all-stats"] });
+        // Force refetch to ensure UI updates immediately
+        queryClient.refetchQueries({ queryKey: ["/api/members", task.assignedTo, "stats"] });
+        queryClient.refetchQueries({ queryKey: ["/api/members/all-stats"] });
       }
     },
     onError: (error: any) => {
@@ -1509,6 +1606,32 @@ function IssueCard({
     return STATUS_COLORS[status] || "bg-orange-500";
   };
 
+  const getPriorityColor = (priority: string | undefined | null): string => {
+    switch (priority) {
+      case "high":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "low":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      default:
+        return "bg-gray-100 text-gray-600 border-gray-200";
+    }
+  };
+
+  const getPriorityLabel = (priority: string | undefined | null): string => {
+    switch (priority) {
+      case "high":
+        return "High";
+      case "medium":
+        return "Medium";
+      case "low":
+        return "Low";
+      default:
+        return "No Priority";
+    }
+  };
+
   // Get issue assignee (check both assigneeId and assignee_id for compatibility)
   const issueAssigneeId = issue.assigneeId || (issue as any).assignee_id || null;
   const issueAssignee = issueAssigneeId ? getMember(issueAssigneeId) : null;
@@ -1539,6 +1662,16 @@ function IssueCard({
           
           {/* Icons Row */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Priority/Urgency Badge */}
+            {issue.priority && issue.priority !== "no_priority" && (
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-1.5 py-0.5 h-5 ${getPriorityColor(issue.priority)}`}
+              >
+                {getPriorityLabel(issue.priority)}
+              </Badge>
+            )}
+            
             {/* Three Horizontal Lines Icon (Menu) */}
             <button
               onClick={(e) => {
@@ -1566,25 +1699,10 @@ function IssueCard({
           </div>
         </div>
 
-        {/* Three Dots Icon (More Options) */}
-        <div className="mb-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              // TODO: Open more options menu
-            }}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-        </div>
-
         {/* Tasks List - Always show if tasks exist */}
-        {tasksLoading ? (
-          <div className="mb-3 text-xs text-gray-400">Loading tasks...</div>
-        ) : issueTasks && issueTasks.length > 0 ? (
+        {issueTasks && issueTasks.length > 0 ? (
           <div className="mb-3">
-            <div className="text-xs font-medium text-gray-700 mb-2">Tasks ({issueTasks.length})</div>
+            <div className="text-xs font-semibold text-gray-700 mb-1.5">Tasks ({issueTasks.length})</div>
             <div className="space-y-1.5">
               {issueTasks.map((task, idx) => {
                 const memberId = task.assignedTo || task.memberId || task.assigned_to || null;
@@ -1593,6 +1711,8 @@ function IssueCard({
                 const isCompleted = task.isCompleted || task.is_completed || task.status === "completed";
                 const taskPoints = task.points || 0;
                 const taskId = task.id || `task-${idx}`;
+                
+                console.log(`[IssueCard] Rendering task ${idx + 1}:`, { taskId, taskName, taskPoints, memberId, isCompleted });
                 
                 return (
                   <div key={taskId} className="flex items-center gap-2 text-xs">
@@ -1603,40 +1723,92 @@ function IssueCard({
                           updateTaskMutation.mutate({
                             taskId: task.id,
                             isCompleted: checked as boolean,
+                            issueId: issue.id,
                           });
                         }
                       }}
-                      className="w-3.5 h-3.5 rounded border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black"
+                      className="w-3.5 h-3.5 rounded border-gray-300 data-[state=checked]:bg-black data-[state=checked]:border-black flex-shrink-0"
                     />
                     <span className={`flex-1 text-gray-900 ${isCompleted ? "line-through text-gray-500" : ""}`}>
                       {taskName}
                     </span>
-                    <span className="text-gray-600 font-medium">{taskPoints} pts</span>
+                    {taskPoints > 0 && (
+                      <span className="text-gray-600 font-medium flex-shrink-0">{taskPoints} pts</span>
+                    )}
                     {member ? (
-                      <Avatar className="w-5 h-5 flex-shrink-0">
+                      <Avatar className="w-4 h-4 flex-shrink-0">
                         <AvatarImage src={member.profilePicture || undefined} />
                         <AvatarFallback className="text-[8px] bg-gray-200">
                           {member.fullName?.[0] || member.username[0] || "?"}
                         </AvatarFallback>
                       </Avatar>
                     ) : (
-                      <div className="w-5 h-5 rounded-full border border-gray-300 bg-gray-100 flex-shrink-0"></div>
+                      <div className="w-4 h-4 flex-shrink-0" /> // Spacer when no assignee
                     )}
                   </div>
                 );
               })}
             </div>
           </div>
-        ) : null}
+        ) : (
+          // Debug: Show message when no tasks
+          issueTasks.length === 0 && (
+            <div className="mb-2 text-xs text-gray-400 italic">
+              No tasks (issue.tasks = {JSON.stringify(issue.tasks)})
+            </div>
+          )
+        )}
 
-        {/* Footer: Creation Date and Video Duration */}
+        {/* Footer: Tasks, Points, Member, and Video Duration */}
         <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
-          <span>Created: {formatDate(issue.createdAt)}</span>
-          {(issue.videoDuration || issue.videoDurationSeconds) && (
-            <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-mono">
-              {formatVideoDuration(issue.videoDurationSeconds || issue.videoDuration)}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Tasks Count */}
+            {issueTasks.length > 0 && (
+              <span className="text-gray-600 font-medium">
+                {issueTasks.length} {issueTasks.length === 1 ? 'task' : 'tasks'}
+              </span>
+            )}
+            
+            {/* Points Progress */}
+            {(() => {
+              const totalPoints = issueTasks.reduce((sum: number, task: any) => sum + (task.points || 0), 0);
+              const completedPoints = issueTasks
+                .filter((task: any) => task.isCompleted || task.is_completed || task.status === "completed")
+                .reduce((sum: number, task: any) => sum + (task.points || 0), 0);
+              return totalPoints > 0 ? (
+                <span className="text-gray-600 font-medium">
+                  {completedPoints}/{totalPoints}pt
+                </span>
+              ) : null;
+            })()}
+            
+            {/* Video Duration */}
+            {(issue.videoDuration || issue.videoDurationSeconds) && (
+              <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-700 font-mono">
+                {formatVideoDuration(issue.videoDurationSeconds || issue.videoDuration)}
+              </span>
+            )}
+          </div>
+          
+          {/* Member Assignee */}
+          <div className="flex items-center gap-2">
+            {issueAssignee && (
+              <>
+                <span className="text-gray-600 text-[10px] hidden sm:inline">
+                  {issueAssignee.fullName || issueAssignee.username}
+                </span>
+                <Avatar className="w-5 h-5 flex-shrink-0">
+                  <AvatarImage src={issueAssignee.profilePicture || undefined} />
+                  <AvatarFallback className="text-[8px] bg-gray-200">
+                    {issueAssignee.fullName?.[0] || issueAssignee.username[0] || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </>
+            )}
+            {!issueAssignee && (
+              <span className="text-gray-400 text-[10px] italic">Unassigned</span>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

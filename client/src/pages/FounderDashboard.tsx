@@ -94,6 +94,7 @@ type Client = {
   email: string;
   fullName: string | null;
   tier?: string;
+  offerLink?: string | null;
   createdAt: string;
   passwordHash?: string;
 };
@@ -111,6 +112,13 @@ const createUserSchema = z.object({
   role: z.enum(["admin", "manager", "editor", "clipper", "member"]).optional(),
 });
 
+const createClientSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  email: z.string().email("Invalid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  fullName: z.string().optional(),
+});
+
 export default function FounderDashboard() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
@@ -122,6 +130,8 @@ export default function FounderDashboard() {
   const [activeSection, setActiveSection] = useState<string | null>(urlSection || null);
   const [searchTerm, setSearchTerm] = useState("");
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
+  const [createUserDialogContext, setCreateUserDialogContext] = useState<"members" | "user-management" | "clients" | null>(null);
+  const [createClientDialogOpen, setCreateClientDialogOpen] = useState(false);
   const [showFounderPassword, setShowFounderPassword] = useState(false);
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
   const [userPasswords, setUserPasswords] = useState<Record<string, string>>({}); // Store passwords for all user types
@@ -139,8 +149,40 @@ export default function FounderDashboard() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const section = params.get("section");
+    const openDialog = params.get("openDialog");
+    const accountType = params.get("accountType");
+    
     if (section) {
       setActiveSection(section);
+    }
+    
+    // If section is user-management and openDialog param exists, open the dialog
+    if (section === "user-management" && openDialog === "create-user") {
+      // Set form defaults based on accountType param
+      const defaultAccountType = accountType === "member" || accountType === "client" || accountType === "affiliate" 
+        ? accountType 
+        : "member";
+      
+      const resetData: any = {
+        username: "",
+        email: "",
+        password: "",
+        fullName: "",
+        accountType: defaultAccountType,
+      };
+      if (defaultAccountType === "member") {
+        resetData.role = "member";
+      }
+      createUserForm.reset(resetData);
+      setCreateUserDialogContext("user-management");
+      setCreateUserDialogOpen(true);
+      
+      // Clean up URL params after opening dialog
+      const newParams = new URLSearchParams(window.location.search);
+      newParams.delete("openDialog");
+      newParams.delete("accountType");
+      const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : "");
+      window.history.replaceState({}, "", newUrl);
     }
   }, [location]);
 
@@ -151,15 +193,25 @@ export default function FounderDashboard() {
     },
   });
 
-  const createUserForm = useForm({
+  const createUserForm = useForm<z.infer<typeof createUserSchema>>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       username: "",
       email: "",
       password: "",
       fullName: "",
-      accountType: "member" as const,
-      role: "member" as const,
+      accountType: "member",
+      role: "member",
+    },
+  });
+
+  const createClientForm = useForm({
+    resolver: zodResolver(createClientSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      fullName: "",
     },
   });
 
@@ -177,6 +229,21 @@ export default function FounderDashboard() {
       }
     }
   }, [emailValue]);
+
+  // Auto-suggest username from email for client form
+  const clientEmailValue = createClientForm.watch("email");
+  useEffect(() => {
+    if (clientEmailValue && !createClientForm.getValues("username")) {
+      // Extract username from email (part before @)
+      const suggestedUsername = clientEmailValue.split("@")[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "_")
+        .substring(0, 30);
+      if (suggestedUsername) {
+        createClientForm.setValue("username", suggestedUsername);
+      }
+    }
+  }, [clientEmailValue]);
 
   const { data: founderSession, isLoading: sessionLoading } = useQuery({
     queryKey: ["/api/founder/session"],
@@ -266,22 +333,44 @@ export default function FounderDashboard() {
   const [affiliatePasswords, setAffiliatePasswords] = useState<Record<string, string>>({});
   
   // Clients section state
-  const [expandedClient, setExpandedClient] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [editingAccount, setEditingAccount] = useState<{ clientId: string; accountId: string } | null>(null);
   const [addingAccount, setAddingAccount] = useState<string | null>(null);
   const [deleteConfirmAccount, setDeleteConfirmAccount] = useState<{ clientId: string; accountId: string; accountName: string } | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [accountForm, setAccountForm] = useState({ username: "", password: "", accountName: "" });
 
-  // Fetch accounts for expanded client (must be at top level)
+  // Fetch accounts for selected client (must be at top level)
   const { data: accounts, refetch: refetchAccounts } = useQuery<any[]>({
-    queryKey: ["/api/founder/clients", expandedClient, "social-accounts"],
+    queryKey: ["/api/founder/clients", selectedClientId, "social-accounts"],
     queryFn: async () => {
-      if (!expandedClient) return [];
-      const response = await apiRequest("GET", `/api/founder/clients/${expandedClient}/social-accounts`);
+      if (!selectedClientId) return [];
+      const response = await apiRequest("GET", `/api/founder/clients/${selectedClientId}/social-accounts`);
       return await response.json();
     },
-    enabled: !!expandedClient && !!founderSession,
+    enabled: !!selectedClientId && !!founderSession,
+  });
+  
+  // Fetch selected client details
+  const { data: selectedClient, isLoading: selectedClientLoading, refetch: refetchSelectedClient } = useQuery<Client & { nextPaymentDate?: string | null; nextPaymentAmount?: number | null; nextPaymentNote?: string | null }>({
+    queryKey: ["/api/founder/clients", selectedClientId],
+    queryFn: async () => {
+      if (!selectedClientId) return null;
+      const response = await apiRequest("GET", `/api/founder/clients/${selectedClientId}`);
+      return await response.json();
+    },
+    enabled: !!selectedClientId && !!founderSession,
+  });
+
+  // Fetch payment plans for selected client (must be at top level, not inside renderClientsSection)
+  const { data: paymentPlans, refetch: refetchPaymentPlans } = useQuery<Array<any>>({
+    queryKey: ["/api/founder/clients", selectedClientId, "payment-plans"],
+    queryFn: async () => {
+      if (!selectedClientId) return [];
+      const response = await apiRequest("GET", `/api/founder/clients/${selectedClientId}/payment-plans`);
+      return await response.json();
+    },
+    enabled: !!selectedClientId && !!founderSession,
   });
 
   // Account management mutations (must be at top level)
@@ -306,9 +395,21 @@ export default function FounderDashboard() {
       });
     },
     onError: (error: any) => {
+      console.error("Error creating account:", error);
+      let errorMessage = "Failed to create account";
+      try {
+        if (error?.responseText) {
+          const errorObj = JSON.parse(error.responseText);
+          errorMessage = errorObj.error || errorObj.details || errorMessage;
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+      } catch (e) {
+        // Use default message
+      }
       toast({
         title: "Error",
-        description: error.message || "Failed to create account",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -468,14 +569,18 @@ export default function FounderDashboard() {
         }
       }
       queryClient.invalidateQueries({ queryKey: ["/api/members/list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members/list-public"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members/all-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients/list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/affiliates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/affiliates/all"] });
       setCreateUserDialogOpen(false);
       createUserForm.reset();
+      setCreateUserDialogContext(null);
+      const accountTypeLabel = variables.accountType === "member" ? "Member" : variables.accountType === "client" ? "Client" : "Affiliate";
       toast({
         title: "Success!",
-        description: "User account created successfully.",
+        description: `${accountTypeLabel} account created successfully.`,
       });
     },
     onError: (error: any) => {
@@ -505,6 +610,13 @@ export default function FounderDashboard() {
 
   const onCreateUserSubmit = (data: z.infer<typeof createUserSchema>) => {
     createUserMutation.mutate(data);
+  };
+
+  const onCreateClientSubmit = (data: z.infer<typeof createClientSchema>) => {
+    createUserMutation.mutate({
+      ...data,
+      accountType: "client" as const,
+    });
   };
 
   const handleLogout = () => {
@@ -1118,6 +1230,381 @@ export default function FounderDashboard() {
     );
   };
 
+  // Next Payment Form Component
+  function NextPaymentForm({ clientId, client, onUpdate }: { clientId: string; client?: any; onUpdate?: () => void }) {
+    const { toast } = useToast();
+    const [nextPaymentDate, setNextPaymentDate] = useState(
+      client?.nextPaymentDate ? new Date(client.nextPaymentDate).toISOString().split('T')[0] : ""
+    );
+    const [nextPaymentAmount, setNextPaymentAmount] = useState(
+      client?.nextPaymentAmount ? (client.nextPaymentAmount / 100).toFixed(2) : ""
+    );
+    const [nextPaymentNote, setNextPaymentNote] = useState(client?.nextPaymentNote || "");
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Tier pricing in cents
+    const tierPricing: Record<string, number> = {
+      "Growth": 400000, // $4,000 in cents
+      "Domination": 700000, // $7,000 in cents
+      "Empire": 1347500, // $13,475 in cents
+    };
+
+    const standardTierAmount = client?.tier ? (tierPricing[client.tier] || 0) : 0;
+    const customAmount = nextPaymentAmount ? parseFloat(nextPaymentAmount) * 100 : null;
+    const discountAmount = customAmount && customAmount < standardTierAmount ? standardTierAmount - customAmount : 0;
+    const discountPercentage = standardTierAmount > 0 && discountAmount > 0 
+      ? ((discountAmount / standardTierAmount) * 100).toFixed(1) 
+      : "0";
+
+    // Update form when client data changes
+    useEffect(() => {
+      if (client) {
+        setNextPaymentDate(client.nextPaymentDate ? new Date(client.nextPaymentDate).toISOString().split('T')[0] : "");
+        setNextPaymentAmount(client.nextPaymentAmount ? (client.nextPaymentAmount / 100).toFixed(2) : "");
+        setNextPaymentNote(client.nextPaymentNote || "");
+      }
+    }, [client]);
+
+    const handleSave = async () => {
+      setIsSaving(true);
+      try {
+        const response = await apiRequest("PUT", `/api/founder/clients/${clientId}/next-payment`, {
+          nextPaymentDate: nextPaymentDate || null,
+          nextPaymentAmount: nextPaymentAmount ? Math.round(parseFloat(nextPaymentAmount) * 100) : null,
+          nextPaymentNote: nextPaymentNote || null,
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to update next payment");
+        }
+        
+        toast({
+          title: "Success!",
+          description: "Next payment information updated successfully.",
+        });
+        
+        if (onUpdate) {
+          onUpdate();
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update next payment",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <Label>Next Payment Date</Label>
+          <Input
+            type="date"
+            value={nextPaymentDate}
+            onChange={(e) => setNextPaymentDate(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label>Standard Tier Price</Label>
+          <Input
+            value={standardTierAmount > 0 ? `$${(standardTierAmount / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "No tier set"}
+            readOnly
+            className="mt-1 bg-gray-50"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {client?.tier ? `Standard price for ${client.tier} tier` : "Set client tier first"}
+          </p>
+        </div>
+        <div>
+          <Label>Custom Payment Amount (USD)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={nextPaymentAmount}
+            onChange={(e) => setNextPaymentAmount(e.target.value)}
+            placeholder={standardTierAmount > 0 ? (standardTierAmount / 100).toFixed(2) : "0.00"}
+            className="mt-1"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Enter amount to charge. Leave empty or set to standard price to use tier pricing.
+            {discountAmount > 0 && (
+              <span className="block text-green-600 font-medium mt-1">
+                Discount: ${(discountAmount / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({discountPercentage}% off)
+              </span>
+            )}
+          </p>
+        </div>
+        <div>
+          <Label>Note (Optional)</Label>
+          <Input
+            type="text"
+            value={nextPaymentNote}
+            onChange={(e) => setNextPaymentNote(e.target.value)}
+            placeholder="e.g., 1-month discount, promotional pricing..."
+            className="mt-1"
+          />
+        </div>
+        <Button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="bg-black text-white hover:bg-gray-900"
+        >
+          {isSaving ? "Saving..." : "Save Next Payment Info"}
+        </Button>
+      </div>
+    );
+  }
+
+  // Payment Plan Form Component
+  function PaymentPlanForm({ clientId, client, onUpdate }: { clientId: string; client?: any; onUpdate?: () => void }) {
+    const { toast } = useToast();
+    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [totalAmount, setTotalAmount] = useState("");
+    const [note, setNote] = useState("");
+    const [installments, setInstallments] = useState<Array<{ amount: string; dueDate: string }>>([{ amount: "", dueDate: "" }]);
+    const [isCreating, setIsCreating] = useState(false);
+
+    const tierPricing: Record<string, number> = {
+      "Growth": 400000, // $4,000 in cents
+      "Domination": 700000, // $7,000 in cents
+      "Empire": 1347500, // $13,475 in cents
+    };
+
+    const standardTierAmount = client?.tier ? (tierPricing[client.tier] || 0) : 0;
+
+    const addInstallment = () => {
+      setInstallments([...installments, { amount: "", dueDate: "" }]);
+    };
+
+    const removeInstallment = (index: number) => {
+      setInstallments(installments.filter((_, i) => i !== index));
+    };
+
+    const updateInstallment = (index: number, field: "amount" | "dueDate", value: string) => {
+      const updated = [...installments];
+      updated[index] = { ...updated[index], [field]: value };
+      setInstallments(updated);
+    };
+
+    const calculateTotal = () => {
+      return installments.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0) * 100, 0);
+    };
+
+    const handleCreate = async () => {
+      if (!totalAmount || parseFloat(totalAmount) <= 0) {
+        toast({
+          title: "Error",
+          description: "Please enter a valid total amount",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (installments.length === 0) {
+        toast({
+          title: "Error",
+          description: "Please add at least one installment",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const totalInCents = Math.round(parseFloat(totalAmount) * 100);
+      const calculatedTotal = calculateTotal();
+
+      if (calculatedTotal !== totalInCents) {
+        toast({
+          title: "Error",
+          description: `Installment amounts ($${(calculatedTotal / 100).toFixed(2)}) must equal total amount ($${(totalInCents / 100).toFixed(2)})`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      for (const inst of installments) {
+        if (!inst.amount || parseFloat(inst.amount) <= 0) {
+          toast({
+            title: "Error",
+            description: "All installments must have a valid amount",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!inst.dueDate) {
+          toast({
+            title: "Error",
+            description: "All installments must have a due date",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      setIsCreating(true);
+      try {
+        const response = await apiRequest("POST", `/api/founder/clients/${clientId}/payment-plans`, {
+          month,
+          year,
+          totalAmount: totalInCents,
+          currency: "USD",
+          note: note || null,
+          installments: installments.map(inst => ({
+            amount: Math.round(parseFloat(inst.amount) * 100),
+            dueDate: new Date(inst.dueDate).toISOString(),
+          })),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create payment plan");
+        }
+
+        toast({
+          title: "Success!",
+          description: "Payment plan created successfully.",
+        });
+
+        // Reset form
+        setTotalAmount("");
+        setNote("");
+        setInstallments([{ amount: "", dueDate: "" }]);
+
+        if (onUpdate) {
+          onUpdate();
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create payment plan",
+          variant: "destructive",
+        });
+      } finally {
+        setIsCreating(false);
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Month</Label>
+            <Select value={month.toString()} onValueChange={(v) => setMonth(parseInt(v))}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                  <SelectItem key={m} value={m.toString()}>
+                    {new Date(year, m - 1, 1).toLocaleDateString('en-US', { month: 'long' })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Year</Label>
+            <Input
+              type="number"
+              value={year}
+              onChange={(e) => setYear(parseInt(e.target.value) || new Date().getFullYear())}
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <div>
+          <Label>Total Amount (USD)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={totalAmount}
+            onChange={(e) => setTotalAmount(e.target.value)}
+            placeholder={standardTierAmount > 0 ? (standardTierAmount / 100).toFixed(2) : "0.00"}
+            className="mt-1"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {client?.tier ? `Standard price for ${client.tier} tier: $${(standardTierAmount / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Set client tier first"}
+          </p>
+        </div>
+        <div>
+          <Label>Note (Optional)</Label>
+          <Input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g., Split payment plan..."
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <Label>Installments</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addInstallment}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add Installment
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {installments.map((inst, index) => (
+              <div key={index} className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Label className="text-xs">Amount (USD)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={inst.amount}
+                    onChange={(e) => updateInstallment(index, "amount", e.target.value)}
+                    placeholder="0.00"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs">Due Date</Label>
+                  <Input
+                    type="date"
+                    value={inst.dueDate}
+                    onChange={(e) => updateInstallment(index, "dueDate", e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                {installments.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeInstallment(index)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+          {installments.length > 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              Total: ${(calculateTotal() / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {totalAmount && parseFloat(totalAmount) > 0 && (
+                <span className={calculateTotal() !== Math.round(parseFloat(totalAmount) * 100) ? "text-red-600" : "text-green-600"}>
+                  {" "}(Target: ${(Math.round(parseFloat(totalAmount) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+        <Button
+          onClick={handleCreate}
+          disabled={isCreating}
+          className="bg-black text-white hover:bg-gray-900"
+        >
+          {isCreating ? "Creating..." : "Create Payment Plan"}
+        </Button>
+      </div>
+    );
+  }
+
   const renderClientsSection = () => {
     const clientsLoading = false; // Clients are already loaded at top level
 
@@ -1155,7 +1642,7 @@ export default function FounderDashboard() {
 
 
     const startEditing = (account: any) => {
-      setEditingAccount({ clientId: expandedClient!, accountId: account.id });
+      setEditingAccount({ clientId: selectedClientId!, accountId: account.id });
       setAccountForm({
         username: account.username,
         password: account.password || "",
@@ -1170,372 +1657,589 @@ export default function FounderDashboard() {
     };
 
     const startAdding = () => {
-      setAddingAccount(expandedClient);
+      setAddingAccount(selectedClientId);
       setAccountForm({ username: "", password: "", accountName: "" });
       setSelectedPlatforms([]);
     };
 
-    if (clientsLoading) {
+    // Show client list if no client is selected
+    if (!selectedClientId) {
+      if (clientsLoading) {
+        return (
+          <div className="p-6">
+            <div className="text-center py-8 text-gray-500">Loading clients...</div>
+          </div>
+        );
+      }
+
       return (
         <div className="p-6">
-          <div className="text-center py-8 text-gray-500">Loading clients...</div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Clients</h1>
+              <p className="text-gray-600">Manage client accounts and social media profiles</p>
+            </div>
+            <Button onClick={() => {
+              createUserForm.reset({
+                username: "",
+                email: "",
+                password: "",
+                fullName: "",
+                accountType: "client",
+                role: "member",
+              });
+              setCreateUserDialogContext("clients");
+              setCreateUserDialogOpen(true);
+            }} className="bg-black text-white hover:bg-gray-900">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Client
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {clients && Array.isArray(clients) && clients.length > 0 ? (
+              clients.map((client) => (
+                <Card
+                  key={client.id}
+                  className="cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => setSelectedClientId(client.id)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{client.fullName || client.username}</h3>
+                        <p className="text-sm text-gray-600">{client.email}</p>
+                        {client.tier && (
+                          <span className="inline-block mt-1 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                            {client.tier}
+                          </span>
+                        )}
+                        {client.offerLink && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Label className="text-xs text-gray-500">Offer Link:</Label>
+                            <a
+                              href={client.offerLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs text-blue-600 hover:underline truncate max-w-xs"
+                            >
+                              {client.offerLink}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        View Details →
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">No clients found</div>
+            )}
+          </div>
         </div>
       );
     }
 
+    // Show client detail page when a client is selected
+    if (selectedClientLoading) {
+      return (
+        <div className="p-6">
+          <div className="text-center py-8 text-gray-500">Loading client details...</div>
+        </div>
+      );
+    }
+
+    const currentClient = selectedClient || clients?.find((c) => c.id === selectedClientId);
+
     return (
-      <div className="p-6">
-        <h1 className="text-3xl font-bold mb-2">Clients</h1>
-        <p className="text-gray-600 mb-6">Manage client accounts and social media profiles</p>
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Button variant="ghost" onClick={() => setSelectedClientId(null)} className="mb-2">
+              ← Back to Clients
+            </Button>
+            <h1 className="text-3xl font-bold">
+              {currentClient?.fullName || currentClient?.username}
+            </h1>
+          </div>
+          <Button
+            onClick={() => {
+              setAccountForm({ username: "", password: "", accountName: "" });
+              setSelectedPlatforms([]);
+              setAddingAccount(selectedClientId);
+            }}
+            className="bg-black text-white hover:bg-gray-900"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Account
+          </Button>
+        </div>
 
-        <div className="space-y-4">
-          {(clients || []).map((client) => {
-            const isExpanded = expandedClient === client.id;
-            return (
-              <Card key={client.id}>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold">{client.fullName || client.username}</h3>
-                        <p className="text-sm text-gray-600">{client.email}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
-                          <div>
-                            <Label className="text-xs text-gray-500">Client Since</Label>
-                            <p className="text-sm font-medium">
-                              {new Date(client.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-gray-500">Duration</Label>
-                            <p className="text-sm font-medium">{client.durationText || "N/A"}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-gray-500">Tier</Label>
-                            <p className="text-sm font-medium">{client.tier || "Not set"}</p>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-gray-500">Next Payment</Label>
-                            <p className="text-sm font-medium">
-                              {client.nextPaymentDate
-                                ? new Date(client.nextPaymentDate).toLocaleDateString()
-                                : "Not set"}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-gray-500">Total Spent</Label>
-                            <p className="text-sm font-medium">
-                              ${((client.totalSpent || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => setExpandedClient(isExpanded ? null : client.id)}
-                      >
-                        {isExpanded ? "Collapse" : "View Accounts"}
-                      </Button>
-                    </div>
+        {/* Client Information Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <Label className="text-xs text-gray-500">Client Since</Label>
+              <div className="text-lg font-semibold text-gray-900 mt-1">
+                {currentClient?.createdAt ? new Date(currentClient.createdAt).toLocaleDateString() : "N/A"}
+              </div>
+            </CardContent>
+          </Card>
 
-                    {isExpanded && (
-                      <div className="mt-6 pt-6 border-t">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-semibold">Social Media Accounts</h4>
-                          <Button onClick={startAdding} size="sm">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Account
-                          </Button>
-                        </div>
+          <Card>
+            <CardContent className="p-4">
+              <Label className="text-xs text-gray-500">Total Spent</Label>
+              <div className="text-lg font-semibold text-green-600 mt-1">
+                ${((currentClient && 'totalSpent' in currentClient ? (currentClient as any).totalSpent : 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </CardContent>
+          </Card>
 
-                        {addingAccount === client.id && (
-                          <Card className="mb-4 border-2 border-blue-200">
-                            <CardContent className="pt-6">
-                              <h5 className="font-semibold mb-4">Add New Account</h5>
-                              <div className="space-y-4">
-                                <div>
-                                  <Label>Account Name (Optional)</Label>
-                                  <Input
-                                    placeholder="e.g., Main Account"
-                                    value={accountForm.accountName}
-                                    onChange={(e) => setAccountForm({ ...accountForm, accountName: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Username</Label>
-                                  <Input
-                                    placeholder="username"
-                                    value={accountForm.username}
-                                    onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Password</Label>
-                                  <Input
-                                    type="password"
-                                    placeholder="password"
-                                    value={accountForm.password}
-                                    onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <Label>Platforms</Label>
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => togglePlatform("all")}
-                                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        selectedPlatforms.length === allPlatforms.length
-                                          ? "bg-gray-800 text-white"
-                                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                      }`}
-                                    >
-                                      All Platforms
-                                    </button>
-                                    {allPlatforms.map((platform) => (
-                                      <button
-                                        key={platform}
-                                        type="button"
-                                        onClick={() => togglePlatform(platform)}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                                          selectedPlatforms.includes(platform)
-                                            ? `${platformColors[platform as keyof typeof platformColors]} text-white`
-                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                        }`}
-                                      >
-                                        <span>{platformIcons[platform as keyof typeof platformIcons]}</span>
-                                        <span className="capitalize">{platform}</span>
-                                      </button>
-                                    ))}
+          <Card>
+            <CardContent className="p-4">
+              <Label className="text-xs text-gray-500">Tier</Label>
+              <div className="text-lg font-semibold text-gray-900 mt-1">
+                {currentClient?.tier || "Not set"}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <Label className="text-xs text-gray-500">Email</Label>
+              <div className="text-lg font-semibold text-gray-900 mt-1">
+                {currentClient?.email || "N/A"}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Offer Link */}
+        <Card>
+          <CardContent className="p-4">
+            <Label className="text-xs text-gray-500 mb-2 block">Offer Link</Label>
+            {currentClient?.offerLink ? (
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={currentClient.offerLink} 
+                  readOnly 
+                  className="bg-gray-50 flex-1 text-sm" 
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const link = currentClient.offerLink!;
+                    // Ensure the link has a protocol
+                    const url = link.startsWith('http://') || link.startsWith('https://') 
+                      ? link 
+                      : `https://${link}`;
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  Open Link
+                </Button>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic">No offer link set by client</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Next Payment Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Next Payment Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedClientId && (
+              <NextPaymentForm 
+                clientId={selectedClientId} 
+                client={currentClient} 
+                onUpdate={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/founder/clients", selectedClientId] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/clients/next-payment"] });
+                }} 
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Payment Plans Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment Plans</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedClientId && (
+              <>
+                <PaymentPlanForm
+                  clientId={selectedClientId}
+                  client={currentClient}
+                  onUpdate={() => {
+                    refetchPaymentPlans();
+                  }}
+                />
+                
+                {paymentPlans && paymentPlans.length > 0 && (
+                  <div className="mt-6 space-y-4">
+                    <Label className="text-sm font-semibold">Existing Payment Plans</Label>
+                    {paymentPlans.map((plan: any) => (
+                      <Card key={plan.id} className="border">
+                        <CardContent className="pt-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h4 className="font-semibold">
+                                {new Date(plan.year, plan.month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                Total: ${(plan.totalAmount / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                              {plan.note && (
+                                <p className="text-xs text-gray-500 mt-1">{plan.note}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {plan.installments && plan.installments.map((inst: any, idx: number) => (
+                              <div key={inst.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                <div className="flex-1">
+                                  <div className="font-medium">
+                                    ${(inst.amount / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </div>
+                                  <div className="text-xs text-gray-600">
+                                    Due: {new Date(inst.dueDate).toLocaleDateString('en-US')}
                                   </div>
                                 </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    onClick={() => {
-                                      if (!accountForm.username || !accountForm.password || selectedPlatforms.length === 0) {
-                                        toast({
-                                          title: "Error",
-                                          description: "Please fill in username, password, and select at least one platform",
-                                          variant: "destructive",
-                                        });
-                                        return;
-                                      }
-                                      createAccountMutation.mutate({
-                                        clientId: client.id,
-                                        username: accountForm.username,
-                                        password: accountForm.password,
-                                        platforms: selectedPlatforms,
-                                        accountName: accountForm.accountName || undefined,
-                                      });
-                                    }}
-                                    disabled={createAccountMutation.isPending}
-                                  >
-                                    {createAccountMutation.isPending ? "Creating..." : "Create Account"}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                      setAddingAccount(null);
-                                      setSelectedPlatforms([]);
-                                      setAccountForm({ username: "", password: "", accountName: "" });
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
+                                <div className="text-xs">
+                                  <span className={`px-2 py-1 rounded ${
+                                    inst.status === "paid" 
+                                      ? "bg-green-100 text-green-800" 
+                                      : inst.status === "overdue"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}>
+                                    {inst.status === "paid" ? "✓ Paid" : inst.status === "overdue" ? "Overdue" : "Pending"}
+                                  </span>
+                                  {inst.paidAt && (
+                                    <div className="text-gray-500 mt-1">
+                                      Paid: {new Date(inst.paidAt).toLocaleDateString('en-US')}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        )}
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-                        <div className="space-y-3">
-                          {(accounts || []).map((account: any) => {
-                            const isEditing = editingAccount?.accountId === account.id;
-                            const accountPlatforms = (() => {
-                              try {
-                                return JSON.parse(account.platforms || "[]");
-                              } catch {
-                                return [];
-                              }
-                            })();
-
-                            if (isEditing) {
-                              return (
-                                <Card key={account.id} className="border-2 border-blue-200">
-                                  <CardContent className="pt-6">
-                                    <h5 className="font-semibold mb-4">Edit Account</h5>
-                                    <div className="space-y-4">
-                                      <div>
-                                        <Label>Account Name (Optional)</Label>
-                                        <Input
-                                          value={accountForm.accountName}
-                                          onChange={(e) => setAccountForm({ ...accountForm, accountName: e.target.value })}
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label>Username</Label>
-                                        <Input
-                                          value={accountForm.username}
-                                          onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label>Password</Label>
-                                        <Input
-                                          type="password"
-                                          value={accountForm.password}
-                                          onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label>Platforms</Label>
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => togglePlatform("all")}
-                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                              selectedPlatforms.length === allPlatforms.length
-                                                ? "bg-gray-800 text-white"
-                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                            }`}
-                                          >
-                                            All Platforms
-                                          </button>
-                                          {allPlatforms.map((platform) => (
-                                            <button
-                                              key={platform}
-                                              type="button"
-                                              onClick={() => togglePlatform(platform)}
-                                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                                                selectedPlatforms.includes(platform)
-                                                  ? `${platformColors[platform as keyof typeof platformColors]} text-white`
-                                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                              }`}
-                                            >
-                                              <span>{platformIcons[platform as keyof typeof platformIcons]}</span>
-                                              <span className="capitalize">{platform}</span>
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          onClick={() => {
-                                            if (!accountForm.username || !accountForm.password || selectedPlatforms.length === 0) {
-                                              toast({
-                                                title: "Error",
-                                                description: "Please fill in username, password, and select at least one platform",
-                                                variant: "destructive",
-                                              });
-                                              return;
-                                            }
-                                            updateAccountMutation.mutate({
-                                              clientId: client.id,
-                                              accountId: account.id,
-                                              username: accountForm.username,
-                                              password: accountForm.password,
-                                              platforms: selectedPlatforms,
-                                              accountName: accountForm.accountName || undefined,
-                                            });
-                                          }}
-                                          disabled={updateAccountMutation.isPending}
-                                        >
-                                          {updateAccountMutation.isPending ? "Saving..." : "Save Changes"}
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          onClick={() => {
-                                            setEditingAccount(null);
-                                            setSelectedPlatforms([]);
-                                            setAccountForm({ username: "", password: "", accountName: "" });
-                                          }}
-                                        >
-                                          Cancel
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              );
-                            }
-
-                            return (
-                              <Card key={account.id}>
-                                <CardContent className="pt-6">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      {account.accountName && (
-                                        <h5 className="font-semibold mb-2">{account.accountName}</h5>
-                                      )}
-                                      <div className="space-y-2">
-                                        <div>
-                                          <Label className="text-xs text-gray-500">Username</Label>
-                                          <p className="text-sm font-mono">{account.username}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-xs text-gray-500">Password</Label>
-                                          <p className="text-sm font-mono">{account.password || "Not set"}</p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-xs text-gray-500">Platforms</Label>
-                                          <div className="flex flex-wrap gap-2 mt-1">
-                                            {accountPlatforms.map((platform: string) => (
-                                              <span
-                                                key={platform}
-                                                className={`px-3 py-1 rounded-full text-xs font-medium text-white ${platformColors[platform as keyof typeof platformColors]}`}
-                                              >
-                                                {platformIcons[platform as keyof typeof platformIcons]} {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => startEditing(account)}
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setDeleteConfirmAccount({
-                                          clientId: client.id,
-                                          accountId: account.id,
-                                          accountName: account.accountName || account.username,
-                                        })}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
-                          {(!accounts || accounts.length === 0) && !addingAccount && (
-                            <div className="text-center py-8 text-gray-500">
-                              No accounts yet. Click "Add Account" to create one.
-                            </div>
-                          )}
-                        </div>
+        {/* Social Media Accounts Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Social Media Accounts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {addingAccount === selectedClientId && (
+              <Card className="mb-4 border-2 border-blue-200">
+                <CardContent className="pt-6">
+                  <h5 className="font-semibold mb-4">Add New Account</h5>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Account Name (Optional)</Label>
+                      <Input
+                        placeholder="e.g., Main Account"
+                        value={accountForm.accountName}
+                        onChange={(e) => setAccountForm({ ...accountForm, accountName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Username</Label>
+                      <Input
+                        placeholder="username"
+                        value={accountForm.username}
+                        onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Password</Label>
+                      <Input
+                        type="password"
+                        placeholder="password"
+                        value={accountForm.password}
+                        onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Platforms</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => togglePlatform("all")}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            selectedPlatforms.length === allPlatforms.length
+                              ? "bg-gray-800 text-white"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          All Platforms
+                        </button>
+                        {allPlatforms.map((platform) => (
+                          <button
+                            key={platform}
+                            type="button"
+                            onClick={() => togglePlatform(platform)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                              selectedPlatforms.includes(platform)
+                                ? `${platformColors[platform as keyof typeof platformColors]} text-white`
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            <span>{platformIcons[platform as keyof typeof platformIcons]}</span>
+                            <span className="capitalize">{platform}</span>
+                          </button>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          if (!accountForm.username || !accountForm.password || selectedPlatforms.length === 0) {
+                            toast({
+                              title: "Error",
+                              description: "Please fill in username, password, and select at least one platform",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          createAccountMutation.mutate({
+                            clientId: selectedClientId!,
+                            username: accountForm.username,
+                            password: accountForm.password,
+                            platforms: selectedPlatforms,
+                            accountName: accountForm.accountName || undefined,
+                          });
+                        }}
+                        disabled={createAccountMutation.isPending}
+                      >
+                        {createAccountMutation.isPending ? "Creating..." : "Create Account"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setAddingAccount(null);
+                          setSelectedPlatforms([]);
+                          setAccountForm({ username: "", password: "", accountName: "" });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+            )}
 
-          {(!clients || clients.length === 0) && (
-            <div className="text-center py-8 text-gray-500">
-              No clients yet
+            <div className="space-y-3">
+              {accounts && accounts.length > 0 ? (
+                accounts.map((account: any) => {
+                  const isEditing = editingAccount?.accountId === account.id;
+                  const accountPlatforms = (() => {
+                    try {
+                      return JSON.parse(account.platforms || "[]");
+                    } catch {
+                      return [];
+                    }
+                  })();
+
+                  if (isEditing) {
+                    return (
+                      <Card key={account.id} className="border-2 border-blue-200">
+                        <CardContent className="pt-6">
+                          <h5 className="font-semibold mb-4">Edit Account</h5>
+                          <div className="space-y-4">
+                            <div>
+                              <Label>Account Name (Optional)</Label>
+                              <Input
+                                value={accountForm.accountName}
+                                onChange={(e) => setAccountForm({ ...accountForm, accountName: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label>Username</Label>
+                              <Input
+                                value={accountForm.username}
+                                onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label>Password</Label>
+                              <Input
+                                type="password"
+                                value={accountForm.password}
+                                onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <Label>Platforms</Label>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => togglePlatform("all")}
+                                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    selectedPlatforms.length === allPlatforms.length
+                                      ? "bg-gray-800 text-white"
+                                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                  }`}
+                                >
+                                  All Platforms
+                                </button>
+                                {allPlatforms.map((platform) => (
+                                  <button
+                                    key={platform}
+                                    type="button"
+                                    onClick={() => togglePlatform(platform)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                                      selectedPlatforms.includes(platform)
+                                        ? `${platformColors[platform as keyof typeof platformColors]} text-white`
+                                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    }`}
+                                  >
+                                    <span>{platformIcons[platform as keyof typeof platformIcons]}</span>
+                                    <span className="capitalize">{platform}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => {
+                                  if (!accountForm.username || !accountForm.password || selectedPlatforms.length === 0) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Please fill in username, password, and select at least one platform",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  updateAccountMutation.mutate({
+                                    clientId: selectedClientId!,
+                                    accountId: account.id,
+                                    username: accountForm.username,
+                                    password: accountForm.password,
+                                    platforms: selectedPlatforms,
+                                    accountName: accountForm.accountName || undefined,
+                                  });
+                                }}
+                                disabled={updateAccountMutation.isPending}
+                              >
+                                {updateAccountMutation.isPending ? "Saving..." : "Save Changes"}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingAccount(null);
+                                  setSelectedPlatforms([]);
+                                  setAccountForm({ username: "", password: "", accountName: "" });
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+
+                  return (
+                    <Card key={account.id}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h5 className="font-semibold mb-2">{account.accountName || "Untitled Account"}</h5>
+                            <div className="space-y-2">
+                              <div>
+                                <Label className="text-xs text-gray-500">Username</Label>
+                                <p className="text-sm font-mono">{account.username}</p>
+                              </div>
+                              <div>
+                                <Label className="text-xs text-gray-500">Password</Label>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-mono">
+                                    {revealedPasswords[account.id] ? account.password : "••••••••"}
+                                  </p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setRevealedPasswords(prev => ({
+                                        ...prev,
+                                        [account.id]: !prev[account.id]
+                                      }));
+                                    }}
+                                  >
+                                    {revealedPasswords[account.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </Button>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs text-gray-500">Platforms</Label>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {accountPlatforms.map((platform: string) => (
+                                    <span
+                                      key={platform}
+                                      className={`px-2 py-1 text-xs rounded ${platformColors[platform as keyof typeof platformColors]} text-white`}
+                                    >
+                                      {platformIcons[platform as keyof typeof platformIcons]} {platform}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => startEditing(account)}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDeleteConfirmAccount({ clientId: selectedClientId!, accountId: account.id, accountName: account.accountName || "this account" })}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No accounts yet. Click "Add Account" to create one.
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={!!deleteConfirmAccount} onOpenChange={() => setDeleteConfirmAccount(null)}>
@@ -1624,7 +2328,10 @@ export default function FounderDashboard() {
             <p className="text-gray-600">Track and manage all members</p>
           </div>
           <Button
-            onClick={() => setCreateUserDialogOpen(true)}
+            onClick={() => {
+              // Navigate to user-management section with query params to open dialog
+              setLocation("/founder?section=user-management&openDialog=create-user&accountType=member");
+            }}
             className="bg-black text-white hover:bg-gray-900"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -1890,7 +2597,21 @@ export default function FounderDashboard() {
             <h1 className="text-3xl font-bold mb-2">User Management</h1>
             <p className="text-gray-600">Create and manage all user accounts (Members, Clients, Affiliates)</p>
           </div>
-          <Button onClick={() => setCreateUserDialogOpen(true)} className="bg-black text-white hover:bg-gray-900">
+          <Button 
+            onClick={() => {
+              createUserForm.reset({
+                username: "",
+                email: "",
+                password: "",
+                fullName: "",
+                accountType: "member" as const,
+                role: "member" as const,
+              });
+              setCreateUserDialogContext("user-management");
+              setCreateUserDialogOpen(true);
+            }} 
+            className="bg-black text-white hover:bg-gray-900"
+          >
             <UserPlus className="w-4 h-4 mr-2" />
             Create User
           </Button>
@@ -2077,6 +2798,19 @@ export default function FounderDashboard() {
                     <div className="space-y-1">
                       <p className="font-medium text-sm">{client.username}</p>
                       <p className="text-xs text-gray-600">{client.email}</p>
+                      {client.offerLink && (
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-500 mb-1">Offer Link:</p>
+                          <a 
+                            href={client.offerLink} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline break-all"
+                          >
+                            {client.offerLink}
+                          </a>
+                        </div>
+                      )}
                       {client.passwordHash && (
                         <div className="mt-1">
                           <p className="text-xs font-medium text-gray-700">Password Hash:</p>
@@ -2228,36 +2962,46 @@ export default function FounderDashboard() {
         <Dialog open={createUserDialogOpen} onOpenChange={setCreateUserDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
+              <DialogTitle>
+                {createUserDialogContext === "members" ? "Create New Member" 
+                  : createUserDialogContext === "clients" ? "Create New Client"
+                  : "Create New User"}
+              </DialogTitle>
               <DialogDescription>
-                Create a new member, client, or affiliate account.
+                {createUserDialogContext === "members" 
+                  ? "Create a new member account with a specific role."
+                  : createUserDialogContext === "clients"
+                  ? "Create a new client account."
+                  : "Create a new member, client, or affiliate account."}
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 <Form {...createUserForm}>
                   <form onSubmit={createUserForm.handleSubmit(onCreateUserSubmit)} className="space-y-4">
-                    <FormField
-                      control={createUserForm.control}
-                      name="accountType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="member">Member</SelectItem>
-                              <SelectItem value="client">Client</SelectItem>
-                              <SelectItem value="affiliate">Affiliate</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {createUserDialogContext !== "clients" && (
+                      <FormField
+                        control={createUserForm.control}
+                        name="accountType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="member">Member</SelectItem>
+                                <SelectItem value="client">Client</SelectItem>
+                                <SelectItem value="affiliate">Affiliate</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
 
                     <FormField
                       control={createUserForm.control}

@@ -25,12 +25,40 @@ export default function TransactionsSection({ memberId }: { memberId: string }) 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  const { data: transactionsData } = useQuery<{
+  const { data: transactionsData, isLoading, error } = useQuery<{
     transactions: Transaction[];
     total: number;
   }>({
     queryKey: ["/api/members", memberId, "transactions", { searchTerm, page, rowsPerPage }],
+    queryFn: async () => {
+      console.log(`[TransactionsSection] Fetching transactions for memberId: ${memberId}`);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        rowsPerPage: rowsPerPage.toString(),
+        ...(searchTerm && { search: searchTerm }),
+      });
+      const res = await fetch(`/api/members/${memberId}/transactions?${params}`, { credentials: "include" });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`[TransactionsSection] Failed to fetch transactions: ${res.status} ${errorText}`);
+        throw new Error(`Failed to fetch transactions: ${res.status} ${errorText}`);
+      }
+      const data = await res.json();
+      console.log(`[TransactionsSection] Transactions fetched:`, data);
+      return data;
+    },
+    retry: 2,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+
+  if (error) {
+    console.error(`[TransactionsSection] Error loading transactions:`, error);
+  }
+  
+  if (isLoading) {
+    console.log(`[TransactionsSection] Loading transactions for memberId: ${memberId}`);
+  }
 
   const transactions = transactionsData?.transactions || [];
   const total = transactionsData?.total || 0;
@@ -85,14 +113,32 @@ export default function TransactionsSection({ memberId }: { memberId: string }) 
                   </td>
                 </tr>
               ) : (
-                transactions.map((transaction) => (
-                  <tr key={transaction.id} className="border-t hover:bg-gray-50">
-                    <td className="py-3 px-4">{transaction.type}</td>
-                    <td className="py-3 px-4">{transaction.description}</td>
-                    <td className="py-3 px-4 font-medium">{transaction.points} pts</td>
-                    <td className="py-3 px-4 text-muted-foreground">{formatDate(transaction.createdAt)}</td>
-                  </tr>
-                ))
+                transactions.map((transaction) => {
+                  const isEarned = transaction.type === "earned";
+                  const isPaid = transaction.type === "paid";
+                  return (
+                    <tr key={transaction.id} className="border-t hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          isEarned 
+                            ? "bg-green-100 text-green-800" 
+                            : isPaid 
+                            ? "bg-blue-100 text-blue-800" 
+                            : "bg-gray-100 text-gray-800"
+                        }`}>
+                          {isEarned ? "Earned" : isPaid ? "Paid" : transaction.type}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">{transaction.description}</td>
+                      <td className={`py-3 px-4 font-medium ${
+                        isEarned ? "text-green-600" : isPaid ? "text-blue-600" : ""
+                      }`}>
+                        {isEarned ? "+" : isPaid ? "-" : ""}{transaction.points} pts
+                      </td>
+                      <td className="py-3 px-4 text-muted-foreground">{formatDate(transaction.createdAt)}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

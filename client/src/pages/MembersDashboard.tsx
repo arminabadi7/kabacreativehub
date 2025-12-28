@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -47,6 +47,13 @@ import TemplatesPage from "./members/TemplatesPage";
 import TeamsPage from "./members/TeamsPage";
 import ClientsSection from "./members/ClientsSection";
 import IssueDetailPage from "./members/IssueDetailPage";
+import StatusesPage from "./members/StatusesPage";
+import WorkspacePage from "./members/WorkspacePage";
+import MembersPage from "./members/MembersPage";
+import MyIssuesPage from "./members/MyIssuesPage";
+import BoardPage from "./members/BoardPage";
+import HomePage from "./members/HomePage";
+import TeamDetailPage from "./members/TeamDetailPage";
 import { canAccessClipping, canAccessAdmin, canAccessSettings } from "@/lib/permissions";
 
 type Member = {
@@ -69,18 +76,58 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   
-  // Parse issue detail route manually
-  const issueDetailMatch = location.match(/^\/member-dashboard\/projects\/([^\/]+)\/issues\/([^\/]+)$/);
+  // Normalize location - remove trailing slash for consistent matching
+  const normalizedLocation = location.endsWith('/') && location !== '/' ? location.slice(0, -1) : location;
+  
+  // Parse issue detail route manually (use normalized location)
+  const issueDetailMatch = normalizedLocation.match(/^\/member-dashboard\/projects\/([^\/]+)\/issues\/([^\/]+)$/);
   const issueDetailParams = issueDetailMatch ? {
     projectId: issueDetailMatch[1],
     issueId: issueDetailMatch[2]
   } : null;
   
+  // Parse team detail route manually (use normalized location)
+  const teamDetailMatch = normalizedLocation.match(/^\/member-dashboard\/teams\/([^\/]+)$/);
+  const teamId = teamDetailMatch ? teamDetailMatch[1] : null;
+  
+  // Parse section from URL query parameter
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const sectionFromUrl = urlParams.get('section');
+  
   // Debug logging
-  console.log("[MembersDashboard] Current location:", location);
+  console.log("[MembersDashboard] Current location:", location, "normalized:", normalizedLocation);
   console.log("[MembersDashboard] Issue detail match:", issueDetailMatch);
   console.log("[MembersDashboard] Issue detail params:", issueDetailParams);
-  const [activeSection, setActiveSection] = useState("clients");
+  const [activeSection, setActiveSection] = useState(sectionFromUrl || "clients");
+  
+  // Update activeSection when location changes
+  useEffect(() => {
+    console.log("[MembersDashboard] useEffect - location:", location, "normalized:", normalizedLocation, "teamId:", teamId, "issueDetailParams:", issueDetailParams);
+    
+    // If we're on a team detail page, don't update activeSection
+    if (teamId && normalizedLocation.match(/^\/member-dashboard\/teams\/([^\/]+)$/)) {
+      console.log("[MembersDashboard] On team detail page, keeping current section");
+      return;
+    }
+    // If we're on an issue detail page, don't update activeSection
+    if (issueDetailParams) {
+      console.log("[MembersDashboard] On issue detail page, keeping current section");
+      return;
+    }
+    // If we're at /member-dashboard (base route), allow activeSection to be set
+    // Don't override it if it's already set (e.g., from back button)
+    if (normalizedLocation === "/member-dashboard") {
+      console.log("[MembersDashboard] At base route, activeSection:", activeSection);
+      // Allow activeSection to be set by the component (e.g., from back button)
+      // Don't override it here
+      return;
+    }
+    // If there's a section in the URL, use it
+    if (sectionFromUrl) {
+      console.log("[MembersDashboard] Setting activeSection from URL:", sectionFromUrl);
+      setActiveSection(sectionFromUrl);
+    }
+  }, [location, normalizedLocation, sectionFromUrl, teamId, issueDetailParams, activeSection]);
   const [activeSubSection, setActiveSubSection] = useState<string | null>(null);
   const [menuMode, setMenuMode] = useState<"main" | "settings">("main");
 
@@ -149,12 +196,35 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
   
   // Use mock member if real member is not loaded (for testing)
   const displayMember = member || mockMember;
+  
+  // Debug logging
+  console.log("[MembersDashboard] Member session:", member);
+  console.log("[MembersDashboard] Display member ID:", displayMember.id);
+  console.log("[MembersDashboard] Display member username:", displayMember.username);
 
   const handleLogout = () => {
     logoutMutation.mutate();
   };
 
   const renderContent = () => {
+    // Check if we're viewing a team detail page (only if URL matches the pattern)
+    if (teamId && normalizedLocation.match(/^\/member-dashboard\/teams\/([^\/]+)$/)) {
+      console.log("[MembersDashboard] Rendering TeamDetailPage for teamId:", teamId);
+      return (
+        <TeamDetailPage 
+          teamId={teamId} 
+          onBackToTeams={() => {
+            console.log("[MembersDashboard] Back to teams clicked - navigating to teams page");
+            // Set activeSection to teams first - this ensures TeamsPage will render
+            setActiveSection("teams");
+            // Navigate to base route with trailing slash to ensure route matches
+            // The wildcard route /member-dashboard/* should match /member-dashboard/
+            setLocation("/member-dashboard/");
+          }}
+        />
+      );
+    }
+    
     // Check if we're viewing an issue detail page (regardless of activeSection)
     if (issueDetailParams) {
       console.log("[MembersDashboard] Rendering IssueDetailPage");
@@ -176,23 +246,13 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
       return <PaymentsSection />;
     }
     if (activeSection === "workspace") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Workspace</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <WorkspacePage />;
     }
     if (activeSection === "teams") {
       return <TeamsPage />;
     }
     if (activeSection === "members") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Members</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <MembersPage />;
     }
     if (activeSection === "clients") {
       return <ClientsSection />;
@@ -209,42 +269,22 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
       return <TemplatesPage />;
     }
     if (activeSection === "projects") {
-      return <ProjectsBoard />;
+      return <ProjectsBoard allowCreateProject={menuMode === "settings"} />;
     }
     if (activeSection === "statuses") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Statuses</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <StatusesPage />;
     }
     if (activeSection === "clipping-area") {
       return <ClippingArea />;
     }
     if (activeSection === "home") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Home</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <HomePage />;
     }
     if (activeSection === "my-issues") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">My issues</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <MyIssuesPage />;
     }
     if (activeSection === "board") {
-      return (
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">Board</h1>
-          <p className="text-muted-foreground">Coming soon</p>
-        </div>
-      );
+      return <BoardPage />;
     }
     if (activeSection === "persian") {
       return (
@@ -313,21 +353,30 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
               {/* Main Navigation */}
               <div className="space-y-1">
                 <button
-                  onClick={() => setActiveSection("home")}
+                  onClick={() => {
+                    setActiveSection("home");
+                    setLocation("/member-dashboard/");
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                 >
                   <Home className="w-5 h-5" />
                   <span>Home</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("my-issues")}
+                  onClick={() => {
+                    setActiveSection("my-issues");
+                    setLocation("/member-dashboard/");
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                 >
                   <MessageSquare className="w-5 h-5" />
                   <span>My issues</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("board")}
+                  onClick={() => {
+                    setActiveSection("board");
+                    setLocation("/member-dashboard/");
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                 >
                   <LayoutGrid className="w-5 h-5" />
@@ -340,7 +389,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                 <div className="text-xs font-semibold text-gray-500 uppercase mb-2">WORKSPACE</div>
                 <div className="space-y-1">
                   <button
-                    onClick={() => setActiveSection("projects")}
+                    onClick={() => {
+                      setActiveSection("projects");
+                      setLocation("/member-dashboard/");
+                    }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                   >
                     <Folder className="w-5 h-5" />
@@ -348,7 +400,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   </button>
                   {(fromFounderDashboard || canAccessClipping(displayMember.role)) && (
                     <button
-                      onClick={() => setActiveSection("clipping-area")}
+                      onClick={() => {
+                        setActiveSection("clipping-area");
+                        setLocation("/member-dashboard/");
+                      }}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                         activeSection === "clipping-area" 
                           ? "bg-blue-50 text-blue-700" 
@@ -367,7 +422,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                 <div className="text-xs font-semibold text-gray-500 uppercase mb-2">YOUR TEAMS</div>
                 <div className="space-y-1">
                   <button
-                    onClick={() => setActiveSection("persian")}
+                    onClick={() => {
+                      setActiveSection("persian");
+                      setLocation("/member-dashboard/");
+                    }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                   >
                     <Users className="w-5 h-5" />
@@ -380,7 +438,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
               {/* Bottom Navigation */}
               <div className="space-y-1 pt-4 border-t border-gray-200">
                 <button
-                  onClick={() => setActiveSection("calendar")}
+                  onClick={() => {
+                    setActiveSection("calendar");
+                    setLocation("/member-dashboard/");
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                 >
                   <Calendar className="w-5 h-5" />
@@ -390,6 +451,7 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   onClick={() => {
                     setMenuMode("settings");
                     setActiveSection("profile");
+                    setLocation("/member-dashboard/");
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                 >
@@ -397,7 +459,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Settings</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("help")}
+                  onClick={() => {
+                    setActiveSection("help");
+                    setLocation("/member-dashboard/");
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
                 >
                   <HelpCircle className="w-5 h-5" />
@@ -424,20 +489,24 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   </button>
                 </div>
               )}
-              {!fromFounderDashboard && menuMode === "settings" && (
+              {menuMode === "settings" && (
                 <div className="mb-4">
                   <button
                     onClick={() => setMenuMode("main")}
-                    className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
+                    className="text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <span>←</span> Back to app
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to app
                   </button>
                 </div>
               )}
 
               <div className="space-y-1 mb-6">
                 <button
-                  onClick={() => setActiveSection("profile")}
+                  onClick={() => {
+                    setActiveSection("profile");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "profile" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -446,7 +515,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Profile</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("billing")}
+                  onClick={() => {
+                    setActiveSection("billing");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "billing" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -455,7 +527,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Billing</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("payments")}
+                  onClick={() => {
+                    setActiveSection("payments");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "payments" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -470,7 +545,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
               </div>
               <div className="space-y-1 mb-6">
                 <button
-                  onClick={() => setActiveSection("workspace")}
+                  onClick={() => {
+                    setActiveSection("workspace");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "workspace" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -479,7 +557,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Workspace</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("teams")}
+                  onClick={() => {
+                    setActiveSection("teams");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "teams" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -488,7 +569,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Teams</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("members")}
+                  onClick={() => {
+                    setActiveSection("members");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "members" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -497,7 +581,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Members</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("clients")}
+                  onClick={() => {
+                    setActiveSection("clients");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "clients" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -512,7 +599,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
               </div>
               <div className="space-y-1 mb-6">
                 <button
-                  onClick={() => setActiveSection("labels")}
+                  onClick={() => {
+                    setActiveSection("labels");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "labels" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -521,7 +611,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Labels</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("templates")}
+                  onClick={() => {
+                    setActiveSection("templates");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "templates" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -536,7 +629,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
               </div>
               <div className="space-y-1">
                 <button
-                  onClick={() => setActiveSection("labels")}
+                  onClick={() => {
+                    setActiveSection("labels");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "labels" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -545,7 +641,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Labels</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("projects")}
+                  onClick={() => {
+                    setActiveSection("projects");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "projects" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -554,7 +653,10 @@ export default function MembersDashboard(props: MembersDashboardProps = {}) {
                   <span>Projects</span>
                 </button>
                 <button
-                  onClick={() => setActiveSection("statuses")}
+                  onClick={() => {
+                    setActiveSection("statuses");
+                    setLocation("/member-dashboard/");
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
                     activeSection === "statuses" ? "bg-gray-100 text-gray-900" : "text-gray-700 hover:bg-gray-100"
                   }`}

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -36,6 +36,7 @@ export const members = pgTable("members", {
   plainPassword: text("plain_password"), // Plain password for founder access
   fullName: text("full_name"),
   role: text("role").notNull().default("member"), // 'admin' | 'manager' | 'editor' | 'clipper' | 'member'
+  teamId: varchar("team_id"), // Team assignment
   mustChangePassword: boolean("must_change_password").default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
@@ -65,9 +66,13 @@ export const clients = pgTable("clients", {
   tier: text("tier"), // 'Growth' | 'Domination' | 'Empire'
   phoneNumber: text("phone_number"),
   instagramUsername: text("instagram_username"),
+  offerLink: text("offer_link"), // Client's offer/promotion link
   totalSpent: integer("total_spent").default(0), // in cents
   clientSince: timestamp("client_since").notNull().default(sql`now()`),
   monthlyPaymentDate: integer("monthly_payment_date"), // Day of month (1-31)
+  nextPaymentDate: timestamp("next_payment_date"), // Specific next payment date
+  nextPaymentAmount: integer("next_payment_amount"), // Next payment amount in cents
+  nextPaymentNote: text("next_payment_note"), // Optional note for next payment
   contractFilePath: text("contract_file_path"),
   teamId: varchar("team_id"), // Team assignment
   mustChangePassword: boolean("must_change_password").default(false),
@@ -276,6 +281,7 @@ export const founderSettings = pgTable("founder_settings", {
   meetingDuration: integer("meeting_duration").notNull().default(30), // minutes
   bufferTime: integer("buffer_time").notNull().default(20), // minutes
   timezone: text("timezone").notNull().default("America/Toronto"),
+  defaultStatuses: text("default_statuses"), // JSON array of default statuses for project boards
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
@@ -385,6 +391,7 @@ export const issues = pgTable("issues", {
   order: integer("order").default(0),
   videoUrl: text("video_url"),
   videoDuration: integer("video_duration"), // in seconds
+  tasks: jsonb("tasks"), // Tasks stored as JSON array directly with the issue
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -394,6 +401,7 @@ export type Issue = typeof issues.$inferSelect;
 export const clips = pgTable("clips", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull(),
+  title: text("title"), // Optional title for the clip
   filePath: text("file_path"), // Optional - can be null or empty
   clipNumber: integer("clip_number").notNull(),
   status: text("status").notNull().default("pending"), // "pending", "valid", "invalid"
@@ -469,6 +477,34 @@ export const invoices = pgTable("invoices", {
 });
 
 export type Invoice = typeof invoices.$inferSelect;
+
+// Payment Plans (Split monthly payments into installments)
+export const paymentPlans = pgTable("payment_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").notNull(),
+  month: integer("month").notNull(), // 1-12
+  year: integer("year").notNull(), // e.g., 2025
+  totalAmount: integer("total_amount").notNull(), // Total monthly amount in cents
+  currency: text("currency").notNull().default("USD"),
+  note: text("note"), // Optional note for the payment plan
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type PaymentPlan = typeof paymentPlans.$inferSelect;
+
+// Payment Plan Installments (Individual payments within a plan)
+export const paymentPlanInstallments = pgTable("payment_plan_installments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  paymentPlanId: varchar("payment_plan_id").notNull(),
+  amount: integer("amount").notNull(), // Installment amount in cents
+  dueDate: timestamp("due_date").notNull(), // When this installment is due
+  status: text("status").notNull().default("pending"), // "pending", "paid", "overdue"
+  paidAt: timestamp("paid_at"), // When this installment was paid
+  incomeId: varchar("income_id"), // Reference to the income record that paid this installment
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type PaymentPlanInstallment = typeof paymentPlanInstallments.$inferSelect;
 
 // Notes (Team Chat/Comments)
 export const notes = pgTable("notes", {

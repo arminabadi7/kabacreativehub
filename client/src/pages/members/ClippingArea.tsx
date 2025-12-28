@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CheckCircle2, XCircle, Plus } from "lucide-react";
+import { CheckCircle2, XCircle, Plus, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,8 @@ type Clip = {
   id: string;
   projectId: string;
   clipNumber: number;
-  filePath: string;
+  title: string | null;
+  filePath: string | null;
   isValid: boolean | null;
   rejectionNote: string | null;
 };
@@ -47,14 +48,12 @@ export default function ClippingArea() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [addClipDialogOpen, setAddClipDialogOpen] = useState(false);
-  const [addProjectDialogOpen, setAddProjectDialogOpen] = useState(false);
   const [templateSelectDialogOpen, setTemplateSelectDialogOpen] = useState(false);
   const [selectedClip, setSelectedClip] = useState<Clip | null>(null);
   const [rejectionNote, setRejectionNote] = useState("");
   const [newClipNumber, setNewClipNumber] = useState("");
+  const [newClipTitle, setNewClipTitle] = useState("");
   const [newClipFilePath, setNewClipFilePath] = useState("");
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectFileLocation, setNewProjectFileLocation] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
   const { data: projects } = useQuery<Project[]>({
@@ -121,26 +120,14 @@ export default function ClippingArea() {
       queryClient.invalidateQueries({ queryKey: ["/api/clips/pending", selectedProjectId] });
       queryClient.invalidateQueries({ queryKey: ["/api/clips/valid", selectedProjectId] });
       
-      // Invalidate issues query - this will cause the issues list to refetch
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "issues"] });
-      
-      // If an issue was created, invalidate its tasks query
-      if (data?.issueId) {
-        console.log("[ClippingArea] Issue created with ID:", data.issueId);
-        // Wait a bit to ensure tasks are fully created on the server
-        setTimeout(() => {
-          console.log("[ClippingArea] Invalidating task queries for issue:", data.issueId);
-          queryClient.invalidateQueries({ queryKey: ["/api/issues", data.issueId, "tasks"] });
-          // Invalidate all issue task queries to ensure fresh data
-          queryClient.invalidateQueries({ 
-            predicate: (query) => {
-              return Array.isArray(query.queryKey) &&
-                     query.queryKey[0] === "/api/issues" && 
-                     query.queryKey[2] === "tasks";
-            }
-          });
-        }, 1000); // 1 second delay to ensure server has finished creating tasks
-      }
+      // Invalidate issues query - this will cause the issues list to refetch with tasks included
+      // Wait a brief moment to ensure server has committed tasks to database
+      setTimeout(async () => {
+        await queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "issues"] });
+        
+        // Also refetch immediately to ensure fresh data
+        await queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "issues"] });
+      }, 500);
       
       setTemplateSelectDialogOpen(false);
       setSelectedClip(null);
@@ -188,7 +175,7 @@ export default function ClippingArea() {
   });
 
   const addClipMutation = useMutation({
-    mutationFn: async (data: { clipNumber: number; filePath?: string }) => {
+    mutationFn: async (data: { clipNumber: number; title?: string; filePath?: string }) => {
       if (!selectedProjectId) {
         throw new Error("Please select a project first");
       }
@@ -196,12 +183,14 @@ export default function ClippingArea() {
         projectId: selectedProjectId,
         clipNumber: data.clipNumber,
       };
+      // Include title if provided
+      if (data.title && data.title.trim()) {
+        requestBody.title = data.title.trim();
+      }
       // Only include filePath if it's provided and not empty
-      // If empty or not provided, don't include it (backend will handle as null)
       if (data.filePath && data.filePath.trim()) {
         requestBody.filePath = data.filePath.trim();
       }
-      // If filePath is empty, don't include it - backend will set to null
       const response = await apiRequest("POST", "/api/clips", requestBody);
       return await response.json();
     },
@@ -212,6 +201,7 @@ export default function ClippingArea() {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "clips"] });
       setAddClipDialogOpen(false);
       setNewClipNumber("");
+      setNewClipTitle("");
       setNewClipFilePath("");
       toast({
         title: "Success!",
@@ -274,29 +264,6 @@ export default function ClippingArea() {
     },
   });
 
-  const addProjectMutation = useMutation({
-    mutationFn: async (data: { name: string; fileLocation?: string }) => {
-      const response = await apiRequest("POST", "/api/projects", data);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      setAddProjectDialogOpen(false);
-      setNewProjectName("");
-      setNewProjectFileLocation("");
-      toast({
-        title: "Success!",
-        description: "Project created successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create project",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleApprove = (clip: Clip) => {
     setSelectedClip(clip);
@@ -344,85 +311,79 @@ export default function ClippingArea() {
     }
     addClipMutation.mutate({
       clipNumber,
-      filePath: newClipFilePath.trim() || "",
+      title: newClipTitle.trim() || undefined,
+      filePath: newClipFilePath.trim() || undefined,
     });
   };
 
-  const handleAddProject = () => {
-    if (!newProjectName.trim()) {
-      toast({
-        title: "Error",
-        description: "Project name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-    addProjectMutation.mutate({
-      name: newProjectName.trim(),
-      fileLocation: newProjectFileLocation.trim() || undefined,
-    });
-  };
 
-  const renderClipCard = (clip: Clip, showActions: boolean = true) => (
-    <Card key={clip.id} className="border border-gray-200 shadow-sm">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          {/* Left: Number Circle */}
-          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center font-bold text-xl text-gray-700 flex-shrink-0">
-            {clip.clipNumber}
-          </div>
-          
-          {/* Middle: Clip Info */}
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-gray-900 mb-1">Clip {clip.clipNumber}</div>
-            <div className="text-sm text-gray-600 mb-1">File Path / Location</div>
-            <div className="text-sm text-gray-900 font-mono">{clip.filePath}</div>
-          </div>
-          
-          {/* Right: Action Buttons */}
-          {showActions && (
-            <div className="flex gap-2 flex-shrink-0">
-              <Button
-                onClick={() => handleApprove(clip)}
-                className="bg-green-600 hover:bg-green-700 text-white rounded-lg"
-                disabled={validateClipMutation.isPending}
-              >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Valid
-              </Button>
-              <Button
-                onClick={() => handleRejectClick(clip)}
-                className="bg-red-600 hover:bg-red-700 text-white rounded-lg"
-                disabled={rejectClipMutation.isPending}
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                Not Valid
-              </Button>
+  const renderClipCard = (clip: Clip, showActions: boolean = true, variant: "pending" | "valid" | "invalid" = "pending") => {
+    const bgColor = variant === "valid" ? "bg-green-50 border-green-200" : variant === "invalid" ? "bg-red-50 border-red-200" : "bg-white border-gray-200";
+    const numberBg = variant === "valid" ? "bg-green-200 text-green-700" : variant === "invalid" ? "bg-red-200 text-red-700" : "bg-gray-200 text-gray-700";
+    
+    return (
+      <Card key={clip.id} className={`border shadow-sm ${bgColor}`}>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            {/* Left: Number Circle */}
+            <div className={`w-16 h-16 ${numberBg} rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0`}>
+              {clip.clipNumber}
             </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+            
+            {/* Middle: Clip Info */}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-gray-900 mb-1">
+                {clip.title || `Clip ${clip.clipNumber}`}
+              </div>
+              {clip.filePath && (
+                <>
+                  <div className="text-sm text-gray-600 mb-1">File Path / Location</div>
+                  <div className="text-sm text-gray-900 font-mono break-all">{clip.filePath}</div>
+                </>
+              )}
+              {variant === "invalid" && clip.rejectionNote && (
+                <div className="text-sm text-red-600 mt-2 font-medium">
+                  Note: {clip.rejectionNote}
+                </div>
+              )}
+            </div>
+            
+            {/* Right: Action Buttons */}
+            {showActions && (
+              <div className="flex gap-2 flex-shrink-0">
+                <Button
+                  onClick={() => handleApprove(clip)}
+                  className="bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                  disabled={validateClipMutation.isPending}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Valid
+                </Button>
+                <Button
+                  onClick={() => handleRejectClick(clip)}
+                  className="bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                  disabled={rejectClipMutation.isPending}
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Not Valid
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   // If no project selected, show project selection
   if (!selectedProjectId) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Clipping Area</h1>
-            <p className="text-gray-600">
-              Select a project to review and approve clips.
-            </p>
-          </div>
-          <Button 
-            onClick={() => setAddProjectDialogOpen(true)}
-            className="bg-black text-white hover:bg-gray-900"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Project
-          </Button>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">Clipping Area</h1>
+          <p className="text-gray-600">
+            Select a project to review and approve clips.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -441,47 +402,6 @@ export default function ClippingArea() {
             </Card>
           ))}
         </div>
-
-        <Dialog open={addProjectDialogOpen} onOpenChange={setAddProjectDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Project</DialogTitle>
-              <DialogDescription>
-                Create a new project for clipping.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Label>Project Name</Label>
-                <Input
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Enter project name"
-                />
-              </div>
-              <div>
-                <Label>File Location / Path (Optional)</Label>
-                <Input
-                  value={newProjectFileLocation}
-                  onChange={(e) => setNewProjectFileLocation(e.target.value)}
-                  placeholder="Drive path or cloud download link"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setAddProjectDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleAddProject}
-                disabled={addProjectMutation.isPending}
-                className="bg-black text-white hover:bg-gray-900"
-              >
-                {addProjectMutation.isPending ? "Creating..." : "Create Project"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
@@ -490,8 +410,19 @@ export default function ClippingArea() {
     <div className="p-6">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Clipping Area</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-4 mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedProjectId(null)}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back to Projects
+            </Button>
+            <h1 className="text-3xl font-bold">{selectedProject?.name || "Clipping Area"}</h1>
+          </div>
           <p className="text-gray-600">
             Review and approve clips that were chosen and highlighted in the Premiere project.
           </p>
@@ -514,7 +445,7 @@ export default function ClippingArea() {
           {isLoadingPending ? (
             <div className="text-center py-8 text-gray-500">Loading clips...</div>
           ) : pendingClips && pendingClips.length > 0 ? (
-            pendingClips.map((clip) => renderClipCard(clip, true))
+            pendingClips.map((clip) => renderClipCard(clip, true, "pending"))
           ) : (
             <div className="text-center py-8 text-gray-500">
               No clips pending review
@@ -523,74 +454,33 @@ export default function ClippingArea() {
         </div>
       </div>
 
-      {/* Valid Clips Section */}
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Valid Clips ({validClips?.length || 0})
-        </h2>
-        <div className="space-y-3">
-          {isLoadingValid ? (
-            <div className="text-center py-8 text-gray-500">Loading clips...</div>
-          ) : validClips && validClips.length > 0 ? (
-            validClips.map((clip) => (
-              <Card key={clip.id} className="border border-green-200 bg-green-50 shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-green-200 rounded-full flex items-center justify-center font-bold text-xl text-green-700 flex-shrink-0">
-                      {clip.clipNumber}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-900 mb-1">Clip {clip.clipNumber}</div>
-                      <div className="text-sm text-gray-600 mb-1">File Path / Location</div>
-                      <div className="text-sm text-gray-900 font-mono">{clip.filePath}</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              No valid clips
-            </div>
-          )}
+      {/* Valid Clips Section - Only show if there are valid clips */}
+      {validClips && validClips.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Valid Clips ({validClips.length})
+          </h2>
+          <div className="space-y-3">
+            {isLoadingValid ? (
+              <div className="text-center py-8 text-gray-500">Loading clips...</div>
+            ) : (
+              validClips.map((clip) => renderClipCard(clip, false, "valid"))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Not Valid Clips Section */}
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Not Valid Clips ({invalidClips?.length || 0})
-        </h2>
-        <div className="space-y-3">
-          {isLoadingInvalid ? (
-            <div className="text-center py-8 text-gray-500">Loading clips...</div>
-          ) : invalidClips && invalidClips.length > 0 ? (
-            invalidClips.map((clip) => (
-              <Card key={clip.id} className="border border-red-200 bg-red-50 shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-red-200 rounded-full flex items-center justify-center font-bold text-xl text-red-700 flex-shrink-0">
-                      {clip.clipNumber}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-900 mb-1">Clip {clip.clipNumber}</div>
-                      <div className="text-sm text-gray-600 mb-1">File Path / Location</div>
-                      <div className="text-sm text-gray-900 font-mono">{clip.filePath}</div>
-                      {clip.rejectionNote && (
-                        <div className="text-sm text-red-600 mt-2">Note: {clip.rejectionNote}</div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              No invalid clips
-            </div>
-          )}
+      {/* Not Valid Clips Section - Only show if there are invalid clips */}
+      {invalidClips && invalidClips.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Not Valid Clips ({invalidClips.length})
+          </h2>
+          <div className="space-y-3">
+            {invalidClips.map((clip) => renderClipCard(clip, false, "invalid"))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Template Selection Dialog */}
       <Dialog open={templateSelectDialogOpen} onOpenChange={setTemplateSelectDialogOpen}>
@@ -682,12 +572,21 @@ export default function ClippingArea() {
           )}
           <div className="space-y-4 py-4">
             <div>
-              <Label>Clip Number</Label>
+              <Label>Clip Number *</Label>
               <Input
                 type="number"
                 value={newClipNumber}
                 onChange={(e) => setNewClipNumber(e.target.value)}
                 placeholder="Enter clip number (e.g., 1, 2, 3...)"
+                disabled={!selectedProjectId}
+              />
+            </div>
+            <div>
+              <Label>Title (Optional)</Label>
+              <Input
+                value={newClipTitle}
+                onChange={(e) => setNewClipTitle(e.target.value)}
+                placeholder="Enter clip title"
                 disabled={!selectedProjectId}
               />
             </div>

@@ -24,7 +24,8 @@ import {
   Copy,
   Tag,
   Milestone,
-  Plus
+  Plus,
+  FolderOpen
 } from "lucide-react";
 import {
   Select,
@@ -49,6 +50,7 @@ type Issue = {
   dueDate?: string | null;
   publishDate?: string | null;
   teamId?: string | null;
+  tasks?: Task[];
 };
 
 type Task = {
@@ -64,6 +66,14 @@ type Task = {
 type Project = {
   id: string;
   name: string;
+  clientId: string;
+};
+
+type Client = {
+  id: string;
+  username: string;
+  fullName: string | null;
+  email?: string;
 };
 
 type Member = {
@@ -105,8 +115,8 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   
-  // Parse route params manually
-  const match = location.match(/^\/member-dashboard\/projects\/([^\/]+)\/issues\/([^\/]+)$/);
+  // Parse route params manually - handle both /member-dashboard/projects/... and /founder/projects/...
+  const match = location.match(/\/(?:member-dashboard|founder)\/projects\/([^\/]+)\/issues\/([^\/]+)$/);
   const params = match ? {
     projectId: match[1],
     issueId: match[2]
@@ -118,6 +128,9 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
   
   const issueId = params?.issueId;
   const projectId = params?.projectId;
+  
+  // Debug: Log issueId availability
+  console.log("[IssueDetailPage] issueId:", issueId, "projectId:", projectId);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -135,11 +148,30 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
   const { data: issue, isLoading: issueLoading } = useQuery<Issue>({
     queryKey: ["/api/issues", issueId],
     queryFn: async () => {
+      console.log(`[IssueDetailPage] Fetching issue ${issueId} from API...`);
       const res = await fetch(`/api/issues/${issueId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch issue");
-      return res.json();
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`[IssueDetailPage] Failed to fetch issue: ${res.status} ${errorText}`);
+        throw new Error(`Failed to fetch issue: ${res.status}`);
+      }
+      const issueData = await res.json();
+      console.log("[IssueDetailPage] Fetched issue:", issueData.id, "with", issueData.tasks?.length || 0, "tasks");
+      if (issueData.tasks && issueData.tasks.length > 0) {
+        console.log("[IssueDetailPage] Task names:", issueData.tasks.map((t: any) => t.name || t.title));
+      } else {
+        console.warn("[IssueDetailPage] Issue has NO tasks! This might be a timing issue.");
+        // If no tasks found, wait a bit and refetch
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
+        }, 2000);
+      }
+      return issueData;
     },
     enabled: !!issueId,
+    staleTime: 5000, // Consider data fresh for 5 seconds
+    refetchOnMount: true, // Always refetch when component mounts to ensure we have latest data
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
   const { data: project } = useQuery<Project>({
@@ -152,15 +184,16 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
     enabled: !!projectId,
   });
 
-  const { data: issueTasks } = useQuery<Task[]>({
-    queryKey: ["/api/issues", issueId, "tasks"],
+  const { data: clients } = useQuery<Client[]>({
+    queryKey: ["/api/clients/list"],
     queryFn: async () => {
-      const res = await fetch(`/api/issues/${issueId}/tasks`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch tasks");
+      const res = await fetch("/api/clients/list", { credentials: "include" });
+      if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!issueId,
   });
+
+  const client = project?.clientId ? clients?.find(c => c.id === project.clientId) : null;
 
   const { data: members } = useQuery<Member[]>({
     queryKey: ["/api/members/list"],
@@ -186,12 +219,16 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
     }
   }, [issue]);
 
-  // Initialize tasks when they load
+  // Initialize tasks from issue object - tasks are always part of the issue
   useEffect(() => {
-    if (issueTasks) {
-      setTasks(issueTasks);
+    if (issue?.tasks && Array.isArray(issue.tasks)) {
+      console.log("[IssueDetailPage] Setting tasks from issue:", issue.tasks.length, "tasks");
+      setTasks(issue.tasks);
+    } else {
+      console.log("[IssueDetailPage] No tasks in issue object, setting empty array");
+      setTasks([]);
     }
-  }, [issueTasks]);
+  }, [issue]);
 
   const updateIssueMutation = useMutation({
     mutationFn: async () => {
@@ -231,7 +268,9 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId, "tasks"] });
+      // Invalidate issue query to refetch with updated tasks
+      queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
     },
   });
 
@@ -241,7 +280,9 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId, "tasks"] });
+      // Invalidate issue query to refetch with updated tasks
+      queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
       toast({
         title: "Success!",
         description: "Task deleted successfully.",
@@ -258,17 +299,57 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
 
   const createTaskMutation = useMutation({
     mutationFn: async (taskData: { name: string; points: number; priority: string; assignedTo: string | null }) => {
-      const response = await apiRequest("POST", `/api/issues/${issueId}/tasks`, {
-        name: taskData.name,
-        points: taskData.points || 0,
-        priority: taskData.priority || "no_priority",
-        assignedTo: taskData.assignedTo || null,
-        order: tasks.length,
-      });
-      return await response.json();
+      if (!issueId) {
+        throw new Error("Issue ID is required");
+      }
+      // Use a default name if empty - API requires non-empty name
+      const taskName = taskData.name.trim() || "New Task";
+      console.log("[IssueDetailPage] Creating task with data:", { issueId, name: taskName, points: taskData.points, priority: taskData.priority, order: tasks.length });
+      
+      try {
+        const response = await apiRequest("POST", `/api/issues/${issueId}/tasks`, {
+          name: taskName,
+          points: taskData.points || 0,
+          priority: taskData.priority || "no_priority",
+          assignedTo: taskData.assignedTo || null,
+          order: tasks.length,
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[IssueDetailPage] Task creation failed:", response.status, errorText);
+          throw new Error(`Failed to create task: ${response.status} ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log("[IssueDetailPage] Task creation response:", result);
+        return result;
+      } catch (error: any) {
+        console.error("[IssueDetailPage] Error in mutationFn:", error);
+        throw error;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId, "tasks"] });
+    onSuccess: async (newTask) => {
+      console.log("[IssueDetailPage] Task created successfully:", newTask);
+      // Optimistically add the new task to local state
+      const newTaskObj = {
+        id: newTask.id,
+        name: newTask.name || newTask.title || "New Task",
+        points: newTask.points || 0,
+        assignedTo: newTask.assignedTo || null,
+        isCompleted: newTask.isCompleted || false,
+        priority: newTask.priority || "no_priority",
+        order: newTask.order || tasks.length,
+      };
+      setTasks([...tasks, newTaskObj]);
+      // Invalidate and refetch issue query to get updated tasks from server
+      await queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
+      await queryClient.refetchQueries({ queryKey: ["/api/issues", issueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
+      toast({
+        title: "Success!",
+        description: "Task created successfully.",
+      });
     },
     onError: (error: any) => {
       toast({
@@ -297,11 +378,53 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
   };
 
   const handleAddTask = () => {
+    console.log("[IssueDetailPage] handleAddTask called");
+    console.log("[IssueDetailPage] issueId:", issueId);
+    console.log("[IssueDetailPage] current tasks count:", tasks.length);
+    console.log("[IssueDetailPage] issue object:", issue);
+    
+    if (!issueId) {
+      console.error("[IssueDetailPage] ERROR: issueId is missing!");
+      console.error("[IssueDetailPage] location:", location);
+      console.error("[IssueDetailPage] params:", params);
+      toast({
+        title: "Error",
+        description: "Issue ID is missing. Please refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!issue) {
+      console.warn("[IssueDetailPage] Issue not loaded yet, waiting...");
+      toast({
+        title: "Please wait",
+        description: "Issue is still loading. Please try again in a moment.",
+        variant: "default",
+      });
+      return;
+    }
+    
+    console.log("[IssueDetailPage] Creating task with mutation...");
     createTaskMutation.mutate({
-      name: "",
+      name: "New Task", // Provide a default name since API requires non-empty
       points: 0,
       priority: "no_priority",
       assignedTo: null,
+    }, {
+      onError: (error: any) => {
+        console.error("[IssueDetailPage] Error creating task:", error);
+        console.error("[IssueDetailPage] Error details:", {
+          message: error?.message,
+          stack: error?.stack,
+          response: error?.response,
+        });
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to create task. Please try again.",
+          variant: "destructive",
+        });
+      }
     });
   };
 
@@ -435,7 +558,10 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
 
                           {taskListExpanded && (
                             <div className="space-y-3">
-                              {tasks.map((task) => {
+                              {tasks.length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">No tasks yet. Click "Add task" to create one.</p>
+                              ) : (
+                                tasks.map((task) => {
                                 const member = getMember(task.assignedTo);
                                 return (
                                   <div key={task.id} className="flex items-center gap-3">
@@ -479,8 +605,8 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
                                       </SelectContent>
                                     </Select>
                                     <Select
-                                      value={task.assignedTo || ""}
-                                      onValueChange={(value) => handleUpdateTask(task.id, "assignedTo", value || null)}
+                                      value={task.assignedTo || "unassigned"}
+                                      onValueChange={(value) => handleUpdateTask(task.id, "assignedTo", value === "unassigned" ? null : value)}
                                     >
                                       <SelectTrigger className="w-10 h-8 p-0 border-0">
                                         {task.assignedTo && members ? (
@@ -496,7 +622,7 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
                                         )}
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="">Unassigned</SelectItem>
+                                        <SelectItem value="unassigned">Unassigned</SelectItem>
                                         {members?.map((member) => (
                                           <SelectItem key={member.id} value={member.id}>
                                             <div className="flex items-center gap-2">
@@ -522,18 +648,24 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
                                     </Button>
                                   </div>
                                 );
-                              })}
+                              }))}
                             </div>
                           )}
                           {taskListExpanded && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={handleAddTask}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log("[IssueDetailPage] Add task button clicked");
+                                handleAddTask();
+                              }}
+                              disabled={createTaskMutation.isPending || !issueId || !issue}
                               className="mt-4 bg-black text-white hover:bg-gray-900 border-0"
                             >
                               <Plus className="w-4 h-4 mr-1" />
-                              Add task
+                              {createTaskMutation.isPending ? "Creating..." : "Add task"}
                             </Button>
                           )}
                         </CardContent>
@@ -608,10 +740,34 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
                     </Select>
                   </div>
 
+                  {/* Project */}
+                  {project && (
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1 block">Project</Label>
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+                        <FolderOpen className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-900">{project.name}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Client */}
+                  {client && (
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1 block">Client</Label>
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+                        <User className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-900">
+                          {client.fullName || client.username}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Assignee */}
                   <div>
                     <Label className="text-xs text-gray-500 mb-1 block">Assignee</Label>
-                    <Select value={assignee} onValueChange={setAssignee}>
+                    <Select value={assignee || "unassigned"} onValueChange={(value) => setAssignee(value === "unassigned" ? "" : value)}>
                       <SelectTrigger className="h-8 text-sm border-gray-300">
                         <div className="flex items-center gap-1.5">
                           <User className="w-3 h-3 text-gray-600" />
@@ -621,7 +777,7 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
                         </div>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
                         {members?.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
                             {member.fullName || member.username}

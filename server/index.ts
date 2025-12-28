@@ -3,7 +3,7 @@ import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedInitialData } from "./seedData";
-import { migrateTemplateSchema } from "./migrate";
+import { migrateTemplateSchema, migrateIssuesTasksColumn } from "./migrate";
 
 const app = express();
 
@@ -80,6 +80,53 @@ app.use((req, res, next) => {
     await migrateTemplateSchema();
   } catch (error: any) {
     console.error("⚠️  Database migration failed. Continuing anyway...");
+    console.error("Error:", error.message || error);
+  }
+  
+  try {
+    // Migrate issues.tasks JSONB column
+    await migrateIssuesTasksColumn();
+  } catch (error: any) {
+    console.error("⚠️  Issues tasks column migration failed. Continuing anyway...");
+    console.error("Error:", error.message || error);
+  }
+  
+  try {
+    // Fix social_media_accounts table if needed
+    const { fixSocialMediaAccountsTable } = await import("../fix-social-media-table");
+    await fixSocialMediaAccountsTable();
+  } catch (error: any) {
+    console.error("⚠️  Social media accounts table fix failed. Continuing anyway...");
+    console.error("Error:", error.message || error);
+  }
+  
+  try {
+    // Add offerLink column to clients table if needed
+    const { addOfferLinkColumn } = await import("../add-offer-link-column");
+    await addOfferLinkColumn();
+  } catch (error: any) {
+    console.error("⚠️  Adding offer link column failed. Continuing anyway...");
+    console.error("Error:", error.message || error);
+  }
+  
+  try {
+    // Add currency column to income table if needed
+    const { addIncomeCurrencyColumn } = await import("../add-income-currency-column");
+    await addIncomeCurrencyColumn();
+  } catch (error: any) {
+    console.error("⚠️  Adding income currency column failed. Continuing anyway...");
+    console.error("Error:", error.message || error);
+  }
+  
+  try {
+    // Add next payment columns to clients table if needed
+    const { addNextPaymentColumns } = await import("../add-next-payment-columns");
+    await addNextPaymentColumns();
+    
+    const { addPaymentPlansTables } = await import("../add-payment-plans-tables");
+    await addPaymentPlansTables();
+  } catch (error: any) {
+    console.error("⚠️  Adding next payment columns failed. Continuing anyway...");
     console.error("Error:", error.message || error);
   }
   
