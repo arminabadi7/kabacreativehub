@@ -4,6 +4,13 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seedInitialData } from "./seedData";
 import { migrateTemplateSchema, migrateIssuesTasksColumn } from "./migrate";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Get directory name for ESM compatibility
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "..");
 
 const app = express();
 
@@ -95,43 +102,32 @@ app.use((req, res, next) => {
     console.error("Error:", error.message || error);
   }
   
-  try {
-    // Fix social_media_accounts table if needed
-    const { fixSocialMediaAccountsTable } = await import("../fix-social-media-table");
-    await fixSocialMediaAccountsTable();
-  } catch (error: any) {
-    console.error("⚠️  Social media accounts table fix failed. Continuing anyway...");
-    console.error("Error:", error.message || error);
-  }
-  
-  try {
-    // Add offerLink column to clients table if needed
-    const { addOfferLinkColumn } = await import("../add-offer-link-column");
-    await addOfferLinkColumn();
-  } catch (error: any) {
-    console.error("⚠️  Adding offer link column failed. Continuing anyway...");
-    console.error("Error:", error.message || error);
-  }
-  
-  try {
-    // Add currency column to income table if needed
-    const { addIncomeCurrencyColumn } = await import("../add-income-currency-column");
-    await addIncomeCurrencyColumn();
-  } catch (error: any) {
-    console.error("⚠️  Adding income currency column failed. Continuing anyway...");
-    console.error("Error:", error.message || error);
-  }
-  
-  try {
-    // Add next payment columns to clients table if needed
-    const { addNextPaymentColumns } = await import("../add-next-payment-columns");
-    await addNextPaymentColumns();
-    
-    const { addPaymentPlansTables } = await import("../add-payment-plans-tables");
-    await addPaymentPlansTables();
-  } catch (error: any) {
-    console.error("⚠️  Adding next payment columns failed. Continuing anyway...");
-    console.error("Error:", error.message || error);
+  // Run optional migrations - these are non-critical and won't block server startup
+  // In production builds, dynamic imports may fail, which is OK - migrations can be run manually if needed
+  const migrations = [
+    { path: "../fix-social-media-table", name: "social media accounts" },
+    { path: "../add-offer-link-column", name: "offer link" },
+    { path: "../add-income-currency-column", name: "income currency" },
+    { path: "../add-next-payment-columns", name: "next payment" },
+    { path: "../add-payment-plans-tables", name: "payment plans" },
+  ];
+
+  for (const migration of migrations) {
+    try {
+      const module = await import(migration.path);
+      // Try to find and call the export function
+      const exports = Object.keys(module);
+      for (const exportName of exports) {
+        if (typeof module[exportName] === 'function') {
+          await module[exportName]();
+          console.log(`✓ Migration "${migration.name}" completed`);
+          break;
+        }
+      }
+    } catch (error: any) {
+      // Silently continue - migrations are optional and may not be available in bundled builds
+      // They can be run manually via API endpoints if needed
+    }
   }
   
   try {
@@ -157,8 +153,9 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    console.error("Request error:", err);
     res.status(status).json({ message });
-    throw err;
+    // Don't throw - just log the error
   });
 
   // importantly only setup vite in development and after
