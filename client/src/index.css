@@ -196,6 +196,13 @@
  * need to be distinguished from eachother visually.
  */
 @layer utilities {
+  /* Prevent card animations when clicking checkboxes */
+  [data-checkbox-container]:active,
+  [data-checkbox-wrapper]:active,
+  [data-checkbox-container] [role="checkbox"]:active,
+  [data-checkbox-wrapper] [role="checkbox"]:active {
+    transform: none !important;
+  }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {

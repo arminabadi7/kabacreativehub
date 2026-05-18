@@ -7,7 +7,7 @@ import * as readline from "readline";
 // You need to have set up OAuth2 credentials there first
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
-const REDIRECT_URL = "http://localhost:3000/oauth2callback";
+const REDIRECT_URL = "http://localhost:3002/oauth2callback";
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
 
@@ -28,7 +28,7 @@ async function getAccessToken() {
   console.log("1. Open this URL in your browser:");
   console.log(`   ${authorizeUrl}\n`);
   console.log("2. Authorize the application");
-  console.log("3. You'll be redirected to a URL starting with 'http://localhost:3000/?code='");
+  console.log("3. You'll be redirected to a URL starting with 'http://localhost:3002/?code='");
   console.log("4. Copy the full redirected URL and paste it here:\n");
 
   // Create a simple HTTP server to handle the callback
@@ -80,8 +80,8 @@ async function getAccessToken() {
     }
   });
 
-  server.listen(3000, () => {
-    console.log("Waiting for authorization callback on http://localhost:3000...\n");
+  server.listen(3002, () => {
+    console.log("Waiting for authorization callback on http://localhost:3002...\n");
   });
 }
 
@@ -95,7 +95,7 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   console.error("   - Google Calendar API");
   console.error("   - Google Sheets API");
   console.error("4. Go to Credentials → Create OAuth 2.0 Client ID → Web application");
-  console.error("5. Add http://localhost:3000/oauth2callback to Authorized redirect URIs");
+  console.error("5. Add http://localhost:3002/oauth2callback to Authorized redirect URIs");
   console.error("6. Download credentials and add to Replit Secrets:");
   console.error("   - GOOGLE_CLIENT_ID");
   console.error("   - GOOGLE_CLIENT_SECRET\n");

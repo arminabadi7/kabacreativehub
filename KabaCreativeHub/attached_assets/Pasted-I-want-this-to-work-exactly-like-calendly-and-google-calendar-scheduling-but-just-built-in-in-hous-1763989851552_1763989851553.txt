@@ -1,0 +1,94 @@
+I want this to work exactly like calendly and google calendar scheduling but just built in / in house
+
+
+Instead of the current calendly booking system i want one built into the website that works exactly like calendly and google appointment scheduling
+
+And just like those 2 I want it to show on my google calender
+
+And once a call / slot is scheduled / booked I want a confirmation email sent to the client / user that booked the call
+
+I want to give them an option to add guests when booking the call by entering the other persons name and email
+
+And 24 hours before the meeting / scheduled call I want a reminder email sent to them
+
+
+Each meeting slot takes 30 minutes leave a 20 minute buffer between each meeting -
+
+ provide the option for the user to choose between 24 hour clock and am/pm with a toggle button
+
+I am currently always available but I want the option in my founders dashboard to be able to adjust my availability. I also want this calendar to sync with google calendar so if i have something in my google calendar it automatically edits this calendar so i dont have a call booked while i have other obligations at the same date and time
+
+Just like google calendar and calendly I want to be able to send the link just to the scheduling calendar to people aswell. 
+
+Sunday 00:00 - 23:45
+
+Monday 00:00 - 23:45
+
+Tuesday 00:00 - 23:45
+
+Wednesday 00:00 - 23:45
+
+Thursday 00:00 - 23:45
+
+Friday 00:00 - 23:45
+
+Saturday 00:00 - 23:45
+
+Once they have chosen the date and time for the meeting I want them to fill out a form / answer questions just like people would on google appointment scheduling and calendly. Im going to give you these questions but I want the ability to edit them my self on the founders dashboard as you should add a calendar tab on the founders dashboard which is for the calendar and scheduling.
+
+I want this information stored in stored in the founders dashboard linked to the client and also stored in google sheets
+
+The questions can be like: 
+short answer
+paragraph
+Multiple choice
+Checkboxes 
+Dropdown
+File upload
+Linear scale
+Rating
+Date
+time
+
+
+
+
+
+
+These are the questions and info currently i want on the form Enter Details
+Name*
+Email*
+Add Guests
+What is your Instagram, YouTube, or main social media handle?* short answer
+What country/timezone are you located in?* short answer
+What niche or industry are you in? (Be as specific as possible.) Examples: streaming, crypto, fitness, trading, SMMA, coaching, e-commerce, self-improvement, comedy, business, etc.* paragraph/ long answer 
+How would you describe what you do in one sentence?* short answer
+Do you currently sell a product, service, or coaching program? If yes, what is it?* long answer
+What is your CURRENT monthly revenue?* radio circles (can only choose one of the options)
+$0–5,000
+$5,000–20,000
+$20,000–50,000
+$50,000–100,000
+$100,000+
+What is your TARGET monthly revenue in the next 6–12 months?* short answer
+What is your main customer acquisition method right now? Multiple choice check boxes (can choose more than one) they can also input text with other
+Organic content
+Referrals
+Paid ads
+Email list
+TikTok / Reels (Short Form Content)
+Youtube long-form
+Other 
+How often are you currently posting content across all platforms?*
+I don't post
+1-5 times per week
+5-20times per week
+20+ times per week
+I post inconsistently
+If we decide this is a good fit, are you prepared to get started on the call?* (can only choose one radio circles)
+Yes
+Yes, if it makes sense
+I need time to think
+Not yet
+Once they fill out the information they can schedule call / complete
+And if the booking is from someone that entered the website with one of our affiliates links I want you to write in the founder dashboard which affiliate user it was and also put it in that affiliates dashboard that x person booked a call and the date of that call

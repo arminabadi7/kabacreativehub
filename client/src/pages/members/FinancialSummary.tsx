@@ -6,15 +6,38 @@ const EXCHANGE_RATE = 0.052083333333333;
 
 type MemberStats = {
   currentBalance: number;
-  totalEarned: number;
-  totalPaid: number;
-  thisMonth: number;
+  pointsEarned: number; // Changed from totalEarned to match API
+  pointsPaid: number; // Changed from totalPaid to match API
+  thisMonth?: number; // Optional, will calculate if not provided
 };
 
 export default function FinancialSummary({ memberId }: { memberId: string }) {
-  const { data: stats } = useQuery<MemberStats>({
+  const { data: stats, isLoading, error } = useQuery<MemberStats>({
     queryKey: ["/api/members", memberId, "stats"],
+    queryFn: async () => {
+      console.log(`[FinancialSummary] Fetching stats for memberId: ${memberId}`);
+      const res = await fetch(`/api/members/${memberId}/stats`, { credentials: "include" });
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`[FinancialSummary] Failed to fetch stats: ${res.status} ${errorText}`);
+        throw new Error(`Failed to fetch stats: ${res.status} ${errorText}`);
+      }
+      const data = await res.json();
+      console.log(`[FinancialSummary] Stats fetched:`, data);
+      return data;
+    },
+    retry: 2,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+
+  if (error) {
+    console.error(`[FinancialSummary] Error loading stats:`, error);
+  }
+  
+  if (isLoading) {
+    console.log(`[FinancialSummary] Loading stats for memberId: ${memberId}`);
+  }
 
   const formatUSD = (points: number) => {
     return (points * EXCHANGE_RATE).toFixed(2);
@@ -28,8 +51,10 @@ export default function FinancialSummary({ memberId }: { memberId: string }) {
           <DollarSign className="h-4 w-4 text-green-600" />
         </CardHeader>
         <CardContent>
+          {isLoading && <div className="text-sm text-gray-500 mb-2">Loading...</div>}
+          {error && <div className="text-sm text-red-500 mb-2">Error: {error.message}</div>}
           <div className="text-2xl font-bold text-green-600">
-            {stats?.currentBalance || 0} pts
+            {stats?.currentBalance ?? 0} pts
           </div>
           <p className="text-base text-muted-foreground mt-1">
             {formatUSD(stats?.currentBalance || 0)} USD
@@ -47,10 +72,10 @@ export default function FinancialSummary({ memberId }: { memberId: string }) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-blue-600">
-            {stats?.totalEarned || 0} pts
+            {stats?.pointsEarned || 0} pts
           </div>
           <p className="text-base text-muted-foreground mt-1">
-            {formatUSD(stats?.totalEarned || 0)} USD
+            {formatUSD(stats?.pointsEarned || 0)} USD
           </p>
           <p className="text-xs text-muted-foreground mt-2">
             Lifetime points from completed tasks
@@ -65,10 +90,10 @@ export default function FinancialSummary({ memberId }: { memberId: string }) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-orange-600">
-            {stats?.totalPaid || 0} pts
+            {stats?.pointsPaid || 0} pts
           </div>
           <p className="text-base text-muted-foreground mt-1">
-            {formatUSD(stats?.totalPaid || 0)} USD
+            {formatUSD(stats?.pointsPaid || 0)} USD
           </p>
           <p className="text-xs text-muted-foreground mt-2">
             Lifetime points paid out

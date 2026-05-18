@@ -93,3 +93,15 @@ To fully verify expense creation:
 The system is working correctly! The only reason expenses weren't found is that previous payments were made before the expense creation feature was implemented.
 
 
+<<<<<<< HEAD
+=======
+
+
+
+
+
+
+
+
+
+>>>>>>> 2684970d52491dc0bbc266271ec1954e5f6dc2e7

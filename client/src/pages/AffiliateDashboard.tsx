@@ -35,6 +35,8 @@ import {
   XCircle,
   User,
   Calendar,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { Affiliate, Referral } from "@shared/schema";
 import { CountrySelect } from "@/components/CountrySelect";
@@ -73,6 +75,8 @@ export default function AffiliateDashboard() {
   const [isLogin, setIsLogin] = useState(false); // Default to Sign Up
   const { toast } = useToast();
   const [location] = useLocation();
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
 
   const { data: affiliate, isLoading: affiliateLoading, refetch: refetchSession } = useQuery<Affiliate>({
     queryKey: ["/api/auth/session"],
@@ -91,7 +95,7 @@ export default function AffiliateDashboard() {
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      emailOrUsername: "",
+      username: "",
       password: "",
     },
   });
@@ -280,11 +284,7 @@ export default function AffiliateDashboard() {
       return await response.json();
     },
     onSuccess: async () => {
-      // Invalidate session cache first to force fresh fetch
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
-      // Small delay for mobile browsers to properly store the session cookie
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const result = await refetchSession();
+      await refetchSession();
       toast({
         title: "Success!",
         description: "Your affiliate account has been created.",
@@ -309,11 +309,7 @@ export default function AffiliateDashboard() {
       return await response.json();
     },
     onSuccess: async () => {
-      // Invalidate session cache first to force fresh fetch
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
-      // Small delay for mobile browsers to properly store the session cookie
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const result = await refetchSession();
+      await refetchSession();
       toast({
         title: "Success!",
         description: "You've been logged in.",
@@ -478,9 +474,9 @@ export default function AffiliateDashboard() {
     return (
       <div className="min-h-screen bg-background">
         <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary/90 via-primary/85 to-secondary/90 backdrop-blur-md border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 md:py-4">
+          <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
             <Link href="/">
-              <button className="font-bold text-xl md:text-2xl flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <button className="font-bold text-2xl flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <span className="inline-block">
                   <span className="bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">
                     Kaba
@@ -492,23 +488,23 @@ export default function AffiliateDashboard() {
           </div>
         </nav>
 
-        <div className="pt-20 md:pt-24 pb-12 md:pb-16 px-4 md:px-8">
+        <div className="pt-24 pb-16 px-4 md:px-8">
           <div className="max-w-2xl mx-auto">
             <Link href="/">
-              <button className="mb-6 md:mb-8 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm md:text-base" data-testid="link-back-home">
-                <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+              <button className="mb-8 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-home">
+                <ArrowLeft className="w-5 h-5" />
                 Back to Home
               </button>
             </Link>
 
             <Card>
-              <CardHeader className="p-4 md:p-6">
+              <CardHeader>
                 {/* Sign Up / Login Toggle Buttons */}
-                <div className="flex gap-2 mb-4 md:mb-6">
+                <div className="flex gap-2 mb-6">
                   <Button
                     type="button"
                     onClick={() => setIsLogin(false)}
-                    className={`flex-1 rounded-full text-sm md:text-base ${
+                    className={`flex-1 rounded-full ${
                       !isLogin
                         ? "bg-black text-white hover:bg-gray-900"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -519,7 +515,7 @@ export default function AffiliateDashboard() {
                   <Button
                     type="button"
                     onClick={() => setIsLogin(true)}
-                    className={`flex-1 rounded-full text-sm md:text-base ${
+                    className={`flex-1 rounded-full ${
                       isLogin
                         ? "bg-black text-white hover:bg-gray-900"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -528,8 +524,8 @@ export default function AffiliateDashboard() {
                     Sign In
                   </Button>
                 </div>
-                <CardTitle className="text-2xl md:text-3xl">{isLogin ? "Login" : "Join Our Affiliate Program"}</CardTitle>
-                <p className="text-sm md:text-base text-muted-foreground mt-2">
+                <CardTitle className="text-3xl">{isLogin ? "Login" : "Join Our Affiliate Program"}</CardTitle>
+                <p className="text-muted-foreground mt-2">
                   {isLogin
                     ? "Login to access your affiliate dashboard."
                     : "Earn 25% commission on every sale you refer. Register below to get your unique referral link."}
@@ -550,13 +546,23 @@ export default function AffiliateDashboard() {
 
                     <div className="space-y-2">
                       <Label htmlFor="login-password">Password</Label>
-                      <Input
-                        id="login-password"
-                        type="password"
-                        placeholder="••••••••"
-                        autoComplete="current-password"
-                        data-testid="input-login-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="login-password"
+                          type={showLoginPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          autoComplete="current-password"
+                          data-testid="input-login-password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <Button
@@ -602,13 +608,23 @@ export default function AffiliateDashboard() {
 
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Password</Label>
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        data-testid="input-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="signup-password"
+                          type={showSignupPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          autoComplete="new-password"
+                          data-testid="input-password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignupPassword(!showSignupPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <Button
@@ -654,9 +670,9 @@ export default function AffiliateDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary/90 via-primary/85 to-secondary/90 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 md:py-4 flex items-center justify-between gap-2">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
           <Link href="/">
-            <button className="font-bold text-xl md:text-2xl flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <button className="font-bold text-2xl flex items-center gap-2 hover:opacity-80 transition-opacity">
               <span className="inline-block">
                 <span className="bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">
                   Kaba
@@ -668,7 +684,7 @@ export default function AffiliateDashboard() {
           <Button
             variant="ghost"
             onClick={handleLogout}
-            className="text-white text-sm md:text-base"
+            className="text-white"
             data-testid="button-logout"
           >
             Logout
@@ -676,23 +692,23 @@ export default function AffiliateDashboard() {
         </div>
       </nav>
 
-      <div className="pt-20 md:pt-24 pb-12 md:pb-16 px-4 md:px-8">
+      <div className="pt-24 pb-16 px-4 md:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-4xl font-bold mb-1 md:mb-2">Affiliate Dashboard</h1>
-            <p className="text-muted-foreground text-sm md:text-lg">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-2">Affiliate Dashboard</h1>
+            <p className="text-muted-foreground text-lg">
               Welcome back, {affiliate?.username}!
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs md:text-sm font-medium">Total Clicks</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
                 <MousePointerClick className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-2xl md:text-3xl font-bold" data-testid="text-total-clicks">
+              <CardContent>
+                <div className="text-3xl font-bold" data-testid="text-total-clicks">
                   {stats?.totalClicks || 0}
                 </div>
               </CardContent>
@@ -700,11 +716,11 @@ export default function AffiliateDashboard() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs md:text-sm font-medium">Total Conversions</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Conversions</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-2xl md:text-3xl font-bold" data-testid="text-total-conversions">
+              <CardContent>
+                <div className="text-3xl font-bold" data-testid="text-total-conversions">
                   {stats?.totalConversions || 0}
                 </div>
               </CardContent>
@@ -712,11 +728,11 @@ export default function AffiliateDashboard() {
 
             <Card id="total-commission">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs md:text-sm font-medium">Total Commission</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Commission</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-2xl md:text-3xl font-bold" data-testid="text-total-commission">
+              <CardContent>
+                <div className="text-3xl font-bold" data-testid="text-total-commission">
                   ${stats?.totalCommission ? (stats.totalCommission / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                 </div>
               </CardContent>
@@ -724,10 +740,10 @@ export default function AffiliateDashboard() {
           </div>
 
           {/* Financial Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card id="current-balance">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs md:text-sm font-medium">Current Balance</CardTitle>
+                <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -749,10 +765,11 @@ export default function AffiliateDashboard() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-2xl md:text-3xl font-bold mb-1" data-testid="current-balance">
+              <CardContent>
+                <div className="text-3xl font-bold mb-1" data-testid="current-balance">
                   {(() => {
                     const balance = commissions?.currentBalance?.usd;
+                    // Debug logging
                     if (affiliate?.username === 'mojgan') {
                       console.log('[Affiliate Dashboard] Current Balance Display:', {
                         rawCommissions: commissions,
@@ -763,14 +780,14 @@ export default function AffiliateDashboard() {
                     return `$${balance || "0.00"}`;
                   })()}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 mb-3 md:mb-4">
+                <p className="text-xs text-muted-foreground mt-2 mb-4">
                   Available commissions not paid yet
                 </p>
                 {commissions && parseFloat(commissions.currentBalance.usd) > 0 && (
                   <Button
                     onClick={() => requestPaymentMutation.mutate()}
                     disabled={requestPaymentMutation.isPending}
-                    className="w-full text-sm"
+                    className="w-full"
                   >
                     {requestPaymentMutation.isPending ? "Requesting..." : "Request Payment"}
                   </Button>
@@ -780,11 +797,11 @@ export default function AffiliateDashboard() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs md:text-sm font-medium">Total Earned</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Earned</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-2xl md:text-3xl font-bold mb-1">
+              <CardContent>
+                <div className="text-3xl font-bold mb-1">
                   ${commissions?.totalEarned.usd || "0.00"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
@@ -795,11 +812,11 @@ export default function AffiliateDashboard() {
 
             <Card id="total-paid">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs md:text-sm font-medium">Total Paid</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-2xl md:text-3xl font-bold mb-1">
+              <CardContent>
+                <div className="text-3xl font-bold mb-1">
                   ${commissions?.totalPaid.usd || "0.00"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
@@ -810,10 +827,10 @@ export default function AffiliateDashboard() {
           </div>
 
           {/* Profile Information Section */}
-          <Card className="mb-6 md:mb-8">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                <User className="h-4 w-4 md:h-5 md:w-5" />
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
                 Profile Information
               </CardTitle>
             </CardHeader>
@@ -946,14 +963,14 @@ export default function AffiliateDashboard() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="text-lg md:text-xl">Your Referral Link</CardTitle>
+              <CardHeader>
+                <CardTitle>Your Referral Link</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 p-4 md:p-6 pt-0 md:pt-0">
+              <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-sm">Share this link to earn commissions</Label>
+                  <Label>Share this link to earn commissions</Label>
                   <div className="flex gap-2 mt-2">
                     <Input
                       value={`${window.location.origin}/?ref=${affiliate?.username}`}
@@ -966,9 +983,9 @@ export default function AffiliateDashboard() {
                     </Button>
                   </div>
                 </div>
-                <div className="bg-muted p-3 md:p-4 rounded-lg">
-                  <h4 className="font-semibold mb-2 text-sm md:text-base">How it works:</h4>
-                  <ul className="space-y-1 text-xs md:text-sm text-muted-foreground">
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">How it works:</h4>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
                     <li>1. Share your referral link with potential customers</li>
                     <li>2. When they book a call and become a client, you earn 25%</li>
                     <li>3. Commission is paid on their first month's subscription</li>
@@ -978,10 +995,10 @@ export default function AffiliateDashboard() {
             </Card>
 
             <Card>
-              <CardHeader className="p-4 md:p-6">
-                <CardTitle className="text-lg md:text-xl">Payment Settings</CardTitle>
+              <CardHeader>
+                <CardTitle>Payment Settings</CardTitle>
               </CardHeader>
-              <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+              <CardContent>
                 <Form {...paymentForm}>
                   <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
                     <FormField
@@ -1043,28 +1060,28 @@ export default function AffiliateDashboard() {
           </div>
 
           {/* Bookings Section */}
-          <Card className="mb-6 md:mb-8">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="text-lg md:text-xl">Your Referred Bookings</CardTitle>
-              <p className="text-xs md:text-sm text-muted-foreground mt-1">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Your Referred Bookings</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
                 All bookings from people who used your referral link
               </p>
             </CardHeader>
-            <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+            <CardContent>
               {!bookings || bookings.length === 0 ? (
-                <div className="text-center py-6 md:py-8 text-muted-foreground text-sm">
+                <div className="text-center py-8 text-muted-foreground">
                   No bookings yet. Share your link to start earning commissions!
                 </div>
               ) : (
-                <div className="overflow-x-auto -mx-4 md:mx-0">
-                  <table className="w-full min-w-[600px]">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Attendee</th>
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Date & Time</th>
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Tier</th>
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Status</th>
-                        <th className="text-right py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Commission</th>
+                        <th className="text-left py-3 px-4">Attendee</th>
+                        <th className="text-left py-3 px-4">Date & Time</th>
+                        <th className="text-left py-3 px-4">Tier</th>
+                        <th className="text-left py-3 px-4">Status</th>
+                        <th className="text-right py-3 px-4">Commission</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1073,42 +1090,42 @@ export default function AffiliateDashboard() {
                           key={booking.id}
                           className="border-b hover:bg-muted/50 transition-colors"
                         >
-                          <td className="py-2 md:py-3 px-3 md:px-4">
+                          <td className="py-3 px-4">
                             <div>
-                              <div className="font-medium text-sm">{booking.attendeeName}</div>
-                              <div className="text-xs text-muted-foreground truncate max-w-[150px] md:max-w-none">{booking.attendeeEmail}</div>
+                              <div className="font-medium">{booking.attendeeName}</div>
+                              <div className="text-sm text-muted-foreground">{booking.attendeeEmail}</div>
                             </div>
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4">
-                            <div className="text-xs md:text-sm">
+                          <td className="py-3 px-4">
+                            <div className="text-sm">
                               {new Date(booking.eventTime).toLocaleDateString()}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {new Date(booking.eventTime).toLocaleTimeString()}
                             </div>
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4">
+                          <td className="py-3 px-4">
                             {booking.tier ? (
-                              <span className="px-1.5 md:px-2 py-0.5 md:py-1 bg-blue-100 text-blue-700 rounded text-xs md:text-sm font-medium">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm font-medium">
                                 {booking.tier}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground text-xs md:text-sm">Not set</span>
+                              <span className="text-muted-foreground text-sm">Not set</span>
                             )}
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4">
+                          <td className="py-3 px-4">
                             {booking.saleStatus === "sold" ? (
-                              <span className="flex items-center gap-1 md:gap-2 text-green-600 font-medium text-xs md:text-sm">
-                                <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4" />
+                              <span className="flex items-center gap-2 text-green-600 font-medium">
+                                <CheckCircle2 className="h-4 w-4" />
                                 Sold
                               </span>
                             ) : booking.saleStatus === "failed" ? (
-                              <span className="flex items-center gap-1 md:gap-2 text-red-600 font-medium text-xs md:text-sm">
-                                <XCircle className="h-3 w-3 md:h-4 md:w-4" />
+                              <span className="flex items-center gap-2 text-red-600 font-medium">
+                                <XCircle className="h-4 w-4" />
                                 Failed
                               </span>
                             ) : (
-                              <span className="text-muted-foreground capitalize text-xs md:text-sm">
+                              <span className="text-muted-foreground capitalize text-sm">
                                 {booking.status === "call_scheduled" ? "Call Scheduled" :
                                  booking.status === "no_show" ? "No Show" :
                                  booking.status === "follow_up" ? "Follow Up" :
@@ -1118,13 +1135,13 @@ export default function AffiliateDashboard() {
                               </span>
                             )}
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4 text-right">
+                          <td className="py-3 px-4 text-right">
                             {booking.saleStatus === "sold" && booking.commissionAmount ? (
-                              <span className="font-semibold text-green-600 text-sm md:text-lg">
+                              <span className="font-semibold text-green-600 text-lg">
                                 ${(booking.commissionAmount / 100).toFixed(2)}
                               </span>
                             ) : booking.saleStatus === "sold" ? (
-                              <span className="text-muted-foreground text-xs md:text-sm">Calculating...</span>
+                              <span className="text-muted-foreground text-sm">Calculating...</span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
@@ -1139,27 +1156,27 @@ export default function AffiliateDashboard() {
           </Card>
 
           {/* Transactions Section */}
-          <Card className="mb-6 md:mb-8">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="text-lg md:text-xl">Payment Transactions</CardTitle>
-              <p className="text-xs md:text-sm text-muted-foreground mt-1">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Payment Transactions</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
                 History of commission payments received
               </p>
             </CardHeader>
-            <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+            <CardContent>
               {!transactions || transactions.length === 0 ? (
-                <div className="text-center py-6 md:py-8 text-muted-foreground text-sm">
+                <div className="text-center py-8 text-muted-foreground">
                   No payments received yet.
                 </div>
               ) : (
-                <div className="overflow-x-auto -mx-4 md:mx-0">
-                  <table className="w-full min-w-[500px]">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Date</th>
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Description</th>
-                        <th className="text-right py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Amount</th>
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Status</th>
+                        <th className="text-left py-3 px-4">Date</th>
+                        <th className="text-left py-3 px-4">Description</th>
+                        <th className="text-right py-3 px-4">Amount</th>
+                        <th className="text-left py-3 px-4">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1168,32 +1185,32 @@ export default function AffiliateDashboard() {
                           key={transaction.id}
                           className="border-b hover:bg-muted/50 transition-colors"
                         >
-                          <td className="py-2 md:py-3 px-3 md:px-4">
-                            <div className="text-xs md:text-sm">
+                          <td className="py-3 px-4">
+                            <div className="text-sm">
                               {new Date(transaction.createdAt).toLocaleDateString()}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {new Date(transaction.createdAt).toLocaleTimeString()}
                             </div>
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4">
-                            <div className="text-xs md:text-sm">
+                          <td className="py-3 px-4">
+                            <div className="text-sm">
                               {transaction.description || "Commission payment"}
                             </div>
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4 text-right">
-                            <span className="font-semibold text-green-600 text-sm md:text-lg">
+                          <td className="py-3 px-4 text-right">
+                            <span className="font-semibold text-green-600 text-lg">
                               ${(transaction.amount / 100).toFixed(2)}
                             </span>
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4">
+                          <td className="py-3 px-4">
                             {transaction.status === "paid" ? (
-                              <span className="flex items-center gap-1 md:gap-2 text-green-600 font-medium text-xs md:text-sm">
-                                <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4" />
+                              <span className="flex items-center gap-2 text-green-600 font-medium">
+                                <CheckCircle2 className="h-4 w-4" />
                                 Paid
                               </span>
                             ) : (
-                              <span className="text-muted-foreground capitalize text-xs md:text-sm">
+                              <span className="text-muted-foreground capitalize text-sm">
                                 {transaction.status}
                               </span>
                             )}
@@ -1208,44 +1225,44 @@ export default function AffiliateDashboard() {
           </Card>
 
           <Card>
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="text-lg md:text-xl">Recent Referrals</CardTitle>
+            <CardHeader>
+              <CardTitle>Recent Referrals</CardTitle>
             </CardHeader>
-            <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+            <CardContent>
               {!referrals || referrals.length === 0 ? (
-                <div className="text-center py-6 md:py-8 text-muted-foreground text-sm">
+                <div className="text-center py-8 text-muted-foreground">
                   No referrals yet. Share your link to start earning!
                 </div>
               ) : (
-                <div className="overflow-x-auto -mx-4 md:mx-0">
-                  <table className="w-full min-w-[400px]">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Date</th>
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">IP Address</th>
-                        <th className="text-left py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">Status</th>
+                        <th className="text-left py-3 px-4">Date</th>
+                        <th className="text-left py-3 px-4">IP Address</th>
+                        <th className="text-left py-3 px-4">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {referrals.map((referral) => (
                         <tr
                           key={referral.id}
-                          className="border-b hover:bg-muted/50 transition-colors"
+                          className="border-b hover-elevate"
                           data-testid={`row-referral-${referral.id}`}
                         >
-                          <td className="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
+                          <td className="py-3 px-4">
                             {new Date(referral.timestamp).toLocaleDateString()}
                           </td>
-                          <td className="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">{referral.visitorIP || "N/A"}</td>
-                          <td className="py-2 md:py-3 px-3 md:px-4">
+                          <td className="py-3 px-4">{referral.visitorIP || "N/A"}</td>
+                          <td className="py-3 px-4">
                             {referral.converted ? (
-                              <span className="flex items-center gap-1 md:gap-2 text-green-600 text-xs md:text-sm">
-                                <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4" />
+                              <span className="flex items-center gap-2 text-green-600">
+                                <CheckCircle2 className="h-4 w-4" />
                                 Converted
                               </span>
                             ) : (
-                              <span className="flex items-center gap-1 md:gap-2 text-muted-foreground text-xs md:text-sm">
-                                <XCircle className="h-3 w-3 md:h-4 md:w-4" />
+                              <span className="flex items-center gap-2 text-muted-foreground">
+                                <XCircle className="h-4 w-4" />
                                 Pending
                               </span>
                             )}

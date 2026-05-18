@@ -1,7 +1,7 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { clips, projects, clients, issues, tasks, issueTemplates } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { clips, projects, clients, issues, tasks, issueTemplates, templateTasks, teams, members } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 export async function seedInitialData() {
@@ -123,17 +123,132 @@ export async function seedInitialData() {
       console.warn("Could not seed founder settings:", error);
     }
 
+    // Seed teams
+    try {
+      const existingTeams = await storage.getAllTeams();
+      if (existingTeams.length === 0) {
+        const defaultTeams = [
+          { name: "Persian", description: "Persian language team" },
+          { name: "English", description: "English language team" },
+          { name: "All Teams", description: "All teams" },
+        ];
+        for (const teamData of defaultTeams) {
+          await storage.createTeam(teamData);
+        }
+        console.log("✓ Seeded default teams");
+      }
+    } catch (error) {
+      console.warn("Could not seed teams:", error);
+    }
+
+    // Seed sample members
+    try {
+      const existingMembers = await db.select().from(members).limit(1);
+      if (existingMembers.length === 0) {
+        const defaultPassword = "password123";
+        const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
+        const sampleMembers = [
+          {
+            username: "alice_editor",
+            email: "alice@kabacontent.com",
+            fullName: "Alice Johnson",
+            role: "editor",
+            passwordHash,
+          },
+          {
+            username: "bob_clipper",
+            email: "bob@kabacontent.com",
+            fullName: "Bob Smith",
+            role: "clipper",
+            passwordHash,
+          },
+          {
+            username: "charlie_manager",
+            email: "charlie@kabacontent.com",
+            fullName: "Charlie Brown",
+            role: "manager",
+            passwordHash,
+          },
+          {
+            username: "diana_editor",
+            email: "diana@kabacontent.com",
+            fullName: "Diana Prince",
+            role: "editor",
+            passwordHash,
+          },
+        ];
+
+        for (const memberData of sampleMembers) {
+          await storage.createMember(memberData);
+        }
+        console.log(`✓ Seeded ${sampleMembers.length} sample members`);
+      } else {
+        console.log("Members already seeded");
+      }
+    } catch (error) {
+      console.warn("Could not seed members:", error);
+    }
+
     // Seed templates
     try {
       const existingTemplates = await storage.getAllTemplates();
-      if (existingTemplates.length > 0) {
-        console.log("Templates already seeded");
+      if (existingTemplates.length >= 7) {
+        console.log(`Templates already seeded (${existingTemplates.length} templates)`);
       } else {
+        if (existingTemplates.length > 0) {
+          console.log(`Found ${existingTemplates.length} existing templates, will create more to reach 7 total`);
+        }
         const templates = [
-          { name: "Gary Short Video", title: "Gary Short Video" },
-          { name: "Patrick Short Video", title: "Patrick Short Video" },
-          { name: "Drew Short Video", title: "Drew Short Video" },
-          { name: "Uptin Short Video", title: "Uptin Short Video" },
+          {
+            name: "Gary Short Video",
+            issueTitle: "Gary Short Video",
+            description: "Standard short-form video template for Gary's content. Includes video selection, translation, dubbing, editing, and admin tasks.",
+            videoUrl: "https://example.com/videos/gary-sample.mp4",
+            videoDuration: 90, // 1:30 in seconds
+          },
+          {
+            name: "Patrick Short Video",
+            issueTitle: "Patrick Short Video",
+            description: "Short video template for Patrick's content workflow. Standard 5-step process from selection to final admin review.",
+            videoUrl: "https://example.com/videos/patrick-sample.mp4",
+            videoDuration: 120, // 2:00 in seconds
+          },
+          {
+            name: "Drew Short Video",
+            issueTitle: "Drew Short Video",
+            description: "Template for processing Drew's short-form videos. Includes translation, dubbing, and editing phases.",
+            videoUrl: "https://example.com/videos/drew-sample.mp4",
+            videoDuration: 105, // 1:45 in seconds
+          },
+          {
+            name: "Uptin Short Video",
+            issueTitle: "Uptin Short Video",
+            description: "Standard template for Uptin's video content. Complete workflow from video selection through final admin approval.",
+            videoUrl: "https://example.com/videos/uptin-sample.mp4",
+            videoDuration: 75, // 1:15 in seconds
+          },
+          {
+            name: "Instagram Reel Template",
+            issueTitle: "Instagram Reel Production",
+            description: "Complete workflow for creating Instagram Reels. Includes content selection, editing, caption writing, and hashtag research.",
+            videoUrl: "https://example.com/videos/instagram-reel-template.mp4",
+            videoDuration: 60, // 1:00 in seconds
+          },
+          {
+            name: "TikTok Video Template",
+            issueTitle: "TikTok Video Creation",
+            description: "Template for TikTok video production. Optimized for viral content with trending sounds and effects.",
+            videoUrl: "https://example.com/videos/tiktok-template.mp4",
+            videoDuration: 45, // 0:45 in seconds
+          },
+          {
+            name: "YouTube Short Template",
+            issueTitle: "YouTube Short Production",
+            description: "Workflow for creating YouTube Shorts. Includes thumbnail design, SEO optimization, and description writing.",
+            videoUrl: "https://example.com/videos/youtube-short-template.mp4",
+            videoDuration: 60, // 1:00 in seconds
+          },
         ];
 
         const templateTasks = [
@@ -144,34 +259,71 @@ export async function seedInitialData() {
           { name: "Admin", points: 5, priority: "no_priority", order: 4 },
         ];
 
-        // Set updatedAt to 2 days ago to match the image
-        const twoDaysAgo = new Date();
-        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        // Set updatedAt to different dates to show variety
+        const dates = [
+          new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+          new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+          new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+          new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+          new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
+          new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), // 6 days ago
+        ];
 
-        for (const templateData of templates) {
+        // Get teams for assignment
+        const allTeams = await storage.getAllTeams();
+        const persianTeam = allTeams.find(t => t.name === "Persian");
+        const englishTeam = allTeams.find(t => t.name === "English");
+        const allTeamsTeam = allTeams.find(t => t.name === "All Teams");
+
+        // Get members for assignment
+        const allMembers = await db.select().from(members).limit(10);
+        const firstMember = allMembers[0];
+        const secondMember = allMembers[1] || allMembers[0];
+
+        // Get projects for assignment
+        const allProjects = await storage.getAllProjects();
+        const drewFarsiProject = allProjects.find(p => p.name === "Drew Farsi");
+
+        for (let i = 0; i < templates.length; i++) {
+          const templateData = templates[i];
+          
+          // Assign team based on template index
+          let teamId = null;
+          if (i < 2 && persianTeam) teamId = persianTeam.id;
+          else if (i < 4 && englishTeam) teamId = englishTeam.id;
+          else if (allTeamsTeam) teamId = allTeamsTeam.id;
+
           const template = await storage.createTemplate({
             name: templateData.name,
-            issueTitle: templateData.title,
-            description: null,
-            videoUrl: null,
-            videoDuration: 60,
+            issueTitle: templateData.issueTitle,
+            description: templateData.description,
+            videoUrl: templateData.videoUrl,
+            videoDuration: templateData.videoDuration,
+            teamId: teamId,
+            defaultStatus: i < 3 ? "todo" : "backlog",
+            defaultPriority: i % 2 === 0 ? "medium" : "high",
+            defaultAssigneeId: i < 2 && firstMember ? firstMember.id : (i < 4 && secondMember ? secondMember.id : null),
+            defaultProjectId: drewFarsiProject ? drewFarsiProject.id : null,
           });
 
-          // Directly update the template's updatedAt to 2 days ago
+          // Update the template's updatedAt to show variety
           await db
             .update(issueTemplates)
-            .set({ updatedAt: twoDaysAgo })
+            .set({ updatedAt: dates[i % dates.length] })
             .where(eq(issueTemplates.id, template.id));
 
-          // Add tasks to each template
-          for (const taskData of templateTasks) {
-            await storage.createTemplateTask(template.id, {
-              ...taskData,
-              assignedTo: null,
-            });
+          // Add tasks to each template (only for first 4 templates to match original behavior)
+          if (i < 4) {
+            for (const taskData of templateTasks) {
+              await storage.createTemplateTask(template.id, {
+                ...taskData,
+                assignedTo: i < 2 && firstMember ? firstMember.id : (i < 4 && secondMember ? secondMember.id : null),
+              });
+            }
           }
         }
-        console.log("✓ Seeded 4 templates with tasks");
+        console.log(`✓ Seeded ${templates.length} templates with tasks`);
       }
     } catch (error) {
       console.warn("Could not seed templates:", error);
@@ -181,7 +333,7 @@ export async function seedInitialData() {
     let sampleClient1, sampleClient2, sampleClient3;
     try {
       const existingClients = await storage.getAllClients();
-      if (existingClients.length === 0) {
+      if (existingClients.length < 3) {
         const defaultPassword = "password123";
         const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
@@ -266,6 +418,11 @@ export async function seedInitialData() {
 
     // Seed projects and clips
     try {
+      // Ensure we have clients before creating projects
+      if (!sampleClient1 || !sampleClient2 || !sampleClient3) {
+        console.warn("⚠️  Cannot seed projects: Missing sample clients");
+        return;
+      }
 
       const existingProjects = await storage.getAllProjects();
       
@@ -279,6 +436,8 @@ export async function seedInitialData() {
           fileLink: "/Projects/DrewFarsi",
         });
         console.log("✓ Created Drew Farsi project");
+      } else {
+        console.log("✓ Drew Farsi project already exists");
       }
 
       // Create sample projects for clipping area (linked to clients)
@@ -290,10 +449,22 @@ export async function seedInitialData() {
           fileLink: `/Projects/${sampleClient1.username}/Episode_01`,
         },
         {
+          name: `${sampleClient1.fullName || sampleClient1.username} - Episode 02`,
+          description: `Sample project for clipping - Episode 2 (${sampleClient1.fullName || sampleClient1.username})`,
+          clientId: sampleClient1.id,
+          fileLink: `/Projects/${sampleClient1.username}/Episode_02`,
+        },
+        {
           name: `${sampleClient2.fullName || sampleClient2.username} - Episode 05`,
           description: `Sample project for clipping - Episode 5 (${sampleClient2.fullName || sampleClient2.username})`,
           clientId: sampleClient2.id,
           fileLink: `/Projects/${sampleClient2.username}/Episode_05`,
+        },
+        {
+          name: `${sampleClient2.fullName || sampleClient2.username} - Episode 08`,
+          description: `Sample project for clipping - Episode 8 (${sampleClient2.fullName || sampleClient2.username})`,
+          clientId: sampleClient2.id,
+          fileLink: `/Projects/${sampleClient2.username}/Episode_08`,
         },
         {
           name: `${sampleClient3.fullName || sampleClient3.username} - Episode 12`,
@@ -301,76 +472,224 @@ export async function seedInitialData() {
           clientId: sampleClient3.id,
           fileLink: `/Projects/${sampleClient3.username}/Episode_12`,
         },
+        {
+          name: `${sampleClient3.fullName || sampleClient3.username} - Episode 15`,
+          description: `Sample project for clipping - Episode 15 (${sampleClient3.fullName || sampleClient3.username})`,
+          clientId: sampleClient3.id,
+          fileLink: `/Projects/${sampleClient3.username}/Episode_15`,
+        },
       ];
 
       const createdProjects = [];
       for (const projectData of clippingProjects) {
         const existing = existingProjects.find((p) => p.name === projectData.name);
         if (!existing) {
-          const project = await storage.createProject(projectData);
-          createdProjects.push(project);
+          try {
+            const project = await storage.createProject(projectData);
+            createdProjects.push(project);
+            console.log(`✓ Created project: ${projectData.name}`);
+          } catch (error: any) {
+            console.error(`✗ Failed to create project ${projectData.name}:`, error.message);
+          }
         } else {
           createdProjects.push(existing);
+          console.log(`✓ Project already exists: ${projectData.name}`);
         }
       }
 
+      console.log(`✓ Total projects available: ${createdProjects.length}`);
+
       // Create sample clips for each project
+      // Always ensure at least one project has pending clips for the clipping area
       const existingClips = await db.select().from(clips).limit(1);
-      if (existingClips.length === 0) {
-        // Project 1: First client's project - Mix of pending, valid, and invalid clips
-        const project1Clips = [
+      if (createdProjects.length > 0) {
+        // Check if we need to add more pending clips
+        const firstProject = createdProjects[0];
+        const existingPendingClips = await db
+          .select()
+          .from(clips)
+          .where(and(eq(clips.projectId, firstProject.id), eq(clips.status, "pending")));
+        
+        // If no clips exist at all, or if first project has less than 5 pending clips, create them
+        if (existingClips.length === 0 || existingPendingClips.length < 5) {
+          console.log(`✓ Starting to seed clips for ${createdProjects.length} projects`);
+        // Project 1: First client's Episode 01 - Ensure at least 5 pending clips (matching the photo)
+        // Check existing clips to avoid duplicates
+        const existingProject1Clips = await db
+          .select()
+          .from(clips)
+          .where(eq(clips.projectId, createdProjects[0].id));
+        const existingClipNumbers = new Set(existingProject1Clips.map(c => c.clipNumber));
+        
+        const project1Clips = createdProjects[0] ? [
           { clipNumber: 1, filePath: `${createdProjects[0].fileLink}/Clip_001.mp4`, status: "pending" },
-          { clipNumber: 2, filePath: `${createdProjects[0].fileLink}/Clip_002.mp4`, status: "valid" },
+          { clipNumber: 2, filePath: `${createdProjects[0].fileLink}/Clip_002.mp4`, status: "pending" },
           { clipNumber: 3, filePath: `${createdProjects[0].fileLink}/Clip_003.mp4`, status: "pending" },
-          { clipNumber: 4, filePath: `${createdProjects[0].fileLink}/Clip_004.mp4`, status: "invalid", invalidNote: "Audio quality too low" },
-          { clipNumber: 5, filePath: `${createdProjects[0].fileLink}/Clip_005.mp4`, status: "valid" },
-        ];
+          { clipNumber: 4, filePath: `${createdProjects[0].fileLink}/Clip_004.mp4`, status: "pending" },
+          { clipNumber: 5, filePath: `${createdProjects[0].fileLink}/Clip_005.mp4`, status: "pending" },
+        ].filter(clip => !existingClipNumbers.has(clip.clipNumber)) : [];
 
-        // Project 2: Second client's project - All pending
-        const project2Clips = [
-          { clipNumber: 1, filePath: `${createdProjects[1].fileLink}/Clip_001.mp4`, status: "pending" },
+        // Project 2: First client's Episode 02 - More clips
+        const project2Clips = createdProjects[1] ? [
+          { clipNumber: 1, filePath: `${createdProjects[1].fileLink}/Clip_001.mp4`, status: "valid" },
           { clipNumber: 2, filePath: `${createdProjects[1].fileLink}/Clip_002.mp4`, status: "pending" },
-          { clipNumber: 3, filePath: `${createdProjects[1].fileLink}/Clip_003.mp4`, status: "pending" },
+          { clipNumber: 3, filePath: `${createdProjects[1].fileLink}/Clip_003.mp4`, status: "valid" },
+          { clipNumber: 4, filePath: `${createdProjects[1].fileLink}/Clip_004.mp4`, status: "pending" },
+        ] : [];
+
+        // Project 3: Second client's Episode 05 - All pending
+        const project3Clips = createdProjects[2] ? [
+          { clipNumber: 1, filePath: `${createdProjects[2].fileLink}/Clip_001.mp4`, status: "pending" },
+          { clipNumber: 2, filePath: `${createdProjects[2].fileLink}/Clip_002.mp4`, status: "pending" },
+          { clipNumber: 3, filePath: `${createdProjects[2].fileLink}/Clip_003.mp4`, status: "pending" },
+          { clipNumber: 4, filePath: `${createdProjects[2].fileLink}/Clip_004.mp4`, status: "valid" },
+          { clipNumber: 5, filePath: `${createdProjects[2].fileLink}/Clip_005.mp4`, status: "pending" },
+        ] : [];
+
+        // Project 4: Second client's Episode 08 - Mix of statuses
+        const project4Clips = createdProjects[3] ? [
+          { clipNumber: 1, filePath: `${createdProjects[3].fileLink}/Clip_001.mp4`, status: "valid" },
+          { clipNumber: 2, filePath: `${createdProjects[3].fileLink}/Clip_002.mp4`, status: "invalid", invalidNote: "Video quality issues" },
+          { clipNumber: 3, filePath: `${createdProjects[3].fileLink}/Clip_003.mp4`, status: "valid" },
+          { clipNumber: 4, filePath: `${createdProjects[3].fileLink}/Clip_004.mp4`, status: "pending" },
+          { clipNumber: 5, filePath: `${createdProjects[3].fileLink}/Clip_005.mp4`, status: "valid" },
+          { clipNumber: 6, filePath: `${createdProjects[3].fileLink}/Clip_006.mp4`, status: "pending" },
+        ] : [];
+
+        // Project 5: Third client's Episode 12 - Mix of statuses
+        const project5Clips = createdProjects[4] ? [
+          { clipNumber: 1, filePath: `${createdProjects[4].fileLink}/Clip_001.mp4`, status: "valid" },
+          { clipNumber: 2, filePath: `${createdProjects[4].fileLink}/Clip_002.mp4`, status: "valid" },
+          { clipNumber: 3, filePath: `${createdProjects[4].fileLink}/Clip_003.mp4`, status: "invalid", invalidNote: "Video too short" },
+          { clipNumber: 4, filePath: `${createdProjects[4].fileLink}/Clip_004.mp4`, status: "pending" },
+          { clipNumber: 5, filePath: `${createdProjects[4].fileLink}/Clip_005.mp4`, status: "valid" },
+        ] : [];
+
+        // Project 6: Third client's Episode 15 - More clips
+        const project6Clips = createdProjects[5] ? [
+          { clipNumber: 1, filePath: `${createdProjects[5].fileLink}/Clip_001.mp4`, status: "pending" },
+          { clipNumber: 2, filePath: `${createdProjects[5].fileLink}/Clip_002.mp4`, status: "valid" },
+          { clipNumber: 3, filePath: `${createdProjects[5].fileLink}/Clip_003.mp4`, status: "pending" },
+          { clipNumber: 4, filePath: `${createdProjects[5].fileLink}/Clip_004.mp4`, status: "valid" },
+          { clipNumber: 5, filePath: `${createdProjects[5].fileLink}/Clip_005.mp4`, status: "invalid", invalidNote: "Content not suitable" },
+          { clipNumber: 6, filePath: `${createdProjects[5].fileLink}/Clip_006.mp4`, status: "pending" },
+          { clipNumber: 7, filePath: `${createdProjects[5].fileLink}/Clip_007.mp4`, status: "valid" },
+        ] : [];
+
+        // Insert clips for each project
+        const allClips = [
+          { clips: project1Clips, projectIndex: 0 },
+          { clips: project2Clips, projectIndex: 1 },
+          { clips: project3Clips, projectIndex: 2 },
+          { clips: project4Clips, projectIndex: 3 },
+          { clips: project5Clips, projectIndex: 4 },
+          { clips: project6Clips, projectIndex: 5 },
         ];
 
-        // Project 3: Third client's project - Mix of statuses
-        const project3Clips = [
-          { clipNumber: 1, filePath: `${createdProjects[2].fileLink}/Clip_001.mp4`, status: "valid" },
-          { clipNumber: 2, filePath: `${createdProjects[2].fileLink}/Clip_002.mp4`, status: "valid" },
-          { clipNumber: 3, filePath: `${createdProjects[2].fileLink}/Clip_003.mp4`, status: "invalid", invalidNote: "Video too short" },
-          { clipNumber: 4, filePath: `${createdProjects[2].fileLink}/Clip_004.mp4`, status: "pending" },
-        ];
-
-        // Insert clips for each project (only if projects were created/found)
-        if (createdProjects.length >= 3) {
-          for (const clipData of project1Clips) {
-            await storage.createClip({
-              ...clipData,
-              projectId: createdProjects[0].id,
-            });
+        let totalClips = 0;
+        for (const { clips: clipList, projectIndex } of allClips) {
+          if (createdProjects[projectIndex] && clipList.length > 0) {
+            for (const clipData of clipList) {
+              await storage.createClip({
+                ...clipData,
+                projectId: createdProjects[projectIndex].id,
+              });
+              totalClips++;
+            }
           }
-
-          for (const clipData of project2Clips) {
-            await storage.createClip({
-              ...clipData,
-              projectId: createdProjects[1].id,
-            });
-          }
-
-          for (const clipData of project3Clips) {
-            await storage.createClip({
-              ...clipData,
-              projectId: createdProjects[2].id,
-            });
-          }
-
-          console.log(`✓ Seeded ${project1Clips.length + project2Clips.length + project3Clips.length} sample clips across 3 projects`);
-        } else {
-          console.warn("Not enough projects created to seed clips");
         }
 
+        console.log(`✓ Seeded ${totalClips} sample clips across ${createdProjects.length} projects`);
+        
+        // Ensure first project has at least 5 pending clips
+        if (createdProjects.length > 0) {
+          const firstProject = createdProjects[0];
+          const pendingClips = await db
+            .select()
+            .from(clips)
+            .where(and(eq(clips.projectId, firstProject.id), eq(clips.status, "pending")));
+          
+          if (pendingClips.length < 5) {
+            const existingNumbers = new Set(pendingClips.map(c => c.clipNumber));
+            let nextNumber = 1;
+            let added = 0;
+            while (pendingClips.length + added < 5) {
+              if (!existingNumbers.has(nextNumber)) {
+                await storage.createClip({
+                  projectId: firstProject.id,
+                  clipNumber: nextNumber,
+                  filePath: `${firstProject.fileLink}/Clip_00${nextNumber}.mp4`,
+                  status: "pending",
+                });
+                added++;
+                totalClips++;
+              }
+              nextNumber++;
+            }
+            console.log(`✓ Ensured first project has 5 pending clips`);
+          }
+        }
+        }
+      } else if (createdProjects.length === 0) {
+        console.warn(`⚠️  Cannot seed clips: No projects available`);
       } else {
-        console.log("Clips already seeded");
+        // Even if clips exist, ensure first project has 5 pending
+        const firstProject = createdProjects[0];
+        const pendingClips = await db
+          .select()
+          .from(clips)
+          .where(and(eq(clips.projectId, firstProject.id), eq(clips.status, "pending")));
+        
+        if (pendingClips.length < 5) {
+          const existingNumbers = new Set(pendingClips.map(c => c.clipNumber));
+          let nextNumber = 1;
+          let added = 0;
+          while (pendingClips.length + added < 5) {
+            if (!existingNumbers.has(nextNumber)) {
+              await storage.createClip({
+                projectId: firstProject.id,
+                clipNumber: nextNumber,
+                filePath: `${firstProject.fileLink}/Clip_00${nextNumber}.mp4`,
+                status: "pending",
+              });
+              added++;
+            }
+            nextNumber++;
+          }
+          console.log(`✓ Added ${added} pending clips to first project (now has ${pendingClips.length + added} pending)`);
+        } else {
+          console.log(`✓ First project already has ${pendingClips.length} pending clips`);
+        }
+      }
+
+      // Always ensure at least one project has 5 pending clips for clipping area
+      if (createdProjects.length > 0) {
+        const firstProject = createdProjects[0];
+        const pendingClips = await db
+          .select()
+          .from(clips)
+          .where(and(eq(clips.projectId, firstProject.id), eq(clips.status, "pending")));
+        
+        if (pendingClips.length < 5) {
+          const existingNumbers = new Set(pendingClips.map(c => c.clipNumber));
+          let nextNumber = 1;
+          let added = 0;
+          while (pendingClips.length + added < 5) {
+            if (!existingNumbers.has(nextNumber)) {
+              await storage.createClip({
+                projectId: firstProject.id,
+                clipNumber: nextNumber,
+                filePath: `${firstProject.fileLink}/Clip_00${nextNumber}.mp4`,
+                status: "pending",
+              });
+              added++;
+            }
+            nextNumber++;
+          }
+          console.log(`✓ Added ${added} pending clips to first project (now has ${pendingClips.length + added} pending)`);
+        } else {
+          console.log(`✓ First project already has ${pendingClips.length} pending clips`);
+        }
       }
 
       // Seed sample issues for Drew Farsi project
@@ -386,7 +705,7 @@ export async function seedInitialData() {
           description: null,
           status: "backlog",
           order: 0,
-          videoDuration: 60,
+          videoDuration: "0:01:00",
           createdAt: sep15,
           updatedAt: sep15,
         }).returning();
@@ -419,7 +738,7 @@ export async function seedInitialData() {
           description: null,
           status: "unstarted",
           order: 0,
-          videoDuration: 120,
+          videoDuration: "0:02:00",
           createdAt: sep15,
           updatedAt: sep15,
         }).returning();

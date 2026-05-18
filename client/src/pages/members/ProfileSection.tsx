@@ -268,7 +268,17 @@ export default function ProfileSection({ member }: { member: Member }) {
       </Card>
 
       {/* Financial Summary */}
-      <FinancialSummary memberId={member.id} />
+      {member.id && member.id !== "mock-id" ? (
+        <FinancialSummary memberId={member.id} />
+      ) : (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-gray-500">
+              Please log in to view your financial summary.
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Activity Overview */}
       <ActivityOverview memberId={member.id} />
@@ -277,7 +287,17 @@ export default function ProfileSection({ member }: { member: Member }) {
       <UserInformation member={member} />
 
       {/* Transactions */}
-      <TransactionsSection memberId={member.id} />
+      {member.id && member.id !== "mock-id" ? (
+        <TransactionsSection memberId={member.id} />
+      ) : (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-gray-500">
+              Please log in to view your transactions.
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -11,7 +11,10 @@ import BookingPage from "@/pages/BookingPage";
 import Login from "@/pages/Login";
 import MemberLogin from "@/pages/MemberLogin";
 import MembersDashboard from "@/pages/MembersDashboard";
+import TeamsPage from "@/pages/members/TeamsPage";
+import ClientsSection from "@/pages/members/ClientsSection";
 import ClientDashboard from "@/pages/ClientDashboard";
+import ClientLogin from "@/pages/ClientLogin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -24,8 +27,11 @@ function Router() {
       <Route path="/founder" component={FounderDashboard} />
       <Route path="/login" component={Login} />
       <Route path="/member-login" component={MemberLogin} />
-      <Route path="/member-dashboard" component={MembersDashboard} />
-      <Route path="/client-dashboard" component={ClientDashboard} />
+      <Route path="/member-dashboard/*" component={MembersDashboard} />
+      <Route path="/teams" component={TeamsPage} />
+      <Route path="/clients" component={ClientsSection} />
+      <Route path="/client" component={ClientDashboard} />
+      <Route path="/client-login" component={ClientLogin} />
       <Route component={NotFound} />
     </Switch>
   );

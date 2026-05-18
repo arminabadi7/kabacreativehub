@@ -41,8 +41,7 @@ import {
   MessageCircle,
   Share2,
   AlertCircle,
-  CheckCircle2,
-  Menu
+  CheckCircle2
 } from "lucide-react";
 import { SiInstagram, SiTiktok, SiYoutube, SiFacebook, SiTelegram, SiWhatsapp } from "react-icons/si";
 import heroImage from "@assets/generated_images/Content_creation_workspace_montage_8cb5e36f.png";
@@ -372,12 +371,10 @@ export default function Home() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Navigation Bar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary/90 via-primary/85 to-secondary/90 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between md:justify-start gap-4 md:gap-12">
-          <div className="font-bold text-xl md:text-2xl" data-testid="navbar-brand">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-start gap-12">
+          <div className="font-bold text-2xl" data-testid="navbar-brand">
             <span className="bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">Kaba</span><span className="text-white">Content</span>
           </div>
-          
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             <Button 
               size="sm"
@@ -407,114 +404,41 @@ export default function Home() {
               Pricing
             </Button>
           </div>
-
-          {/* Mobile Menu */}
-          <Sheet>
-            <SheetTrigger asChild className="md:hidden">
-              <Button size="icon" variant="ghost" className="text-white" data-testid="button-mobile-menu">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[280px] bg-gradient-to-b from-primary to-secondary border-l-0">
-              <div className="flex flex-col gap-6 mt-8">
-                <div className="font-bold text-xl text-white mb-4">
-                  <span className="bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">Kaba</span>Content
-                </div>
-                <SheetClose asChild>
-                  <Button 
-                    variant="ghost"
-                    className="text-white hover:bg-white/10 justify-start text-lg"
-                    onClick={scrollToBooking}
-                    data-testid="mobile-nav-book-call"
-                  >
-                    <Calendar className="w-5 h-5 mr-3" />
-                    Book Strategy Call
-                  </Button>
-                </SheetClose>
-                <SheetClose asChild>
-                  <Button 
-                    variant="ghost"
-                    className="text-white hover:bg-white/10 justify-start text-lg"
-                    onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-                    data-testid="mobile-nav-how-it-works"
-                  >
-                    <Play className="w-5 h-5 mr-3" />
-                    How It Works
-                  </Button>
-                </SheetClose>
-                <SheetClose asChild>
-                  <Button 
-                    variant="ghost"
-                    className="text-white hover:bg-white/10 justify-start text-lg"
-                    onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
-                    data-testid="mobile-nav-pricing"
-                  >
-                    <DollarSign className="w-5 h-5 mr-3" />
-                    Pricing
-                  </Button>
-                </SheetClose>
-                <SheetClose asChild>
-                  <Button 
-                    variant="ghost"
-                    className="text-white hover:bg-white/10 justify-start text-lg"
-                    onClick={() => document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" })}
-                    data-testid="mobile-nav-faq"
-                  >
-                    <MessageCircle className="w-5 h-5 mr-3" />
-                    FAQ
-                  </Button>
-                </SheetClose>
-                <div className="border-t border-white/20 pt-6 mt-4">
-                  <Link href="/affiliate">
-                    <SheetClose asChild>
-                      <Button 
-                        variant="outline"
-                        className="w-full border-white text-white hover:bg-white/10"
-                        data-testid="mobile-nav-affiliate"
-                      >
-                        Affiliate Program
-                      </Button>
-                    </SheetClose>
-                  </Link>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
         </div>
       </nav>
       {/* Hero Section - The Big Promise */}
-      <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-primary via-primary/85 to-secondary pt-16 md:pt-8">
+      <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-primary via-primary/85 to-secondary pt-8">
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/85 to-secondary" />
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_50%,rgba(255,255,255,0.1),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(255,255,255,0.05),transparent_50%)]" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-20 md:py-32 w-full">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-24 md:py-32 w-full">
           <ScrollReveal>
             <div className="max-w-4xl">
-              <div className="inline-block px-3 py-1.5 md:px-4 md:py-2 bg-white/60 border border-primary/50 rounded-full text-black-100 text-xs md:text-sm font-semibold mb-4 md:mb-6">
+              <div className="inline-block px-4 py-2 bg-white/60 border border-primary/50 rounded-full text-black-100 text-sm font-semibold mb-6">
                 The Mass-Content System for Creators, Coaches & Gurus
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-4 md:mb-6 leading-tight">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
                 Get 2 Million+ Views<br />Every Single Month
               </h1>
-              <p className="text-base sm:text-lg md:text-2xl text-white/90 mb-6 md:mb-8 leading-relaxed">
+              <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
                 We turn one long-form video into 500-2,500 clips, post them across 10-27 branded sub accounts, and flood the algorithm so you become unavoidable in your niche.
               </p>
-              <div className="flex flex-col gap-3 md:flex-row md:gap-4 mb-8 md:mb-12">
+              <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <Button 
                   size="lg" 
                   onClick={scrollToBooking}
-                  className="bg-primary hover:bg-primary/90 text-white text-base md:text-lg font-semibold px-6 py-5 md:px-8 md:py-6"
+                  className="bg-primary hover:bg-primary/90 text-white text-lg font-semibold px-8 py-6"
                   data-testid="button-hero-cta"
                 >
-                  <Calendar className="w-5 h-5 md:w-6 md:h-6 mr-2" />
+                  <Calendar className="w-6 h-6 mr-2" />
                   Book Your Strategy Call
                 </Button>
                 <Button 
                   size="lg" 
                   variant="outline"
-                  className="border-2 border-white text-white hover:bg-white/10 text-base md:text-lg font-semibold px-6 py-5 md:px-8 md:py-6"
+                  className="border-2 border-white text-white hover:bg-white/10 text-lg font-semibold px-8 py-6"
                   onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
                   data-testid="button-see-how"
                 >
@@ -523,30 +447,30 @@ export default function Home() {
                 <Button 
                   size="lg" 
                   variant="outline"
-                  className="border-2 border-white text-white hover:bg-white/10 text-base md:text-lg font-semibold px-6 py-5 md:px-8 md:py-6"
+                  className="border-2 border-white text-white hover:bg-white/10 text-lg font-semibold px-8 py-6"
                   onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
                   data-testid="button-pricing"
                 >
-                  <DollarSign className="w-5 h-5 md:w-6 md:h-6 mr-2" />
+                  <DollarSign className="w-6 h-6 mr-2" />
                   Pricing
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-16">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-16">
                 <div className="text-center md:text-left">
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 h-8 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={2500} suffix=""/></div>
-                  <div className="text-xs sm:text-sm text-white/70">Clips per month (max)</div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={2500} suffix=""/></div>
+                  <div className="text-sm text-white/70">Clips per month (max)</div>
                 </div>
                 <div className="text-center md:text-left">
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 h-8 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={10000} suffix=""/></div>
-                  <div className="text-xs sm:text-sm text-white/70">Monthly uploads (max)</div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={10000} suffix=""/></div>
+                  <div className="text-sm text-white/70">Monthly uploads (max)</div>
                 </div>
                 <div className="text-center md:text-left">
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 h-8 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={27} suffix=""/></div>
-                  <div className="text-xs sm:text-sm text-white/70">Branded accounts (max)</div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={27} suffix=""/></div>
+                  <div className="text-sm text-white/70">Branded accounts (max)</div>
                 </div>
                 <div className="text-center md:text-left">
-                  <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 h-8 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={2} suffix="M+"/></div>
-                  <div className="text-xs sm:text-sm text-white/70">Views monthly (typical)</div>
+                  <div className="text-3xl md:text-4xl font-bold text-white mb-1 h-9 md:h-11 flex items-center justify-center md:justify-start"><AnimatedCounter target={2} suffix="M+"/></div>
+                  <div className="text-sm text-white/70">Views monthly (typical)</div>
                 </div>
               </div>
             </div>
@@ -554,26 +478,26 @@ export default function Home() {
         </div>
       </section>
       {/* The Dream/Vision - Paint the Picture */}
-      <section className="py-12 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
+      <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-10 md:mb-16">
-              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6">Imagine This...</h2>
-              <p className="text-base sm:text-lg md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed px-2">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">Imagine This...</h2>
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
                 You wake up to millions of new views. Your phone is full of notifications. People recognize you everywhere on social media. Inbound leads are flooding in. You've become the undisputed authority in your niche.
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-10 md:mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             <ScrollReveal delay={100}>
               <Card className="border-2 hover-elevate">
-                <CardContent className="p-5 md:p-8">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-6">
-                    <Eye className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                <CardContent className="p-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mb-6">
+                    <Eye className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3">Millions of Views</h3>
-                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                  <h3 className="text-2xl font-bold mb-3">Millions of Views</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     2 million+ views every single month. Your content is everywhere. The algorithm loves you because you're feeding it exactly what it wants: volume, consistency, and variations.
                   </p>
                 </CardContent>
@@ -582,12 +506,12 @@ export default function Home() {
 
             <ScrollReveal delay={200}>
               <Card className="border-2 hover-elevate">
-                <CardContent className="p-5 md:p-8">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-6">
-                    <Users className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                <CardContent className="p-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mb-6">
+                    <Users className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3">Unstoppable Authority</h3>
-                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                  <h3 className="text-2xl font-bold mb-3">Unstoppable Authority</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     People see you on Instagram, TikTok, YouTube, and Facebook—constantly. You become the face of your niche. Competitors can't keep up. Clients assume you're the biggest name in the industry.
                   </p>
                 </CardContent>
@@ -596,12 +520,12 @@ export default function Home() {
 
             <ScrollReveal delay={300}>
               <Card className="border-2 hover-elevate">
-                <CardContent className="p-5 md:p-8">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center mb-4 md:mb-6">
-                    <Rocket className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                <CardContent className="p-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mb-6">
+                    <Rocket className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3">Explosive Business Growth</h3>
-                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                  <h3 className="text-2xl font-bold mb-3">Explosive Business Growth</h3>
+                  <p className="text-muted-foreground leading-relaxed">
                     More followers, more leads, more sales. Your inbox is full of opportunities. Your offers sell out. You've built a content machine that works 24/7 while you focus on serving clients and scaling revenue.
                   </p>
                 </CardContent>
@@ -610,11 +534,11 @@ export default function Home() {
           </div>
 
           <ScrollReveal delay={400}>
-            <div className="text-center px-2">
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold mb-3 md:mb-4">
+            <div className="text-center">
+              <p className="text-2xl md:text-3xl font-bold mb-4">
                 This isn't a fantasy. This is what happens when you post 2,000-10,000 times per month instead of 20.
               </p>
-              <p className="text-base md:text-lg text-muted-foreground">
+              <p className="text-lg text-muted-foreground">
                 And you only have to film once.
               </p>
             </div>
@@ -622,38 +546,38 @@ export default function Home() {
         </div>
       </section>
       {/* Evidence/Results - Social Proof */}
-      <section className="py-12 md:py-24 lg:py-32">
+      <section className="py-16 md:py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-10 md:mb-16">
-              <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 md:mb-4">Our Clients Are Getting These Results</h2>
-              <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Our Clients Are Getting These Results</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
                 Real numbers from real clients using the mass-content system
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {clientResults.map((result, index) => (
               <ScrollReveal key={result.initials} delay={index * 100}>
                 <Card className="h-full border-2" data-testid={`card-result-${index}`}>
-                  <CardContent className="p-5 md:p-8">
-                    <div className="flex items-center gap-3 mb-3 md:mb-4">
-                      <div className="w-11 h-11 md:w-14 md:h-14 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-lg md:text-xl">
+                  <CardContent className="p-8">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-14 h-14 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center text-white font-bold text-xl">
                         {result.initials}
                       </div>
                       <div>
-                        <div className="font-bold text-base md:text-lg">{result.role}</div>
-                        <div className="text-xs md:text-sm text-primary font-semibold">{result.result}</div>
+                        <div className="font-bold text-lg">{result.role}</div>
+                        <div className="text-sm text-primary font-semibold">{result.result}</div>
                       </div>
                     </div>
-                    <Quote className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground/30 mb-2 md:mb-3" />
-                    <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6 leading-relaxed italic">"{result.quote}"</p>
-                    <div className="space-y-2 md:space-y-3 pt-4 md:pt-6 border-t">
+                    <Quote className="w-8 h-8 text-muted-foreground/30 mb-3" />
+                    <p className="text-muted-foreground mb-6 leading-relaxed italic">"{result.quote}"</p>
+                    <div className="space-y-3 pt-6 border-t">
                       {result.metrics.map((metric, idx) => (
-                        <div key={idx} className="flex justify-between items-center gap-2">
-                          <span className="text-xs md:text-sm text-muted-foreground">{metric.label}</span>
-                          <span className="font-bold text-primary text-base md:text-lg">{metric.value}</span>
+                        <div key={idx} className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">{metric.label}</span>
+                          <span className="font-bold text-primary text-lg">{metric.value}</span>
                         </div>
                       ))}
                     </div>
@@ -665,12 +589,12 @@ export default function Home() {
         </div>
       </section>
       {/* The Problem - Why Normal Approach Fails */}
-      <section className="py-12 md:py-24 lg:py-32 bg-muted/30">
+      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-8 md:mb-12">
-              <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-4 md:mb-6 px-2">Here's Why You're Not Getting Results</h2>
-              <p className="text-base md:text-xl text-muted-foreground max-w-3xl mx-auto px-2">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6">Here's Why You're Not Getting Results</h2>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
                 Most creators are playing a losing game. They post on one account, upload 20-30 videos monthly, and wonder why growth is slow.
               </p>
             </div>
@@ -681,39 +605,39 @@ export default function Home() {
               <Card className="border-2">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm md:text-base">
+                    <table className="w-full">
                       <thead>
                         <tr className="border-b-2">
-                          <th className="p-3 md:p-6 text-left font-bold text-xs md:text-base">Metric</th>
-                          <th className="p-3 md:p-6 text-center font-bold text-muted-foreground text-xs md:text-base">Traditional</th>
-                          <th className="p-3 md:p-6 text-center font-bold text-primary text-xs md:text-base">Our System</th>
+                          <th className="p-6 text-left font-bold">Metric</th>
+                          <th className="p-6 text-center font-bold text-muted-foreground">Traditional Approach</th>
+                          <th className="p-6 text-center font-bold text-primary">Our System</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr className="border-b">
-                          <td className="p-3 md:p-6 font-semibold text-xs md:text-base">Accounts Created</td>
-                          <td className="p-3 md:p-6 text-center text-muted-foreground text-xs md:text-base">1 account</td>
-                          <td className="p-3 md:p-6 text-center text-primary font-bold text-xs md:text-base">10-27 accounts</td>
+                          <td className="p-6 font-semibold">Accounts Created</td>
+                          <td className="p-6 text-center text-muted-foreground">1 account</td>
+                          <td className="p-6 text-center text-primary font-bold">10-27 accounts</td>
                         </tr>
                         <tr className="border-b">
-                          <td className="p-3 md:p-6 font-semibold text-xs md:text-base">Monthly Uploads</td>
-                          <td className="p-3 md:p-6 text-center text-muted-foreground text-xs md:text-base">20-30 videos</td>
-                          <td className="p-3 md:p-6 text-center text-primary font-bold text-xs md:text-base">2,000-10,000</td>
+                          <td className="p-6 font-semibold">Monthly Uploads</td>
+                          <td className="p-6 text-center text-muted-foreground">20-30 videos</td>
+                          <td className="p-6 text-center text-primary font-bold">2,000-10,000 videos</td>
                         </tr>
                         <tr className="border-b">
-                          <td className="p-3 md:p-6 font-semibold text-xs md:text-base">Platform Reach</td>
-                          <td className="p-3 md:p-6 text-center text-muted-foreground text-xs md:text-base">1-2 platforms</td>
-                          <td className="p-3 md:p-6 text-center text-primary font-bold text-xs md:text-base">4 platforms</td>
+                          <td className="p-6 font-semibold">Platform Reach</td>
+                          <td className="p-6 text-center text-muted-foreground">Usually 1-2 platforms</td>
+                          <td className="p-6 text-center text-primary font-bold">4 platforms simultaneously</td>
                         </tr>
                         <tr className="border-b">
-                          <td className="p-3 md:p-6 font-semibold text-xs md:text-base">Algorithm Edge</td>
-                          <td className="p-3 md:p-6 text-center text-muted-foreground text-xs md:text-base">Low</td>
-                          <td className="p-3 md:p-6 text-center text-primary font-bold text-xs md:text-base">High</td>
+                          <td className="p-6 font-semibold">Algorithm Advantage</td>
+                          <td className="p-6 text-center text-muted-foreground">Low (competing with millions)</td>
+                          <td className="p-6 text-center text-primary font-bold">High (flooding the algorithm)</td>
                         </tr>
                         <tr>
-                          <td className="p-3 md:p-6 font-semibold text-xs md:text-base">Monthly Views</td>
-                          <td className="p-3 md:p-6 text-center text-muted-foreground text-xs md:text-base">10K-100K</td>
-                          <td className="p-3 md:p-6 text-center text-primary font-bold text-sm md:text-xl">1-2 Million+</td>
+                          <td className="p-6 font-semibold">Typical Monthly Views</td>
+                          <td className="p-6 text-center text-muted-foreground">10K-100K</td>
+                          <td className="p-6 text-center text-primary font-bold text-xl">1-2 Million+</td>
                         </tr>
                       </tbody>
                     </table>
@@ -721,13 +645,13 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <div className="mt-6 md:mt-8 p-4 md:p-6 bg-destructive/10 border-2 border-destructive/30 rounded-xl">
-                <div className="flex items-start gap-3 md:gap-4">
-                  <AlertCircle className="w-6 h-6 md:w-8 md:h-8 text-destructive flex-shrink-0 mt-0.5" />
+              <div className="mt-8 p-6 bg-destructive/10 border-2 border-destructive/30 rounded-xl">
+                <div className="flex items-start gap-4">
+                  <AlertCircle className="w-8 h-8 text-destructive flex-shrink-0 mt-1" />
                   <div>
-                    <h3 className="text-base md:text-xl font-bold mb-1.5 md:mb-2 text-destructive">The Truth About Single-Account Growth</h3>
-                    <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                      Posting 20-30 videos monthly on one account means you're competing with millions of other creators for limited algorithm visibility. Even with great content, you'll struggle to break through.
+                    <h3 className="text-xl font-bold mb-2 text-destructive">The Truth About Single-Account Growth</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Posting 20-30 videos monthly on one account means you're competing with millions of other creators for limited algorithm visibility. Even with great content, you'll struggle to break through. The math simply doesn't work in your favor.
                     </p>
                   </div>
                 </div>
@@ -737,55 +661,55 @@ export default function Home() {
         </div>
       </section>
       {/* The Solution - Overview */}
-      <section className="py-12 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
+      <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-8 md:mb-12">
-              <h2 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 px-2">The Solution: The Mass-Content System</h2>
-              <p className="text-base sm:text-lg md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed px-2">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">The Solution: The Mass-Content System</h2>
+              <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed">
                 We build you a content empire. Multiple branded accounts. Hundreds of clips monthly. Full automation. Complete management.
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mt-8 md:mt-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16">
             <ScrollReveal delay={100}>
-              <div className="text-center p-4 md:p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="text-2xl sm:text-3xl md:text-5xl font-bold mb-1 md:mb-2">67-333x</div>
-                <div className="text-xs md:text-sm text-white/80">More content than competitors</div>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">67-333x</div>
+                <div className="text-sm text-white/80">More content than competitors</div>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={200}>
-              <div className="text-center p-4 md:p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="text-2xl sm:text-3xl md:text-5xl font-bold mb-1 md:mb-2">4</div>
-                <div className="text-xs md:text-sm text-white/80">Platforms simultaneously</div>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">4</div>
+                <div className="text-sm text-white/80">Platforms simultaneously</div>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={300}>
-              <div className="text-center p-4 md:p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="text-2xl sm:text-3xl md:text-5xl font-bold mb-1 md:mb-2">108</div>
-                <div className="text-xs md:text-sm text-white/80">Max profiles (Empire)</div>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">108</div>
+                <div className="text-sm text-white/80">Max profiles created (Empire)</div>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={400}>
-              <div className="text-center p-4 md:p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-                <div className="text-2xl sm:text-3xl md:text-5xl font-bold mb-1 md:mb-2">100%</div>
-                <div className="text-xs md:text-sm text-white/80">Managed for you</div>
+              <div className="text-center p-6 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                <div className="text-5xl font-bold mb-2">100%</div>
+                <div className="text-sm text-white/80">Managed for you</div>
               </div>
             </ScrollReveal>
           </div>
         </div>
       </section>
       {/* How It Works - Presentation Walkthrough */}
-      <section id="how-it-works" className="py-12 md:py-24 lg:py-32">
+      <section id="how-it-works" className="py-16 md:py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-10 md:mb-16">
-              <div className="inline-block px-3 py-1.5 md:px-4 md:py-2 bg-primary/10 border border-primary/30 rounded-full text-primary text-xs md:text-sm font-semibold mb-3 md:mb-4">
+            <div className="text-center mb-16">
+              <div className="inline-block px-4 py-2 bg-primary/10 border border-primary/30 rounded-full text-primary text-sm font-semibold mb-4">
                 The Complete Process
               </div>
-              <h2 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 px-2">How The System Works</h2>
-              <p className="text-base md:text-xl text-muted-foreground max-w-3xl mx-auto px-2">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">How The System Works</h2>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
                 Let me walk you through exactly what happens from the moment you sign up to the moment you're getting millions of views
               </p>
             </div>
@@ -793,31 +717,31 @@ export default function Home() {
 
           {/* Step 1 */}
           <ScrollReveal delay={100}>
-            <Card className="mb-4 md:mb-8 border-2">
-              <CardContent className="p-4 md:p-8 lg:p-12">
-                <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                  <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-xl md:text-2xl">
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
                     1
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl md:text-3xl font-bold mb-2 md:mb-4">Step 1: We Study Your Brand & Niche</h3>
-                    <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">
+                    <h3 className="text-3xl font-bold mb-4">Step 1: We Study Your Brand & Niche</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
                       First, you fill out our onboarding form. We learn everything about you: your niche, your offer, your personality, your target audience, your competitors, and your goals.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-muted/30 rounded-xl p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What You Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Fill out a simple form about your business, audience, and content goals</p>
+                        <p className="text-sm text-muted-foreground">Fill out a simple form about your business, audience, and content goals</p>
                       </div>
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Analyze your niche, research your competitors, and create a complete content strategy tailored to your brand</p>
+                        <p className="text-sm text-muted-foreground">Analyze your niche, research your competitors, and create a complete content strategy tailored to your brand</p>
                       </div>
                     </div>
                   </div>
@@ -828,49 +752,49 @@ export default function Home() {
 
           {/* Step 2 */}
           <ScrollReveal delay={200}>
-            <Card className="mb-4 md:mb-8 border-2">
-              <CardContent className="p-4 md:p-8 lg:p-12">
-                <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                  <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-xl md:text-2xl">
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
                     2
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl md:text-3xl font-bold mb-2 md:mb-4">Step 2: We Build Your Account Network</h3>
-                    <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">
+                    <h3 className="text-3xl font-bold mb-4">Step 2: We Build Your Account Network</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
                       We create 10-27 branded sub-accounts (depending on your tier) across Instagram, TikTok, YouTube, and Facebook. Each account gets custom branding, unique bios, specific positioning, and its own visual identity.
                     </p>
-                    <div className="grid grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
-                      <div className="text-center p-2 md:p-4 bg-gradient-to-br from-pink-500/10 to-purple-500/10 rounded-lg md:rounded-xl border border-pink-500/20">
-                        <SiInstagram className="w-6 h-6 md:w-10 md:h-10 mx-auto mb-1 md:mb-2 text-pink-500" />
-                        <div className="font-bold text-xs md:text-sm">Instagram</div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div className="text-center p-4 bg-gradient-to-br from-pink-500/10 to-purple-500/10 rounded-xl border border-pink-500/20">
+                        <SiInstagram className="w-10 h-10 mx-auto mb-2 text-pink-500" />
+                        <div className="font-bold text-sm">Instagram</div>
                       </div>
-                      <div className="text-center p-2 md:p-4 bg-gradient-to-br from-black/10 to-cyan-500/10 rounded-lg md:rounded-xl border border-cyan-500/20">
-                        <SiTiktok className="w-6 h-6 md:w-10 md:h-10 mx-auto mb-1 md:mb-2" />
-                        <div className="font-bold text-xs md:text-sm">TikTok</div>
+                      <div className="text-center p-4 bg-gradient-to-br from-black/10 to-cyan-500/10 rounded-xl border border-cyan-500/20">
+                        <SiTiktok className="w-10 h-10 mx-auto mb-2" />
+                        <div className="font-bold text-sm">TikTok</div>
                       </div>
-                      <div className="text-center p-2 md:p-4 bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-lg md:rounded-xl border border-red-500/20">
-                        <SiYoutube className="w-6 h-6 md:w-10 md:h-10 mx-auto mb-1 md:mb-2 text-red-500" />
-                        <div className="font-bold text-xs md:text-sm">YouTube</div>
+                      <div className="text-center p-4 bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-xl border border-red-500/20">
+                        <SiYoutube className="w-10 h-10 mx-auto mb-2 text-red-500" />
+                        <div className="font-bold text-sm">YouTube</div>
                       </div>
-                      <div className="text-center p-2 md:p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-lg md:rounded-xl border border-blue-500/20">
-                        <SiFacebook className="w-6 h-6 md:w-10 md:h-10 mx-auto mb-1 md:mb-2 text-blue-500" />
-                        <div className="font-bold text-xs md:text-sm">Facebook</div>
+                      <div className="text-center p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-xl border border-blue-500/20">
+                        <SiFacebook className="w-10 h-10 mx-auto mb-2 text-blue-500" />
+                        <div className="font-bold text-sm">Facebook</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-muted/30 rounded-xl p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What You Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Nothing. We handle everything.</p>
+                        <p className="text-sm text-muted-foreground">Nothing. We handle everything.</p>
                       </div>
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Create 40-108 total profiles with unique branding, write all bios, set up posting infrastructure, optimize each for their platform</p>
+                        <p className="text-sm text-muted-foreground">Create 40-108 total profiles with unique branding, write all bios, set up posting infrastructure, optimize each for their platform</p>
                       </div>
                     </div>
                   </div>
@@ -881,31 +805,31 @@ export default function Home() {
 
           {/* Step 3 */}
           <ScrollReveal delay={300}>
-            <Card className="mb-4 md:mb-8 border-2">
-              <CardContent className="p-4 md:p-8 lg:p-12">
-                <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                  <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-xl md:text-2xl">
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
                     3
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl md:text-3xl font-bold mb-2 md:mb-4">Step 3: You Film Once</h3>
-                    <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">
+                    <h3 className="text-3xl font-bold mb-4">Step 3: You Film Once</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
                       We give you a complete filming guide: topics, questions, talking points, storylines—all optimized for viral clip potential. You film one 60-90 minute video (or send us an existing video, stream recording, or podcast).
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-muted/30 rounded-xl p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What You Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Film one piece of long-form content. Or give us existing videos. That's it.</p>
+                        <p className="text-sm text-muted-foreground">Film one piece of long-form content. Or give us existing videos. That's it.</p>
                       </div>
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Provide
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Complete filming guide with proven topics, questions to answer, and talking points designed to generate maximum clip potential</p>
+                        <p className="text-sm text-muted-foreground">Complete filming guide with proven topics, questions to answer, and talking points designed to generate maximum clip potential</p>
                       </div>
                     </div>
                   </div>
@@ -916,31 +840,31 @@ export default function Home() {
 
           {/* Step 4 */}
           <ScrollReveal delay={400}>
-            <Card className="mb-4 md:mb-8 border-2">
-              <CardContent className="p-4 md:p-8 lg:p-12">
-                <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                  <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-xl md:text-2xl">
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
                     4
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl md:text-3xl font-bold mb-2 md:mb-4">Step 4: We Extract Every Usable Clip</h3>
-                    <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">
-                      Our team watches your video and extracts every single viral moment, valuable teaching point, quotable line, and engaging story. We identify 50-250 original clips depending on your tier.
+                    <h3 className="text-3xl font-bold mb-4">Step 4: We Extract Every Usable Clip</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      Our team watches your video and extracts every single viral moment, valuable teaching point, quotable line, and engaging story. We identify 50-250 original clips depending on your tier (Growth: 50 clips, Domination: 100 clips, Empire: 250 clips).
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-muted/30 rounded-xl p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What You Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Nothing. You're done filming.</p>
+                        <p className="text-sm text-muted-foreground">Nothing. You're done filming.</p>
                       </div>
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Watch every second, identify 50-250 viral moments, extract the original clips, categorize by topic, and prepare each for multi-variation editing</p>
+                        <p className="text-sm text-muted-foreground">Watch every second, identify 50-250 viral moments, extract the original clips, categorize by topic, and prepare each for multi-variation editing</p>
                       </div>
                     </div>
                   </div>
@@ -951,60 +875,60 @@ export default function Home() {
 
           {/* Step 5 */}
           <ScrollReveal delay={500}>
-            <Card className="mb-4 md:mb-8 border-2">
-              <CardContent className="p-4 md:p-8 lg:p-12">
-                <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                  <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-xl md:text-2xl">
+            <Card className="mb-8 border-2">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
                     5
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl md:text-3xl font-bold mb-2 md:mb-4">Step 5: We Create 10 Unique Variations</h3>
-                    <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">
-                      Here's where the magic happens: we take each of those 50-250 original clips and edit them 10 different ways. 50 clips × 10 = 500 total. 100 × 10 = 1,000. 250 × 10 = 2,500.
+                    <h3 className="text-3xl font-bold mb-4">Step 5: We Create 10 Unique Variations of Each Clip</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      Here's where the magic happens: we take each of those 50-250 original clips and edit them 10 different ways. So 50 clips × 10 variations = 500 total clips. 100 clips × 10 = 1,000. 250 clips × 10 = 2,500. Every variation gets unique branding, different hooks, custom captions, platform-specific optimization, and viral editing techniques.
                     </p>
-                    <div className="mb-4 md:mb-6 p-4 md:p-6 bg-primary/5 border-2 border-primary/20 rounded-xl">
-                      <h4 className="font-bold mb-3 md:mb-4 text-sm md:text-base">What Goes Into Each Variation:</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-                        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm">
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
-                          <span>Custom branding</span>
+                    <div className="mb-6 p-6 bg-primary/5 border-2 border-primary/20 rounded-xl">
+                      <h4 className="font-bold mb-4">What Goes Into Each Variation:</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Custom branding elements</span>
                         </div>
-                        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm">
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
-                          <span>Viral hooks</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Viral hook restructuring</span>
                         </div>
-                        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm">
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
-                          <span>Platform-specific</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Platform-specific formatting</span>
                         </div>
-                        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm">
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
-                          <span>Unique captions</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Unique captions & subtitles</span>
                         </div>
-                        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm">
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
-                          <span>Retention edits</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                          <span>Attention retention edits</span>
                         </div>
-                        <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm">
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
+                        <div className="flex items-center gap-2 text-sm">
+                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
                           <span>CTA placement</span>
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-muted/30 rounded-xl p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What You Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Still nothing. We handle all editing.</p>
+                        <p className="text-sm text-muted-foreground">Still nothing. We handle all editing.</p>
                       </div>
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Create 10 unique variations of each original clip—turning 50-250 clips into 500-2,500 ready-to-post videos</p>
+                        <p className="text-sm text-muted-foreground">Create 10 unique variations of each original clip with different branding, hooks, captions, and optimization—turning 50-250 clips into 500-2,500 ready-to-post videos</p>
                       </div>
                     </div>
                   </div>
@@ -1015,48 +939,48 @@ export default function Home() {
 
           {/* Step 6 */}
           <ScrollReveal delay={600}>
-            <Card className="mb-4 md:mb-8 border-2 border-primary shadow-xl">
-              <CardContent className="p-4 md:p-8 lg:p-12">
-                <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                  <div className="flex-shrink-0 w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-secondary rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-xl md:text-2xl">
+            <Card className="mb-8 border-2 border-primary shadow-xl">
+              <CardContent className="p-8 md:p-12">
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center text-white font-bold text-2xl">
                     6
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl md:text-3xl font-bold mb-2 md:mb-4">Step 6: We Schedule, Post & Manage</h3>
-                    <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 leading-relaxed">
-                      All 2,000-10,000 videos are scheduled and posted across all accounts, all platforms, every single day. We write custom captions, add hashtags, optimize posting times, and manage the entire content calendar.
+                    <h3 className="text-3xl font-bold mb-4">Step 6: We Schedule, Post & Manage Everything</h3>
+                    <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                      All 2,000-10,000 videos are scheduled and posted across all accounts, all platforms, every single day. We write custom captions, add hashtags, optimize posting times, and manage the entire content calendar. You never touch an account.
                     </p>
-                    <div className="mb-4 md:mb-6 p-4 md:p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-xl">
-                      <h4 className="font-bold mb-3 md:mb-4 text-base md:text-xl">Then You Watch The Results Roll In:</h4>
-                      <div className="grid grid-cols-3 gap-3 md:gap-6">
+                    <div className="mb-6 p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/30 rounded-xl">
+                      <h4 className="font-bold mb-4 text-xl">Then You Watch The Results Roll In:</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="text-center">
-                          <div className="text-2xl md:text-4xl font-bold text-primary mb-1 md:mb-2">2M+</div>
-                          <div className="text-xs md:text-sm text-muted-foreground">Views/month</div>
+                          <div className="text-4xl font-bold text-primary mb-2">2M+</div>
+                          <div className="text-sm text-muted-foreground">Views per month</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl md:text-4xl font-bold text-primary mb-1 md:mb-2">1000s</div>
-                          <div className="text-xs md:text-sm text-muted-foreground">New followers</div>
+                          <div className="text-4xl font-bold text-primary mb-2">Thousands</div>
+                          <div className="text-sm text-muted-foreground">New followers weekly</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl md:text-4xl font-bold text-primary mb-1 md:mb-2">100s</div>
-                          <div className="text-xs md:text-sm text-muted-foreground">Leads/month</div>
+                          <div className="text-4xl font-bold text-primary mb-2">Hundreds</div>
+                          <div className="text-sm text-muted-foreground">Inbound leads monthly</div>
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-muted/30 rounded-xl p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 rounded-xl p-6">
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What You Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Focus on serving clients, closing deals, and growing your business.</p>
+                        <p className="text-sm text-muted-foreground">Focus on serving clients, closing deals, and growing your business. The content machine runs itself.</p>
                       </div>
                       <div>
-                        <h4 className="font-bold mb-1.5 md:mb-2 flex items-center gap-2 text-sm md:text-base">
-                          <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                        <h4 className="font-bold mb-2 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                           What We Do
                         </h4>
-                        <p className="text-xs md:text-sm text-muted-foreground">Schedule all videos, write captions, manage all accounts, optimize posting times, monitor performance</p>
+                        <p className="text-sm text-muted-foreground">Schedule all videos, write captions, manage all accounts, optimize posting times, monitor performance, provide analytics, adjust strategy</p>
                       </div>
                     </div>
                   </div>
@@ -1066,15 +990,15 @@ export default function Home() {
           </ScrollReveal>
 
           <ScrollReveal delay={700}>
-            <div className="text-center mt-8 md:mt-12 p-5 md:p-8 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-xl md:rounded-2xl border-2 border-primary/20">
-              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-3 md:mb-4 px-2">
+            <div className="text-center mt-12 p-8 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl border-2 border-primary/20">
+              <h3 className="text-2xl md:text-3xl font-bold mb-4">
                 That's The Entire System
               </h3>
-              <p className="text-sm md:text-lg text-muted-foreground mb-4 md:mb-6 max-w-2xl mx-auto px-2">
-                You film once. We turn it into 500-2,500 clips. We post 2,000-10,000 times across 40-108 accounts. You get 2M+ views monthly.
+              <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
+                You film once. We turn it into 500-2,500 clips. We post 2,000-10,000 times across 40-108 accounts. You get 2M+ views monthly and become the dominant authority in your niche.
               </p>
               <Button size="lg" onClick={scrollToBooking} data-testid="button-how-it-works-cta">
-                <Calendar className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                <Calendar className="w-5 h-5 mr-2" />
                 Book Your Strategy Call
               </Button>
             </div>
@@ -1082,18 +1006,18 @@ export default function Home() {
         </div>
       </section>
       {/* Pricing */}
-      <section id="pricing" className="py-12 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
+      <section id="pricing" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-8 md:mb-12">
-              <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 md:mb-4">Choose Your Growth Tier</h2>
-              <p className="text-sm md:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Choose Your Growth Tier</h2>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
                 All tiers include the complete system: account creation, content extraction, editing, posting, and management
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {pricingTiers.map((tier, index) => (
               <ScrollReveal key={tier.name} delay={index * 100}>
                 <Card 
@@ -1105,49 +1029,49 @@ export default function Home() {
                   data-testid={`card-pricing-${index}`}
                 >
                   {tier.popular && (
-                    <div className="absolute -top-3 md:-top-4 left-1/2 -translate-x-1/2">
-                      <div className="px-3 md:px-4 py-0.5 md:py-1 bg-gradient-to-r from-primary to-secondary text-white text-xs md:text-sm font-bold rounded-full flex items-center gap-1">
-                        <Zap className="w-3 h-3 md:w-4 md:h-4" />
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                      <div className="px-4 py-1 bg-gradient-to-r from-primary to-secondary text-white text-sm font-bold rounded-full flex items-center gap-1">
+                        <Zap className="w-4 h-4" />
                         Most Popular
                       </div>
                     </div>
                   )}
 
-                  <CardContent className="p-5 md:p-8 flex flex-col flex-1">
-                    <div className="mb-4 md:mb-6">
-                      <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3">{tier.name}</h3>
-                      <div className="flex items-baseline gap-1 mb-3 md:mb-4">
-                        <span className="text-2xl md:text-4xl font-bold">{tier.price}</span>
-                        <span className="text-sm md:text-base text-muted-foreground">{tier.period}</span>
+                  <CardContent className="p-8 flex flex-col flex-1">
+                    <div className="mb-6">
+                      <h3 className="text-2xl font-bold mb-3">{tier.name}</h3>
+                      <div className="flex items-baseline gap-1 mb-4">
+                        <span className="text-4xl font-bold">{tier.price}</span>
+                        <span className="text-muted-foreground">{tier.period}</span>
                       </div>
-                      <div className="space-y-1.5 md:space-y-2 mb-3 md:mb-4 p-3 md:p-4 bg-primary/5 rounded-lg">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs md:text-sm font-semibold">Clips per month:</span>
-                          <span className="text-base md:text-lg font-bold text-primary">{tier.clips}</span>
+                      <div className="space-y-2 mb-4 p-4 bg-primary/5 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">Clips per month:</span>
+                          <span className="text-lg font-bold text-primary">{tier.clips}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs md:text-sm font-semibold">Sub-accounts:</span>
-                          <span className="text-base md:text-lg font-bold text-primary">{tier.accounts}</span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">Sub-accounts:</span>
+                          <span className="text-lg font-bold text-primary">{tier.accounts}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs md:text-sm font-semibold">Total uploads/month:</span>
-                          <span className="text-base md:text-lg font-bold text-primary">{tier.uploads}</span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">Total uploads/month:</span>
+                          <span className="text-lg font-bold text-primary">{tier.uploads}</span>
                         </div>
                       </div>
-                      <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         {tier.description}
                       </p>
                     </div>
 
-                    <div className="space-y-2 md:space-y-3 flex-1 mb-4 md:mb-6">
+                    <div className="space-y-3 flex-1 mb-6">
                       {tier.features.map((feature, featureIndex) => (
                         <div 
                           key={featureIndex} 
-                          className="flex items-start gap-2 md:gap-3"
+                          className="flex items-start gap-3"
                           data-testid={`feature-${index}-${featureIndex}`}
                         >
-                          <Check className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0 mt-0.5" />
-                          <span className="text-xs md:text-sm">{feature}</span>
+                          <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                          <span className="text-sm">{feature}</span>
                         </div>
                       ))}
                     </div>
@@ -1168,13 +1092,13 @@ export default function Home() {
           </div>
 
           <ScrollReveal delay={400}>
-            <div className="mt-8 md:mt-12 text-center p-5 md:p-8 bg-white dark:bg-slate-950 rounded-xl md:rounded-2xl border-2">
-              <h3 className="text-lg md:text-2xl font-bold mb-4 md:mb-6">Not sure which tier is right for you?</h3>
-              <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6 max-w-2xl mx-auto px-2">
+            <div className="mt-12 text-center p-8 bg-white dark:bg-slate-950 rounded-2xl border-2">
+              <h3 className="text-2xl font-bold mb-6">Not sure which tier is right for you?</h3>
+              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
                 Book a free strategy call. We'll analyze your niche, discuss your goals, and recommend the best plan for maximum ROI.
               </p>
               <Button size="lg" onClick={scrollToBooking}>
-                <Calendar className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                <Calendar className="w-5 h-5 mr-2" />
                 Schedule Free Strategy Call
               </Button>
             </div>
@@ -1182,30 +1106,30 @@ export default function Home() {
         </div>
       </section>
       {/* FAQ */}
-      <section className="py-12 md:py-24 lg:py-32 bg-muted/30">
+      <section className="py-16 md:py-24 lg:py-32 bg-muted/30">
         <div className="max-w-4xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-8 md:mb-12">
-              <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 md:mb-4">Common Questions</h2>
-              <p className="text-sm md:text-xl text-muted-foreground px-2">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">Common Questions</h2>
+              <p className="text-lg md:text-xl text-muted-foreground">
                 Everything you need to know about the mass-content system
               </p>
             </div>
           </ScrollReveal>
 
           <ScrollReveal delay={200}>
-            <Accordion type="single" collapsible className="space-y-3 md:space-y-4" data-testid="accordion-faq">
+            <Accordion type="single" collapsible className="space-y-4" data-testid="accordion-faq">
               {faqs.map((faq, index) => (
                 <AccordionItem
                   key={index}
                   value={`item-${index}`}
-                  className="bg-background border-2 rounded-lg md:rounded-xl px-4 md:px-6 py-1 md:py-2"
+                  className="bg-background border-2 rounded-xl px-6 py-2"
                   data-testid={`faq-item-${index}`}
                 >
-                  <AccordionTrigger className="text-left font-semibold hover:no-underline text-sm md:text-base">
+                  <AccordionTrigger className="text-left font-semibold hover:no-underline">
                     {faq.question}
                   </AccordionTrigger>
-                  <AccordionContent className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                  <AccordionContent className="text-muted-foreground leading-relaxed">
                     {faq.answer}
                   </AccordionContent>
                 </AccordionItem>
@@ -1215,15 +1139,15 @@ export default function Home() {
         </div>
       </section>
       {/* Final CTA */}
-      <section id="booking" className="py-12 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
+      <section id="booking" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary via-primary/95 to-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <ScrollReveal>
-            <div className="text-center mb-8 md:mb-12">
-              <h2 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 px-2">Ready to Dominate Your Niche?</h2>
-              <p className="text-base sm:text-lg md:text-2xl text-white/90 max-w-3xl mx-auto mb-3 md:mb-4 px-2">
-                Book a free 30-minute strategy call. We'll walk you through the system and help you choose the right tier.
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">Ready to Dominate Your Niche?</h2>
+              <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-4">
+                Book a free 30-minute strategy call. We'll walk you through the system, show you how it works for your specific niche, and help you choose the right tier.
               </p>
-              <p className="text-sm md:text-lg text-white/80 max-w-2xl mx-auto px-2">No pressure. No hard sell. Just a clear explanation of how we can help you get 2M+ views monthly.</p>
+              <p className="text-lg text-white/80 max-w-2xl mx-auto">No pressure. No hard sell. Just a clear explanation of how we can help you get 2M+ views monthly and become the undisputed authority in your space.</p>
             </div>
           </ScrollReveal>
 
@@ -1234,25 +1158,25 @@ export default function Home() {
                   <Button 
                     size="lg"
                     onClick={() => setShowCalendly(true)}
-                    className="bg-white text-primary hover:bg-white/90 shadow-2xl text-base md:text-xl font-semibold px-6 md:px-12 py-5 md:py-8"
+                    className="bg-white text-primary hover:bg-white/90 shadow-2xl text-xl font-semibold px-12 py-8"
                     data-testid="button-show-calendly"
                   >
-                    <Calendar className="w-5 h-5 md:w-7 md:h-7 mr-2 md:mr-3" />
+                    <Calendar className="w-7 h-7 mr-3" />
                     Book Your Free Strategy Call
                   </Button>
-                  <p className="mt-5 md:mt-8 text-white/80 text-sm md:text-lg">
+                  <p className="mt-8 text-white/80 text-lg">
                     Or message us on Telegram: <a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="underline font-semibold hover:text-white">@arminkaba</a>
                   </p>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-slate-900 rounded-xl md:rounded-2xl overflow-hidden shadow-2xl">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl">
                   <iframe
                     src={calendlyUrl}
                     width="100%"
-                    height="600"
+                    height="700"
                     frameBorder="0"
                     data-testid="calendly-widget"
-                    className="rounded-xl md:rounded-2xl min-h-[500px] md:min-h-[700px]"
+                    className="rounded-2xl"
                   />
                 </div>
               )}
@@ -1260,27 +1184,27 @@ export default function Home() {
           </ScrollReveal>
 
           <ScrollReveal delay={300}>
-            <div className="mt-10 md:mt-16 pt-8 md:pt-12 border-t border-white/20">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 text-center">
+            <div className="mt-16 pt-12 border-t border-white/20">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
                 <div>
-                  <SiTelegram className="w-7 h-7 md:w-10 md:h-10 mx-auto mb-2 md:mb-3" />
-                  <div className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Telegram</div>
-                  <a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-xs md:text-lg">@arminkaba</a>
+                  <SiTelegram className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">Telegram</div>
+                  <a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-lg">@arminkaba</a>
                 </div>
                 <div>
-                  <SiWhatsapp className="w-7 h-7 md:w-10 md:h-10 mx-auto mb-2 md:mb-3" />
-                  <div className="font-semibold mb-1 md:mb-2 text-sm md:text-base">WhatsApp</div>
-                  <a href="https://wa.me/16045054851" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-xs md:text-lg">Chat Now</a>
+                  <SiWhatsapp className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">WhatsApp</div>
+                  <a href="https://wa.me/16045054851" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-lg">Chat Now</a>
                 </div>
                 <div>
-                  <Mail className="w-7 h-7 md:w-10 md:h-10 mx-auto mb-2 md:mb-3" />
-                  <div className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Email</div>
-                  <a href="mailto:arminabadi7@gmail.com" className="text-white/80 hover:text-white text-xs md:text-base break-all">arminabadi7@gmail.com</a>
+                  <Mail className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">Email</div>
+                  <a href="mailto:arminabadi7@gmail.com" className="text-white/80 hover:text-white">arminabadi7@gmail.com</a>
                 </div>
                 <div>
-                  <SiInstagram className="w-7 h-7 md:w-10 md:h-10 mx-auto mb-2 md:mb-3" />
-                  <div className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Instagram</div>
-                  <a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white text-xs md:text-base">@kabacontent</a>
+                  <SiInstagram className="w-10 h-10 mx-auto mb-3" />
+                  <div className="font-semibold mb-2">Instagram</div>
+                  <a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white">@kabacontent</a>
                 </div>
               </div>
             </div>
@@ -1288,16 +1212,16 @@ export default function Home() {
         </div>
       </section>
       {/* Footer */}
-      <footer className="bg-black text-white py-8 md:py-12 border-t border-primary/20">
+      <footer className="bg-black text-white py-12 border-t border-primary/20">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 mb-6 md:mb-8">
-            <div className="col-span-2 md:col-span-1">
-              <h3 className="font-bold text-lg md:text-xl mb-3 md:mb-4">Kaba Content</h3>
-              <p className="text-xs md:text-sm text-white/60 leading-relaxed">The mass-content system for creators, coaches, and gurus who want to dominate their niche.</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h3 className="font-bold text-xl mb-4">Kaba Content</h3>
+              <p className="text-sm text-white/60 leading-relaxed">The mass-content system for creators, coaches, and gurus who want to dominate their niche.</p>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 md:mb-4 text-sm md:text-base">Quick Links</h4>
-              <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm text-white/60">
+              <h4 className="font-semibold mb-4">Quick Links</h4>
+              <ul className="space-y-2 text-sm text-white/60">
                 <li><a href="#how-it-works" className="hover:text-white">How It Works</a></li>
                 <li><a href="#pricing" className="hover:text-white">Pricing</a></li>
                 <li><a href="/affiliate" className="hover:text-white">Affiliate</a></li>
@@ -1305,20 +1229,20 @@ export default function Home() {
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-3 md:mb-4 text-sm md:text-base">Contact</h4>
-              <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm text-white/60">
+              <h4 className="font-semibold mb-4">Contact</h4>
+              <ul className="space-y-2 text-sm text-white/60">
                 <li><a href="https://t.me/arminkaba" target="_blank" rel="noopener noreferrer" className="hover:text-white">Telegram: @arminkaba</a></li>
                 <li><a href="https://wa.me/16045054851" target="_blank" rel="noopener noreferrer" className="hover:text-white">WhatsApp Chat</a></li>
-                <li><a href="mailto:arminabadi7@gmail.com" className="hover:text-white break-all">arminabadi7@gmail.com</a></li>
+                <li><a href="mailto:arminabadi7@gmail.com" className="hover:text-white">arminabadi7@gmail.com</a></li>
                 <li><a href="https://instagram.com/kabacontent" target="_blank" rel="noopener noreferrer" className="hover:text-white">@kabacontent</a></li>
               </ul>
             </div>
-            <div className="hidden md:block">
+            <div>
               <h4 className="font-semibold mb-4">Domain</h4>
               <p className="text-sm text-white/60">kabacontent.com</p>
             </div>
           </div>
-          <div className="border-t border-white/10 pt-6 md:pt-8 text-center text-xs md:text-sm text-white/40">
+          <div className="border-t border-white/10 pt-8 text-center text-sm text-white/40">
             <p>&copy; 2025 Kaba Content. All rights reserved.</p>
           </div>
         </div>

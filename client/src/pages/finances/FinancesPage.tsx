@@ -41,8 +41,16 @@ type Income = {
   source: string;
   description: string | null;
   date: string;
+  clientId: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type Client = {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string | null;
 };
 
 type Expense = {
@@ -70,7 +78,7 @@ const EXPENSE_CATEGORIES = [
   { value: "travel", label: "Travel" },
   { value: "tech", label: "Tech" },
   { value: "tools_software", label: "Tools & Software" },
-  { value: "employee_payment", label: "Employee Payment" },
+  { value: "employee_payment", label: "Member Payment" },
   { value: "affiliate_payment", label: "Affiliate Payment" },
 ];
 
@@ -299,7 +307,7 @@ function MemberAffiliateFinancialSummary() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Members / Employees Financial Summary
+            Members Financial Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -506,7 +514,7 @@ export default function FinancesPage() {
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [incomeForm, setIncomeForm] = useState({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0] });
+  const [incomeForm, setIncomeForm] = useState({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0], clientId: "" });
   const [expenseForm, setExpenseForm] = useState({
     amount: "",
     category: "office_equipment",
@@ -573,45 +581,87 @@ export default function FinancesPage() {
     },
   });
 
-  const { data: employeePayments } = useQuery<{ total: number }>({
+  const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
+    queryKey: ["/api/clients/list"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/clients/list", {});
+      if (!response.ok) {
+        throw new Error("Failed to fetch clients");
+      }
+      const data = await response.json();
+      // The endpoint returns clients with stats, but we just need the basic client info
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: addIncomeDialogOpen || !!editingIncome, // Only fetch when dialog is open
+  });
+
+  const { data: memberPayments } = useQuery<{ total: number }>({
     queryKey: ["/api/founder/finances/expenses/employee-payments"],
   });
 
   const createIncomeMutation = useMutation({
-    mutationFn: async (data: { amount: number; source: string; description?: string; date: string }) => {
+    mutationFn: async (data: { amount: number; source: string; description?: string; date: string; clientId?: string }) => {
       const response = await apiRequest("POST", "/api/founder/finances/income", {
         amount: Math.round(data.amount * 100), // Convert to cents
         source: data.source,
         description: data.description || null,
         date: data.date,
+        clientId: data.clientId && data.clientId !== "none" && data.clientId.trim() !== "" ? data.clientId : null,
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to create income" }));
+        throw new Error(errorData.details || errorData.error || "Failed to create income");
+      }
+      
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "monthly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "yearly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "all-time"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients/my-invoices"] });
       setAddIncomeDialogOpen(false);
-      setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0] });
+      setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0], clientId: "" });
       toast({ title: "Success!", description: "Income record added successfully." });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to add income", variant: "destructive" });
+      console.error("Income creation error:", error);
+      let errorMessage = "Failed to add income";
+      try {
+        if (error?.responseText) {
+          const errorObj = JSON.parse(error.responseText);
+          errorMessage = errorObj.details || errorObj.error || errorMessage;
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+      } catch (e) {
+        // If parsing fails, use default message
+      }
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     },
   });
 
   const updateIncomeMutation = useMutation({
-    mutationFn: async (data: { id: string; amount?: number; source?: string; description?: string; date?: string }) => {
+    mutationFn: async (data: { id: string; amount?: number; source?: string; description?: string; date?: string; clientId?: string }) => {
       const response = await apiRequest("PATCH", `/api/founder/finances/income/${data.id}`, {
         amount: data.amount ? Math.round(data.amount * 100) : undefined,
         source: data.source,
         description: data.description || null,
         date: data.date,
+        clientId: data.clientId || null,
       });
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "monthly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "yearly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "all-time"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients/my-invoices"] });
       setEditingIncome(null);
       toast({ title: "Success!", description: "Income record updated successfully." });
     },
@@ -628,6 +678,9 @@ export default function FinancesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "monthly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "yearly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/income/summary", "all-time"] });
       toast({ title: "Success!", description: "Income record deleted successfully." });
     },
     onError: (error: any) => {
@@ -651,6 +704,9 @@ export default function FinancesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "monthly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "yearly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "all-time"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/employee-payments"] });
       setAddExpenseDialogOpen(false);
       setExpenseForm({
@@ -685,6 +741,9 @@ export default function FinancesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "monthly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "yearly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "all-time"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/employee-payments"] });
       setEditingExpense(null);
       toast({ title: "Success!", description: "Expense updated successfully." });
@@ -702,6 +761,9 @@ export default function FinancesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "monthly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "yearly"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary", "all-time"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/employee-payments"] });
       toast({ title: "Success!", description: "Expense deleted successfully." });
     },
@@ -715,7 +777,13 @@ export default function FinancesPage() {
       toast({ title: "Error", description: "Amount and source are required", variant: "destructive" });
       return;
     }
-    createIncomeMutation.mutate(incomeForm);
+    createIncomeMutation.mutate({
+      amount: parseFloat(incomeForm.amount),
+      source: incomeForm.source,
+      description: incomeForm.description,
+      date: incomeForm.date,
+      clientId: incomeForm.clientId || undefined,
+    });
   };
 
   const handleEditIncome = (income: Income) => {
@@ -725,6 +793,7 @@ export default function FinancesPage() {
       source: income.source,
       description: income.description || "",
       date: new Date(income.date).toISOString().split('T')[0],
+      clientId: income.clientId || "",
     });
     setAddIncomeDialogOpen(true);
   };
@@ -734,7 +803,14 @@ export default function FinancesPage() {
       toast({ title: "Error", description: "Amount and source are required", variant: "destructive" });
       return;
     }
-    updateIncomeMutation.mutate({ id: editingIncome.id, ...incomeForm });
+    updateIncomeMutation.mutate({ 
+      id: editingIncome.id, 
+      amount: parseFloat(incomeForm.amount),
+      source: incomeForm.source,
+      description: incomeForm.description,
+      date: incomeForm.date,
+      clientId: incomeForm.clientId,
+    });
   };
 
   const handleAddExpense = () => {
@@ -812,7 +888,7 @@ export default function FinancesPage() {
         <div className="flex gap-2">
           <Button onClick={() => {
             setEditingIncome(null);
-            setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0] });
+            setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0], clientId: "" });
             setAddIncomeDialogOpen(true);
           }} className="bg-black text-white hover:bg-gray-900">
             <Plus className="w-4 h-4 mr-2" />
@@ -916,14 +992,14 @@ export default function FinancesPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Employee Payments</CardTitle>
+            <CardTitle className="text-sm font-medium">Member Payments</CardTitle>
             <DollarSign className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              {formatCurrency(employeePayments?.total || 0)}
+              {formatCurrency(memberPayments?.total || 0)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Total paid to employees</p>
+            <p className="text-xs text-gray-500 mt-1">Total paid to members</p>
           </CardContent>
         </Card>
       </div>
@@ -1324,7 +1400,7 @@ export default function FinancesPage() {
         setAddIncomeDialogOpen(open);
         if (!open) {
           setEditingIncome(null);
-          setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0] });
+          setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0], clientId: "" });
         }
       }}>
         <DialogContent className="max-w-md">
@@ -1370,12 +1446,40 @@ export default function FinancesPage() {
                 onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
               />
             </div>
+            <div>
+              <Label>Link to Client (Optional)</Label>
+              <Select
+                value={incomeForm.clientId || undefined}
+                onValueChange={(value) => setIncomeForm({ ...incomeForm, clientId: value === "none" ? "" : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={clientsLoading ? "Loading clients..." : "Select a client (optional)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {clientsLoading ? (
+                    <SelectItem value="loading" disabled>Loading clients...</SelectItem>
+                  ) : clients && clients.length > 0 ? (
+                    clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.fullName || client.username} ({client.email})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-clients" disabled>No clients available</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                If linked to a client, this will also create a transaction in their dashboard
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setAddIncomeDialogOpen(false);
               setEditingIncome(null);
-              setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0] });
+              setIncomeForm({ amount: "", source: "", description: "", date: new Date().toISOString().split('T')[0], clientId: "" });
             }}>
               Cancel
             </Button>

@@ -2,7 +2,7 @@
 
 export function canAccessClipping(role?: string): boolean {
   if (!role) return false;
-  const allowedRoles = ["admin", "manager", "editor", "clipper", "employee"];
+  const allowedRoles = ["admin", "manager", "editor", "clipper", "member"];
   return allowedRoles.includes(role.toLowerCase());
 }
 
