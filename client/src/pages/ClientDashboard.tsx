@@ -23,6 +23,8 @@ type Client = {
   instagramUsername: string | null;
   offerLink: string | null;
   createdAt: string;
+  totalSpent: number;
+  clientSince: string;
 };
 
 type SocialMediaAccount = {
@@ -30,7 +32,10 @@ type SocialMediaAccount = {
   accountName: string | null;
   username: string;
   password: string | null;
+  email: string | null;
+  emailPassword: string | null;
   platforms: string; // JSON string array
+  profilePhoto: string | null;
 };
 
 type Invoice = {
@@ -161,6 +166,7 @@ export default function ClientDashboard() {
   }
 
   if (!client) {
+    setLocation("/login");
     return null;
   }
 
@@ -673,10 +679,13 @@ export default function ClientDashboard() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-16">Profile</TableHead>
                           <TableHead>Account Name</TableHead>
                           <TableHead>Platforms</TableHead>
                           <TableHead>Username</TableHead>
                           <TableHead>Password</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Email Password</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -686,6 +695,25 @@ export default function ClientDashboard() {
 
                           return (
                             <TableRow key={account.id}>
+                              <TableCell>
+                                {account.profilePhoto ? (
+                                  <img
+                                    src={account.profilePhoto}
+                                    alt={`${account.accountName} profile`}
+                                    className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                                    data-testid={`img-profile-${account.id}`}
+                                  />
+                                ) : (
+                                  <div 
+                                    className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border border-gray-200"
+                                    data-testid={`placeholder-profile-${account.id}`}
+                                  >
+                                    <span className="text-gray-500 text-sm font-medium">
+                                      {account.accountName?.charAt(0)?.toUpperCase() || account.username?.charAt(0)?.toUpperCase() || "?"}
+                                    </span>
+                                  </div>
+                                )}
+                              </TableCell>
                               <TableCell className="font-medium">
                                 {account.accountName || "Untitled Account"}
                               </TableCell>
@@ -725,6 +753,36 @@ export default function ClientDashboard() {
                                   <span className="text-gray-400 text-sm">Not set</span>
                                 )}
                               </TableCell>
+                              <TableCell>
+                                {account.email ? (
+                                  <span className="font-mono text-sm">{account.email}</span>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">Not set</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {account.emailPassword ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-sm">
+                                      {revealedPasswords[`email-${account.id}`] ? account.emailPassword : "••••••••"}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => togglePasswordVisibility(`email-${account.id}`)}
+                                      className="text-gray-500 hover:text-gray-700 p-1"
+                                      title={revealedPasswords[`email-${account.id}`] ? "Hide password" : "Show password"}
+                                    >
+                                      {revealedPasswords[`email-${account.id}`] ? (
+                                        <EyeOff className="w-4 h-4" />
+                                      ) : (
+                                        <Eye className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">Not set</span>
+                                )}
+                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -739,6 +797,29 @@ export default function ClientDashboard() {
                     </p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Billing Tab */}
+          <TabsContent value="billing">
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Subscription Tier</Label>
+                  <Input value={client.tier || "Not set"} readOnly className="bg-gray-50" />
+                </div>
+                <div>
+                  <Label>Total Spent</Label>
+                  <Input value={`$${(client.totalSpent / 100).toFixed(2)}`} readOnly className="bg-gray-50" />
+                </div>
+                <div>
+                  <Label>Client Since</Label>
+                  <Input value={new Date(client.clientSince).toLocaleDateString()} readOnly className="bg-gray-50" />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -59,6 +59,29 @@ export default function TemplatesPage() {
     },
   });
 
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const response = await apiRequest("POST", "/api/templates", data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
+      setIsCreateDialogOpen(false);
+      setFormData({ name: "", title: "", description: "", videoUrl: "", videoDuration: "0:01:00" });
+      toast({
+        title: "Success!",
+        description: "Template created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create template",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateTemplateMutation = useMutation({
     mutationFn: async (data: typeof formData & { id: string }) => {
       const response = await apiRequest("PUT", `/api/templates/${data.id}`, data);
@@ -83,6 +106,23 @@ export default function TemplatesPage() {
     },
   });
 
+  const handleCreate = () => {
+    if (!formData.name.trim() || !formData.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Name and Title are required",
+        variant: "destructive",
+      });
+      return;
+    }
+    createTemplateMutation.mutate(formData);
+  };
+
+  const handleUpdate = () => {
+    if (selectedTemplate) {
+      updateTemplateMutation.mutate({ ...formData, id: selectedTemplate.id });
+    }
+  };
 
   const handleEditClick = (template: Template) => {
     setSelectedTemplate(template);
@@ -196,6 +236,68 @@ export default function TemplatesPage() {
         </Card>
       </div>
 
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Issue Template</DialogTitle>
+            <DialogDescription>
+              Create a new template for issues
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Template name"
+              />
+            </div>
+            <div>
+              <Label>Title</Label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Issue title"
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Add description..."
+                rows={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Video URL</Label>
+                <Input
+                  value={formData.videoUrl}
+                  onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                  placeholder="Enter video URL"
+                />
+              </div>
+              <div>
+                <Label>Video Duration (seconds)</Label>
+                <Input
+                  value={formData.videoDuration}
+                  onChange={(e) => setFormData({ ...formData, videoDuration: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={createTemplateMutation.isPending}>
+              {createTemplateMutation.isPending ? "Creating..." : "Create Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -319,6 +319,9 @@ export const socialMediaAccounts = pgTable("social_media_accounts", {
   username: text("username").notNull(),
   password: text("password"), // Encrypted password (same for all platforms in this group)
   platforms: text("platforms").notNull(), // JSON array: ["instagram", "tiktok", "youtube", "facebook"]
+  email: text("email"), // Email used to create the social media accounts
+  emailPassword: text("email_password"), // Password for the email account
+  profilePhoto: text("profile_photo"), // URL/path to profile photo (1079x1079 PNG/JPG)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

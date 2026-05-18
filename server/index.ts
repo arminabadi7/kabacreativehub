@@ -14,6 +14,11 @@ const projectRoot = path.resolve(__dirname, "..");
 
 const app = express();
 
+// Trust proxy for production (required for secure cookies behind reverse proxy like Replit)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
@@ -39,6 +44,7 @@ app.use(session({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax', // Required for mobile browsers to properly handle session cookies
     maxAge: 30 * 60 * 1000, // 30 minutes in milliseconds
   },
   rolling: true, // Reset expiration on every request
@@ -84,7 +90,7 @@ app.use((req, res, next) => {
 (async () => {
   console.log("🚀 Starting server...");
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Port: ${process.env.PORT || 3002}`);
+  console.log(`Port: ${process.env.PORT || 5000}`);
   
   try {
     // Migrate template schema first
@@ -103,7 +109,6 @@ app.use((req, res, next) => {
   }
   
   // Run optional migrations - these are non-critical and won't block server startup
-  // In production builds, dynamic imports may fail, which is OK - migrations can be run manually if needed
   const migrations = [
     { path: "../fix-social-media-table", name: "social media accounts" },
     { path: "../add-offer-link-column", name: "offer link" },
@@ -115,7 +120,6 @@ app.use((req, res, next) => {
   for (const migration of migrations) {
     try {
       const module = await import(migration.path);
-      // Try to find and call the export function
       const exports = Object.keys(module);
       for (const exportName of exports) {
         if (typeof module[exportName] === 'function') {
@@ -125,8 +129,7 @@ app.use((req, res, next) => {
         }
       }
     } catch (error: any) {
-      // Silently continue - migrations are optional and may not be available in bundled builds
-      // They can be run manually via API endpoints if needed
+      // Silently continue - migrations are optional
     }
   }
   
@@ -155,7 +158,6 @@ app.use((req, res, next) => {
 
     console.error("Request error:", err);
     res.status(status).json({ message });
-    // Don't throw - just log the error
   });
 
   // importantly only setup vite in development and after
@@ -167,12 +169,14 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use PORT from environment variable (for Replit deployments) or default to 3002
-  const port = Number(process.env.PORT) || 3002;
-  
-  server.listen(port, "0.0.0.0", () => {
+  // ALWAYS serve the app on port 5000 - other ports are firewalled on Replit
+  const port = parseInt(process.env.PORT || '5000', 10);
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
     log(`✓ Server started successfully on port ${port}`);
-    console.log(`✓ Server is running at http://0.0.0.0:${port}`);
   });
 
   // Handle server errors
@@ -191,7 +195,6 @@ app.use((req, res, next) => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  // Log the full error stack if available
   if (reason instanceof Error) {
     console.error('Error stack:', reason.stack);
   }
@@ -201,5 +204,4 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
   console.error('Error stack:', error.stack);
-  // Don't exit immediately - let the server try to continue
 });

@@ -13,6 +13,8 @@ import {
   LayoutGrid, 
   Folder, 
   Scissors, 
+  BarChart3, 
+  MoreHorizontal,
   Users,
   Calendar,
   Settings,

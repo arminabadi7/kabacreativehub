@@ -289,6 +289,10 @@ export default function AffiliateDashboard() {
         title: "Success!",
         description: "Your affiliate account has been created.",
       });
+      // Fallback: if session still not detected after refetch, force reload on mobile
+      if (!result.data) {
+        window.location.reload();
+      }
     },
     onError: (error: any) => {
       toast({
@@ -310,6 +314,10 @@ export default function AffiliateDashboard() {
         title: "Success!",
         description: "You've been logged in.",
       });
+      // Fallback: if session still not detected after refetch, force reload on mobile
+      if (!result.data) {
+        window.location.reload();
+      }
     },
     onError: (error: any) => {
       toast({
@@ -967,6 +975,7 @@ export default function AffiliateDashboard() {
                     <Input
                       value={`${window.location.origin}/?ref=${affiliate?.username}`}
                       readOnly
+                      className="text-xs md:text-sm"
                       data-testid="input-referral-link"
                     />
                     <Button onClick={copyReferralLink} size="icon" data-testid="button-copy-link">

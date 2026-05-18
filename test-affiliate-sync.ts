@@ -177,12 +177,3 @@ async function testAffiliateSync() {
 testAffiliateSync();
 
 
-
-
-
-
-
-
-
-
-

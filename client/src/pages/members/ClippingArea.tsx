@@ -402,6 +402,47 @@ export default function ClippingArea() {
             </Card>
           ))}
         </div>
+
+        <Dialog open={addProjectDialogOpen} onOpenChange={setAddProjectDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Project</DialogTitle>
+              <DialogDescription>
+                Create a new project for clipping.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Project Name</Label>
+                <Input
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Enter project name"
+                />
+              </div>
+              <div>
+                <Label>File Location / Path (Optional)</Label>
+                <Input
+                  value={newProjectFileLocation}
+                  onChange={(e) => setNewProjectFileLocation(e.target.value)}
+                  placeholder="Drive path or cloud download link"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddProjectDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAddProject}
+                disabled={addProjectMutation.isPending}
+                className="bg-black text-white hover:bg-gray-900"
+              >
+                {addProjectMutation.isPending ? "Creating..." : "Create Project"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

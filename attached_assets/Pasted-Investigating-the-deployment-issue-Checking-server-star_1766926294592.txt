@@ -1,0 +1,92 @@
+Investigating the deployment issue. Checking server startup and migration scripts for potential problems:
+Checking package.json and Replit configuration:
+Checking the Replit configuration file:
+Potential issues:
+Port configuration: server is hardcoded to 3002; should use process.env.PORT.
+Error handling: unhandled errors during startup can crash the server.
+Migration failures: migrations may fail silently and prevent startup.
+Improving server startup with better error handling and port configuration:
+Fixing server startup issues: using process.env.PORT, adding error handling, and improving logging:
+index.ts
++24
+-4
+  const port = 3002;  server.listen({
+  // ALWAYS serve the app on port 3002  // This serves both the API and the client.  const port = 3002;  // Use PORT from environment variable (for Replit deployments) or default to 3002  const port = Number(process.env.PORT) || 3002;    server.listen({
+Adding a top-level error handler to the async startup function:
+index.ts
++4
+  try {
+  console.log("🚀 Starting server...");  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);  console.log(`Port: ${process.env.PORT || 3002}`);    try {
+index.ts
++10
+-1
+// Handle uncaught exceptionsprocess.on('uncaughtException', (error) => {
+// Handle uncaught exceptions  // Handle uncaught exceptionsprocess.on('uncaughtException', (error) => {// Wrap the entire startup in a try-catch to catch any errors
+Fixing the duplicate handler and wrapping the startup in a try-catch:
+Cleaning up duplicate handlers and wrapping the startup in a try-catch:
+index.ts
++11
+-11
+})().catch((error) => {  console.error('❌ Fatal error during server startup:', error);  console.error('Error stack:', error.stack);  process.exit(1);});
+Checking for linting errors and verifying the database connection setup:
+Adding a health check endpoint and improving production error handling. Checking if static file serving is configured correctly:
+Improving serveStatic error handling and adding a health check endpoint:
+vite.ts
++18
+-6
+  }
+    console.error(`⚠️  Could not find the build directory: ${distPath}`);    console.error(`⚠️  Make sure to run 'npm run build' before starting the server`);    // Don't throw - let the server start but log the error    // This allows the API to work even if static files aren't built  } else {
+Adding a health check endpoint at the start of route registration:
+routes.ts
++30
+  // Register Calendly routes
+  // Health check endpoint - should be first to help diagnose deployment issues  app.get("/api/health", async (req, res) => {    try {      const health = {        status: "ok",
+Fixing the health check endpoint to use the correct database query syntax:
+Fixing the health check endpoint to use the correct SQL syntax:
+routes.ts
++1
+-1
+        const { db } = await import("./db");        await db.execute({ sql: "SELECT 1", args: [] });        health.database = "connected";
+        await db.execute({ sql: "SELECT 1", args: [] });        const { db } = await import("./db");        await db.execute(sql`SELECT 1`);        health.database = "connected";
+Removing the reusePort option, which may not be supported in all environments:
+index.ts
++1
+-5
+    host: "0.0.0.0",    reusePort: true,  }, () => {    log(`✓ Server started successfully on port ${port}`);
+  server.listen({    port,    host: "0.0.0.0",    reusePort: true,  }, () => {  server.listen(port, "0.0.0.0", () => {    log(`✓ Server started successfully on port ${port}`);
+Committing and pushing the deployment fixes:
+[main 8b08f92] Fix Replit deployment issues
+ 37 files changed, 121 insertions(+), 16 deletions(-)
+To https://github.com/arminabadi7/Kabacontent.git
+   3039af1..8b08f92  main -> main
+Pushed deployment fixes to GitHub. Summary of changes:
+Fixes applied
+Port configuration: uses process.env.PORT (Replit sets this automatically)
+Error handling: wrapped server startup in try-catch to prevent silent crashes
+Health check endpoint: added /api/health to diagnose deployment issues
+Static file serving: improved error handling if build files are missing
+Logging: added startup logs for environment and port
+Removed reusePort: removed unsupported option
+Next steps for deployment
+Check the health endpoint: after deploying, visit https://your-replit-url.repl.co/api/health to see:
+Server status
+Database connection status
+Environment info
+Check Replit logs: look for:
+"🚀 Starting server..."
+"✓ Server started successfully on port..."
+Any error messages
+Common issues to check:
+DATABASE_URL: ensure it's set in Replit's environment variables
+Build: ensure npm run build completes successfully before deployment
+Port: Replit should set PORT automatically, but verify it's not conflicting
+If it still fails:
+Check the /api/health endpoint response
+Review Replit console logs for specific error messages
+Verify all environment variables are set correctly
+The health check endpoint will help identify whether the issue is:
+Database connection problems
+Missing environment variables
+Build/static file issues
+Port conflicts
+Try deploying again and let me know what the health endpoint shows or any errors you see in the logs.

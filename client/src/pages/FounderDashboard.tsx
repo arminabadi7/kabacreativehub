@@ -34,7 +34,8 @@ import {
   Edit,
   Trash2,
   Search,
-  Briefcase
+  Briefcase,
+  Upload
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "wouter";
@@ -338,7 +339,7 @@ export default function FounderDashboard() {
   const [addingAccount, setAddingAccount] = useState<string | null>(null);
   const [deleteConfirmAccount, setDeleteConfirmAccount] = useState<{ clientId: string; accountId: string; accountName: string } | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [accountForm, setAccountForm] = useState({ username: "", password: "", accountName: "" });
+  const [accountForm, setAccountForm] = useState({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
 
   // Fetch accounts for selected client (must be at top level)
   const { data: accounts, refetch: refetchAccounts } = useQuery<any[]>({
@@ -375,12 +376,14 @@ export default function FounderDashboard() {
 
   // Account management mutations (must be at top level)
   const createAccountMutation = useMutation({
-    mutationFn: async (data: { clientId: string; username: string; password: string; platforms: string[]; accountName?: string }) => {
+    mutationFn: async (data: { clientId: string; username: string; password: string; platforms: string[]; accountName?: string; email?: string; emailPassword?: string }) => {
       const response = await apiRequest("POST", `/api/founder/clients/${data.clientId}/social-accounts`, {
         username: data.username,
         password: data.password,
         platforms: data.platforms,
         accountName: data.accountName || null,
+        email: data.email || null,
+        emailPassword: data.emailPassword || null,
       });
       return await response.json();
     },
@@ -388,7 +391,7 @@ export default function FounderDashboard() {
       refetchAccounts();
       setAddingAccount(null);
       setSelectedPlatforms([]);
-      setAccountForm({ username: "", password: "", accountName: "" });
+      setAccountForm({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
       toast({
         title: "Success!",
         description: "Account created successfully.",
@@ -416,12 +419,14 @@ export default function FounderDashboard() {
   });
 
   const updateAccountMutation = useMutation({
-    mutationFn: async (data: { clientId: string; accountId: string; username?: string; password?: string; platforms?: string[]; accountName?: string }) => {
+    mutationFn: async (data: { clientId: string; accountId: string; username?: string; password?: string; platforms?: string[]; accountName?: string; email?: string; emailPassword?: string }) => {
       const response = await apiRequest("PUT", `/api/founder/clients/${data.clientId}/social-accounts/${data.accountId}`, {
         username: data.username,
         password: data.password,
         platforms: data.platforms,
         accountName: data.accountName,
+        email: data.email,
+        emailPassword: data.emailPassword,
       });
       return await response.json();
     },
@@ -429,7 +434,7 @@ export default function FounderDashboard() {
       refetchAccounts();
       setEditingAccount(null);
       setSelectedPlatforms([]);
-      setAccountForm({ username: "", password: "", accountName: "" });
+      setAccountForm({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
       toast({
         title: "Success!",
         description: "Account updated successfully.",
@@ -465,6 +470,49 @@ export default function FounderDashboard() {
       });
     },
   });
+
+  const [uploadingPhotoForAccount, setUploadingPhotoForAccount] = useState<string | null>(null);
+
+  const uploadProfilePhotoMutation = useMutation({
+    mutationFn: async ({ accountId, file }: { accountId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append("profilePhoto", file);
+      
+      const response = await fetch(`/api/social-accounts/${accountId}/profile-photo`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upload photo");
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      refetchAccounts();
+      setUploadingPhotoForAccount(null);
+      toast({ title: "Success!", description: "Profile photo uploaded successfully." });
+    },
+    onError: (error: any) => {
+      setUploadingPhotoForAccount(null);
+      toast({ title: "Error", description: error.message || "Failed to upload profile photo", variant: "destructive" });
+    },
+  });
+
+  const handleProfilePhotoSelect = (accountId: string, file: File) => {
+    if (!file.type.match(/^image\/(png|jpeg|jpg)$/)) {
+      toast({ title: "Error", description: "Only PNG and JPG images are allowed", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Error", description: "File size must be less than 5MB", variant: "destructive" });
+      return;
+    }
+    setUploadingPhotoForAccount(accountId);
+    uploadProfilePhotoMutation.mutate({ accountId, file });
+  };
 
   const founderLoginMutation = useMutation({
     mutationFn: async (data: { password: string }) => {
@@ -627,6 +675,12 @@ export default function FounderDashboard() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
+          <Link href="/">
+            <button className="mb-8 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+              Back to Home
+            </button>
+          </Link>
 
           <Card className="border-none shadow-lg">
             <CardHeader>
@@ -1647,6 +1701,8 @@ export default function FounderDashboard() {
         username: account.username,
         password: account.password || "",
         accountName: account.accountName || "",
+        email: account.email || "",
+        emailPassword: account.emailPassword || "",
       });
       try {
         const platforms = JSON.parse(account.platforms || "[]");
@@ -1658,7 +1714,7 @@ export default function FounderDashboard() {
 
     const startAdding = () => {
       setAddingAccount(selectedClientId);
-      setAccountForm({ username: "", password: "", accountName: "" });
+      setAccountForm({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
       setSelectedPlatforms([]);
     };
 
@@ -1768,7 +1824,7 @@ export default function FounderDashboard() {
           </div>
           <Button
             onClick={() => {
-              setAccountForm({ username: "", password: "", accountName: "" });
+              setAccountForm({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
               setSelectedPlatforms([]);
               setAddingAccount(selectedClientId);
             }}
@@ -1982,6 +2038,29 @@ export default function FounderDashboard() {
                         onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
                       />
                     </div>
+                    <div className="border-t pt-4 mt-4">
+                      <p className="text-sm text-gray-600 mb-3">Email Account (used to create these social media accounts)</p>
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Email Address</Label>
+                          <Input
+                            type="email"
+                            placeholder="email@example.com"
+                            value={accountForm.email}
+                            onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Email Password</Label>
+                          <Input
+                            type="password"
+                            placeholder="email password"
+                            value={accountForm.emailPassword}
+                            onChange={(e) => setAccountForm({ ...accountForm, emailPassword: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
                     <div>
                       <Label>Platforms</Label>
                       <div className="flex flex-wrap gap-2 mt-2">
@@ -2030,6 +2109,8 @@ export default function FounderDashboard() {
                             password: accountForm.password,
                             platforms: selectedPlatforms,
                             accountName: accountForm.accountName || undefined,
+                            email: accountForm.email || undefined,
+                            emailPassword: accountForm.emailPassword || undefined,
                           });
                         }}
                         disabled={createAccountMutation.isPending}
@@ -2041,7 +2122,7 @@ export default function FounderDashboard() {
                         onClick={() => {
                           setAddingAccount(null);
                           setSelectedPlatforms([]);
-                          setAccountForm({ username: "", password: "", accountName: "" });
+                          setAccountForm({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
                         }}
                       >
                         Cancel
@@ -2092,6 +2173,29 @@ export default function FounderDashboard() {
                                 onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
                               />
                             </div>
+                            <div className="border-t pt-4 mt-4">
+                              <p className="text-sm text-gray-600 mb-3">Email Account (used to create these social media accounts)</p>
+                              <div className="space-y-3">
+                                <div>
+                                  <Label>Email Address</Label>
+                                  <Input
+                                    type="email"
+                                    placeholder="email@example.com"
+                                    value={accountForm.email}
+                                    onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Email Password</Label>
+                                  <Input
+                                    type="password"
+                                    placeholder="email password"
+                                    value={accountForm.emailPassword}
+                                    onChange={(e) => setAccountForm({ ...accountForm, emailPassword: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+                            </div>
                             <div>
                               <Label>Platforms</Label>
                               <div className="flex flex-wrap gap-2 mt-2">
@@ -2141,6 +2245,8 @@ export default function FounderDashboard() {
                                     password: accountForm.password,
                                     platforms: selectedPlatforms,
                                     accountName: accountForm.accountName || undefined,
+                                    email: accountForm.email || undefined,
+                                    emailPassword: accountForm.emailPassword || undefined,
                                   });
                                 }}
                                 disabled={updateAccountMutation.isPending}
@@ -2152,7 +2258,7 @@ export default function FounderDashboard() {
                                 onClick={() => {
                                   setEditingAccount(null);
                                   setSelectedPlatforms([]);
-                                  setAccountForm({ username: "", password: "", accountName: "" });
+                                  setAccountForm({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
                                 }}
                               >
                                 Cancel
@@ -2168,13 +2274,57 @@ export default function FounderDashboard() {
                     <Card key={account.id}>
                       <CardContent className="pt-6">
                         <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h5 className="font-semibold mb-2">{account.accountName || "Untitled Account"}</h5>
-                            <div className="space-y-2">
-                              <div>
-                                <Label className="text-xs text-gray-500">Username</Label>
-                                <p className="text-sm font-mono">{account.username}</p>
-                              </div>
+                          <div className="flex items-start gap-4 flex-1">
+                            <div className="relative group flex-shrink-0">
+                              {account.profilePhoto ? (
+                                <img
+                                  src={account.profilePhoto}
+                                  alt={`${account.accountName} profile`}
+                                  className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                                  data-testid={`img-profile-${account.id}`}
+                                />
+                              ) : (
+                                <div 
+                                  className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border-2 border-gray-200"
+                                  data-testid={`placeholder-profile-${account.id}`}
+                                >
+                                  <span className="text-gray-500 text-xl font-medium">
+                                    {account.accountName?.charAt(0)?.toUpperCase() || account.username?.charAt(0)?.toUpperCase() || "?"}
+                                  </span>
+                                </div>
+                              )}
+                              <label 
+                                className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                                htmlFor={`founder-photo-upload-${account.id}`}
+                              >
+                                <Upload className="w-5 h-5 text-white" />
+                              </label>
+                              <input
+                                id={`founder-photo-upload-${account.id}`}
+                                type="file"
+                                className="hidden"
+                                accept="image/png,image/jpeg,image/jpg"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleProfilePhotoSelect(account.id, file);
+                                  }
+                                }}
+                                data-testid={`input-photo-${account.id}`}
+                              />
+                              {uploadProfilePhotoMutation.isPending && uploadingPhotoForAccount === account.id && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <h5 className="font-semibold mb-2">{account.accountName || "Untitled Account"}</h5>
+                              <div className="space-y-2">
+                                <div>
+                                  <Label className="text-xs text-gray-500">Username</Label>
+                                  <p className="text-sm font-mono">{account.username}</p>
+                                </div>
                               <div>
                                 <Label className="text-xs text-gray-500">Password</Label>
                                 <div className="flex items-center gap-2">
@@ -2195,6 +2345,34 @@ export default function FounderDashboard() {
                                   </Button>
                                 </div>
                               </div>
+                              {account.email && (
+                                <>
+                                  <div>
+                                    <Label className="text-xs text-gray-500">Email</Label>
+                                    <p className="text-sm font-mono">{account.email}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-gray-500">Email Password</Label>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-mono">
+                                        {revealedPasswords[`email-${account.id}`] ? account.emailPassword : "••••••••"}
+                                      </p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setRevealedPasswords(prev => ({
+                                            ...prev,
+                                            [`email-${account.id}`]: !prev[`email-${account.id}`]
+                                          }));
+                                        }}
+                                      >
+                                        {revealedPasswords[`email-${account.id}`] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                               <div>
                                 <Label className="text-xs text-gray-500">Platforms</Label>
                                 <div className="flex flex-wrap gap-2 mt-1">
@@ -2208,9 +2386,10 @@ export default function FounderDashboard() {
                                   ))}
                                 </div>
                               </div>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-shrink-0">
                             <Button
                               variant="outline"
                               size="sm"

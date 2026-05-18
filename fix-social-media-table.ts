@@ -101,6 +101,36 @@ export async function fixSocialMediaAccountsTable() {
       console.log("[Fix] ✓ 'created_at' column exists");
     }
     
+    // Check if email column exists (for storing the email used to create social media accounts)
+    if (!columnNames.includes('email')) {
+      console.log("[Fix] ✗ 'email' column is missing. Adding it...");
+      
+      await db.execute(sql`
+        ALTER TABLE social_media_accounts 
+        ADD COLUMN IF NOT EXISTS email TEXT;
+      `);
+      
+      console.log("[Fix] ✓ Added 'email' column");
+      fixed = true;
+    } else {
+      console.log("[Fix] ✓ 'email' column exists");
+    }
+    
+    // Check if email_password column exists (for storing the email password)
+    if (!columnNames.includes('email_password')) {
+      console.log("[Fix] ✗ 'email_password' column is missing. Adding it...");
+      
+      await db.execute(sql`
+        ALTER TABLE social_media_accounts 
+        ADD COLUMN IF NOT EXISTS email_password TEXT;
+      `);
+      
+      console.log("[Fix] ✓ Added 'email_password' column");
+      fixed = true;
+    } else {
+      console.log("[Fix] ✓ 'email_password' column exists");
+    }
+    
     if (fixed) {
       console.log("[Fix] ✓ Table structure has been fixed!");
     } else {

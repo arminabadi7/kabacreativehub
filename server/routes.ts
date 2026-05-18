@@ -6,6 +6,41 @@ import { googleCalendarClient, googleSheetsClient, getGoogleCalendarClient } fro
 import { registerCalendlyRoutes } from "./calendly-routes";
 import { getCalendlyService } from "./calendly-service";
 import { migrateTemplateSchema } from "./migrate";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for profile photo uploads
+const profilePhotoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads', 'profile-photos');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `profile-${uniqueSuffix}${ext}`);
+  }
+});
+
+const profilePhotoUpload = multer({
+  storage: profilePhotoStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only PNG and JPG
+    const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PNG and JPG images are allowed'));
+    }
+  }
+});
 
 declare module 'express-session' {
   interface SessionData {
@@ -234,6 +269,10 @@ function canAccessAdmin(user: { role?: string; isFounder?: boolean }): boolean {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve uploaded profile photos
+  const express = await import("express");
+  app.use('/uploads', express.default.static(path.join(process.cwd(), 'uploads')));
+  
   // Health check endpoint - should be first to help diagnose deployment issues
   app.get("/api/health", async (req, res) => {
     try {
@@ -4676,7 +4715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/founder/clients/:clientId/social-accounts", requireFounderAuth, async (req, res) => {
     try {
       const { clientId } = req.params;
-      const { username, password, platforms, accountName } = req.body;
+      const { username, password, platforms, accountName, email, emailPassword } = req.body;
       
       console.log("[Social Media Account] Creating account with data:", {
         clientId,
@@ -4684,6 +4723,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: password ? "***" : "missing",
         platforms,
         accountName,
+        email,
+        emailPassword: emailPassword ? "***" : "missing",
         platformsType: typeof platforms,
         isArray: Array.isArray(platforms),
       });
@@ -4717,11 +4758,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: password.trim(),
         platforms: platformsString,
         accountName: (accountName && accountName.trim()) ? accountName.trim() : null,
+        email: (email && email.trim()) ? email.trim() : null,
+        emailPassword: (emailPassword && emailPassword.trim()) ? emailPassword.trim() : null,
       };
       
       console.log("[Social Media Account] Calling createSocialMediaAccount with:", {
         ...accountData,
         password: "***",
+        emailPassword: "***",
       });
       
       const account = await storage.createSocialMediaAccount(accountData);
@@ -4735,6 +4779,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: account.password,
         platforms: account.platforms,
         accountName: account.accountName || account.account_name || null,
+        email: account.email || null,
+        emailPassword: account.emailPassword || null,
         createdAt: account.createdAt || account.created_at,
       };
       
@@ -4783,7 +4829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/founder/clients/:clientId/social-accounts/:accountId", requireFounderAuth, async (req, res) => {
     try {
       const { accountId } = req.params;
-      const { username, password, platforms, accountName } = req.body;
+      const { username, password, platforms, accountName, email, emailPassword } = req.body;
       
       const updates: any = {};
       if (username !== undefined) updates.username = username;
@@ -4795,6 +4841,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates.platforms = JSON.stringify(platforms);
       }
       if (accountName !== undefined) updates.accountName = accountName;
+      if (email !== undefined) updates.email = email;
+      if (emailPassword !== undefined) updates.emailPassword = emailPassword;
       
       const account = await storage.updateSocialMediaAccount(accountId, updates);
       if (!account) {
@@ -4815,6 +4863,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting social media account:", error);
       return res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
+  // Social account endpoints (for members to manage client accounts)
+  app.patch("/api/social-accounts/:accountId", async (req, res) => {
+    // Check if user is authenticated as member or founder
+    if (!req.session?.memberId && !req.session?.isFounder) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const { accountId } = req.params;
+      const { username, password, platforms, accountName, email, emailPassword, profilePhoto } = req.body;
+      
+      const updates: any = {};
+      if (username !== undefined) updates.username = username;
+      if (password !== undefined) updates.password = password;
+      if (platforms !== undefined) {
+        // Handle both array and already-stringified formats
+        if (typeof platforms === 'string') {
+          updates.platforms = platforms;
+        } else if (Array.isArray(platforms)) {
+          updates.platforms = JSON.stringify(platforms);
+        }
+      }
+      if (accountName !== undefined) updates.accountName = accountName;
+      if (email !== undefined) updates.email = email;
+      if (emailPassword !== undefined) updates.emailPassword = emailPassword;
+      if (profilePhoto !== undefined) updates.profilePhoto = profilePhoto;
+      
+      const account = await storage.updateSocialMediaAccount(accountId, updates);
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+      return res.json(account);
+    } catch (error) {
+      console.error("Error updating social media account:", error);
+      return res.status(500).json({ error: "Failed to update account" });
+    }
+  });
+
+  app.delete("/api/social-accounts/:accountId", async (req, res) => {
+    // Check if user is authenticated as member or founder
+    if (!req.session?.memberId && !req.session?.isFounder) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const { accountId } = req.params;
+      await storage.deleteSocialMediaAccount(accountId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting social media account:", error);
+      return res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
+  // Profile photo upload endpoint for social media accounts
+  app.post("/api/social-accounts/:accountId/profile-photo", profilePhotoUpload.single('profilePhoto'), async (req, res) => {
+    // Check if user is authenticated as member or founder
+    if (!req.session?.memberId && !req.session?.isFounder) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const { accountId } = req.params;
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      // Create the URL path for the uploaded file
+      const profilePhotoUrl = `/uploads/profile-photos/${req.file.filename}`;
+      
+      // Update the social media account with the profile photo URL
+      const account = await storage.updateSocialMediaAccount(accountId, { 
+        profilePhoto: profilePhotoUrl 
+      });
+      
+      if (!account) {
+        // Clean up uploaded file if account not found
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ error: "Account not found" });
+      }
+      
+      return res.json({ 
+        success: true, 
+        profilePhoto: profilePhotoUrl,
+        account 
+      });
+    } catch (error) {
+      console.error("Error uploading profile photo:", error);
+      // Clean up uploaded file on error
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (e) {}
+      }
+      return res.status(500).json({ error: "Failed to upload profile photo" });
+    }
+  });
+
+  // Delete profile photo endpoint
+  app.delete("/api/social-accounts/:accountId/profile-photo", async (req, res) => {
+    // Check if user is authenticated as member or founder
+    if (!req.session?.memberId && !req.session?.isFounder) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const { accountId } = req.params;
+      
+      // Get current account to find the photo path
+      const accounts = await storage.getSocialMediaAccountsByClient("");
+      // Actually we need a different approach - let's get the account directly
+      
+      // Update the account to remove the profile photo
+      const account = await storage.updateSocialMediaAccount(accountId, { 
+        profilePhoto: null 
+      });
+      
+      if (!account) {
+        return res.status(404).json({ error: "Account not found" });
+      }
+      
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting profile photo:", error);
+      return res.status(500).json({ error: "Failed to delete profile photo" });
     }
   });
 
@@ -5026,7 +5199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/clients/:clientId/social-accounts", requirePermission("edit_clients"), async (req, res) => {
     try {
       const { clientId } = req.params;
-      const { username, password, platforms, accountName } = req.body;
+      const { username, password, platforms, accountName, email, emailPassword } = req.body;
       
       if (!username || !password || !platforms) {
         return res.status(400).json({ error: "Username, password, and platforms are required" });
@@ -5063,6 +5236,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password,
         platforms: platformsString,
         accountName: accountName || null,
+        email: email || null,
+        emailPassword: emailPassword || null,
       });
       return res.json(account);
     } catch (error: any) {

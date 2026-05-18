@@ -127,12 +127,3 @@ async function testMojganDetailed() {
 testMojganDetailed();
 
 
-
-
-
-
-
-
-
-
-

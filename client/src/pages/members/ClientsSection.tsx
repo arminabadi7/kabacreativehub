@@ -49,7 +49,10 @@ type SocialMediaAccount = {
   accountName: string;
   username: string;
   password: string;
+  email: string | null;
+  emailPassword: string | null;
   platforms: string; // JSON array string
+  profilePhoto: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -133,6 +136,8 @@ export default function ClientsSection() {
     accountName: "",
     username: "",
     password: "",
+    email: "",
+    emailPassword: "",
     platforms: [] as string[], // Array of selected platforms
   });
 
@@ -290,7 +295,7 @@ export default function ClientsSection() {
   });
 
   const createAccountMutation = useMutation({
-    mutationFn: async (data: { accountName: string; username: string; password: string; platforms: string[] }) => {
+    mutationFn: async (data: { accountName: string; username: string; password: string; email: string; emailPassword: string; platforms: string[] }) => {
       const response = await apiRequest("POST", `/api/clients/${selectedClientId}/social-accounts`, {
         ...data,
         platforms: JSON.stringify(data.platforms),
@@ -300,7 +305,7 @@ export default function ClientsSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", selectedClientId, "social-accounts"] });
       setIsAddDialogOpen(false);
-      setFormData({ accountName: "", username: "", password: "", platforms: [] });
+      setFormData({ accountName: "", username: "", password: "", email: "", emailPassword: "", platforms: [] });
       toast({ title: "Success!", description: "Social media account created successfully." });
     },
     onError: (error: any) => {
@@ -309,7 +314,7 @@ export default function ClientsSection() {
   });
 
   const updateAccountMutation = useMutation({
-    mutationFn: async (data: { accountName?: string; username?: string; password?: string; platforms?: string[] }) => {
+    mutationFn: async (data: { accountName?: string; username?: string; password?: string; email?: string; emailPassword?: string; platforms?: string[] }) => {
       const updateData: any = { ...data };
       if (data.platforms) {
         updateData.platforms = JSON.stringify(data.platforms);
@@ -363,6 +368,8 @@ export default function ClientsSection() {
         accountName: account.accountName,
         username: account.username,
         password: account.password,
+        email: account.email || "",
+        emailPassword: account.emailPassword || "",
         platforms: Array.isArray(platforms) ? platforms : [],
       });
     } catch {
@@ -371,6 +378,8 @@ export default function ClientsSection() {
         accountName: account.accountName,
         username: account.username,
         password: account.password,
+        email: account.email || "",
+        emailPassword: account.emailPassword || "",
         platforms: account.platforms ? [account.platforms] : [],
       });
     }
@@ -468,6 +477,48 @@ export default function ClientsSection() {
       toast({ title: "Error", description: error.message || "Failed to upload contract", variant: "destructive" });
     },
   });
+
+  const uploadProfilePhotoMutation = useMutation({
+    mutationFn: async ({ accountId, file }: { accountId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append("profilePhoto", file);
+      
+      const response = await fetch(`/api/social-accounts/${accountId}/profile-photo`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upload photo");
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", selectedClientId, "social-accounts"] });
+      toast({ title: "Success!", description: "Profile photo uploaded successfully." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to upload profile photo", variant: "destructive" });
+    },
+  });
+
+  const profilePhotoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhotoForAccount, setUploadingPhotoForAccount] = useState<string | null>(null);
+
+  const handleProfilePhotoSelect = (accountId: string, file: File) => {
+    if (!file.type.match(/^image\/(png|jpeg|jpg)$/)) {
+      toast({ title: "Error", description: "Only PNG and JPG images are allowed", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Error", description: "File size must be less than 5MB", variant: "destructive" });
+      return;
+    }
+    setUploadingPhotoForAccount(accountId);
+    uploadProfilePhotoMutation.mutate({ accountId, file });
+  };
 
   const handleFileSelect = (file: File) => {
     uploadContractMutation.mutate(file);
@@ -754,7 +805,7 @@ export default function ClientsSection() {
         </div>
         <Button
           onClick={() => {
-            setFormData({ accountName: "", username: "", password: "", platforms: [] });
+            setFormData({ accountName: "", username: "", password: "", email: "", emailPassword: "", platforms: [] });
             setIsAddDialogOpen(true);
           }}
           className="bg-black text-white hover:bg-gray-900"
@@ -1021,7 +1072,52 @@ export default function ClientsSection() {
               <Card key={account.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{account.accountName}</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <div className="relative group">
+                        {account.profilePhoto ? (
+                          <img
+                            src={account.profilePhoto}
+                            alt={`${account.accountName} profile`}
+                            className="w-14 h-14 rounded-full object-cover border-2 border-gray-200"
+                            data-testid={`img-profile-${account.id}`}
+                          />
+                        ) : (
+                          <div 
+                            className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border-2 border-gray-200"
+                            data-testid={`placeholder-profile-${account.id}`}
+                          >
+                            <span className="text-gray-500 text-lg font-medium">
+                              {account.accountName?.charAt(0)?.toUpperCase() || "?"}
+                            </span>
+                          </div>
+                        )}
+                        <label 
+                          className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                          htmlFor={`photo-upload-${account.id}`}
+                        >
+                          <Upload className="w-5 h-5 text-white" />
+                        </label>
+                        <input
+                          id={`photo-upload-${account.id}`}
+                          type="file"
+                          className="hidden"
+                          accept="image/png,image/jpeg,image/jpg"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleProfilePhotoSelect(account.id, file);
+                            }
+                          }}
+                          data-testid={`input-photo-${account.id}`}
+                        />
+                        {uploadProfilePhotoMutation.isPending && uploadingPhotoForAccount === account.id && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                      <CardTitle className="text-lg">{account.accountName}</CardTitle>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
@@ -1067,6 +1163,34 @@ export default function ClientsSection() {
                       </Button>
                     </div>
                   </div>
+                  {account.email && (
+                    <>
+                      <div>
+                        <Label className="text-xs text-gray-500">Email</Label>
+                        <p className="text-sm font-medium text-gray-900 font-mono">{account.email}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">Email Password</Label>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-gray-900 font-mono flex-1">
+                            {showPasswords[`email-${account.id}`] ? account.emailPassword : "••••••••"}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => togglePasswordVisibility(`email-${account.id}`)}
+                            className="w-8 h-8"
+                          >
+                            {showPasswords[`email-${account.id}`] ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <Label className="text-xs text-gray-500 mb-2 block">Platforms</Label>
                     <div className="flex flex-wrap gap-2 mt-2">
@@ -1094,7 +1218,7 @@ export default function ClientsSection() {
             <p className="text-gray-500 mb-4">No social media accounts yet</p>
             <Button
               onClick={() => {
-                setFormData({ accountName: "", username: "", password: "", platforms: [] });
+                setFormData({ accountName: "", username: "", password: "", email: "", emailPassword: "", platforms: [] });
                 setIsAddDialogOpen(true);
               }}
               className="bg-black text-white hover:bg-gray-900"
@@ -1191,6 +1315,29 @@ export default function ClientsSection() {
                 placeholder="Enter password"
               />
             </div>
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm text-gray-600 mb-3">Email Account (used to create these social media accounts)</p>
+              <div className="space-y-3">
+                <div>
+                  <Label>Email Address</Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <Label>Email Password</Label>
+                  <Input
+                    type="password"
+                    value={formData.emailPassword}
+                    onChange={(e) => setFormData({ ...formData, emailPassword: e.target.value })}
+                    placeholder="Enter email password"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -1286,6 +1433,29 @@ export default function ClientsSection() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Enter password"
               />
+            </div>
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm text-gray-600 mb-3">Email Account (used to create these social media accounts)</p>
+              <div className="space-y-3">
+                <div>
+                  <Label>Email Address</Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <Label>Email Password</Label>
+                  <Input
+                    type="password"
+                    value={formData.emailPassword}
+                    onChange={(e) => setFormData({ ...formData, emailPassword: e.target.value })}
+                    placeholder="Enter email password"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

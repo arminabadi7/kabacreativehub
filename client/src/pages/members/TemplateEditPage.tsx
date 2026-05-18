@@ -203,6 +203,7 @@ export default function TemplateEditPage({ template, onBack }: { template: Templ
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/templates", template.id, "tasks"] });
+      setEditingTaskId(null);
     },
     onError: (error: any) => {
       toast({

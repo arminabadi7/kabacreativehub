@@ -109,12 +109,3 @@ async function testMojganAPI() {
 testMojganAPI();
 
 
-
-
-
-
-
-
-
-
-

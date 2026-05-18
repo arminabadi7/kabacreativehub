@@ -1916,6 +1916,8 @@ export class DatabaseStorage implements IStorage {
         password: (accountData.password && accountData.password.trim()) || null,
         platforms: platformsString,
         accountName: (accountData.accountName && accountData.accountName.trim()) || null,
+        email: (accountData.email && accountData.email.trim()) || null,
+        emailPassword: (accountData.emailPassword && accountData.emailPassword.trim()) || null,
       };
 
       console.log("[Storage] Inserting data:", {
