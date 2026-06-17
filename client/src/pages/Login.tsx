@@ -44,14 +44,12 @@ export default function Login() {
       // Redirect based on user type
       const userType = data.userType || data.type;
       if (userType === "client") {
-        setLocation("/client-dashboard");
+        setLocation("/client");
       } else if (userType === "affiliate") {
         setLocation("/affiliate-dashboard");
-      } else if (userType === "founder") {
-        setLocation("/founder-dashboard");
       } else {
-        // Members
-        setLocation("/members-dashboard");
+        // All staff (founder, admin, manager, editor, clipper, member) → unified dashboard
+        setLocation("/dashboard");
       }
     },
     onError: (error: any) => {

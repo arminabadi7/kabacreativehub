@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, Eye, EyeOff, Instagram, Facebook, Youtube, Music, Phone, Mail, Calendar, DollarSign, FileText, Upload, X } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, EyeOff, Instagram, Facebook, Youtube, Music, Phone, Mail, Calendar, DollarSign, FileText, Upload, X, LayoutGrid, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -92,7 +92,11 @@ const getPlatformInfo = (platform: string) => {
   return PLATFORMS.find((p) => p.value === platform) || PLATFORMS[0];
 };
 
-export default function ClientsSection() {
+interface ClientsSectionProps {
+  onViewBoard?: (projectId: string) => void;
+}
+
+export default function ClientsSection({ onViewBoard }: ClientsSectionProps) {
   const { toast } = useToast();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -282,6 +286,24 @@ export default function ClientsSection() {
   const { data: socialAccounts, isLoading: accountsLoading } = useQuery<SocialMediaAccount[]>({
     queryKey: ["/api/clients", selectedClientId, "social-accounts"],
     enabled: !!selectedClientId,
+  });
+
+  // Fetch projects for the selected client
+  const { data: clientProjects = [] } = useQuery<Array<{
+    id: string; name: string; description?: string | null;
+    clientId?: string | null; teamId?: string | null; fileLink?: string | null;
+  }>>({
+    queryKey: ["/api/projects/by-client", selectedClientId],
+    queryFn: async () => {
+      const res = await fetch("/api/projects", { credentials: "include" });
+      if (!res.ok) return [];
+      const all = await res.json();
+      return Array.isArray(all)
+        ? all.filter((p: any) => p.clientId === selectedClientId || p.client_id === selectedClientId)
+        : [];
+    },
+    enabled: !!selectedClientId,
+    staleTime: 0,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1055,6 +1077,46 @@ export default function ClientsSection() {
           )}
         </CardContent>
       </Card>
+
+      {/* Client Projects Section */}
+      {clientProjects.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Projects</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {clientProjects.map((project) => (
+              <Card key={project.id} className="border border-gray-200">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <LayoutGrid className="w-4 h-4 text-gray-400 shrink-0" />
+                      <h3 className="font-semibold text-gray-900 truncate">{project.name}</h3>
+                    </div>
+                    {(project as any).teamName && (
+                      <span className="shrink-0 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                        {(project as any).teamName}
+                      </span>
+                    )}
+                  </div>
+                  {project.description && (
+                    <p className="text-sm text-gray-500 mb-3 line-clamp-2">{project.description}</p>
+                  )}
+                  {onViewBoard && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full gap-2 mt-1"
+                      onClick={() => onViewBoard(project.id)}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      View Board
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Social Media Accounts Section */}
       <div>

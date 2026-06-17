@@ -184,7 +184,7 @@ export default function WorkspacePage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setLocation("/member-dashboard?section=projects")}
+                onClick={() => setLocation("/dashboard?section=projects")}
               >
                 View All
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -200,7 +200,7 @@ export default function WorkspacePage() {
                   <div
                     key={project.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
-                    onClick={() => setLocation("/member-dashboard?section=projects")}
+                    onClick={() => setLocation("/dashboard?section=projects")}
                   >
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{project.name}</p>
@@ -260,7 +260,7 @@ export default function WorkspacePage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setLocation("/member-dashboard?section=projects")}
+                onClick={() => setLocation("/dashboard?section=projects")}
               >
                 View All
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -275,7 +275,7 @@ export default function WorkspacePage() {
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
                   onClick={() => {
                     if (issue.projectId) {
-                      setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+                      setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
                     }
                   }}
                 >
@@ -310,7 +310,7 @@ export default function WorkspacePage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setLocation("/member-dashboard?section=projects")}
+                onClick={() => setLocation("/dashboard?section=projects")}
               >
                 View All
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -325,7 +325,7 @@ export default function WorkspacePage() {
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
                   onClick={() => {
                     if (issue.projectId) {
-                      setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+                      setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
                     }
                   }}
                 >

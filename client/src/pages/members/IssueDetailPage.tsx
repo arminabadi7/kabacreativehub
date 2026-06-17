@@ -115,8 +115,8 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   
-  // Parse route params manually - handle both /member-dashboard/projects/... and /founder/projects/...
-  const match = location.match(/\/(?:member-dashboard|founder)\/projects\/([^\/]+)\/issues\/([^\/]+)$/);
+  // Parse route params manually - handle /dashboard, legacy /member-dashboard, and /founder
+  const match = location.match(/\/(?:dashboard|member-dashboard|founder)\/projects\/([^\/]+)\/issues\/([^\/]+)$/);
   const params = match ? {
     projectId: match[1],
     issueId: match[2]
@@ -245,9 +245,16 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
       });
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/issues", projectId] });
+    onSuccess: (updatedIssue) => {
+      // Update the single-issue cache immediately
+      queryClient.setQueryData(["/api/issues", issueId], updatedIssue);
+      // Sync both board endpoints so the kanban card reflects changes instantly
+      queryClient.setQueryData<any[]>(
+        ["/api/board/projects", projectId, "issues"],
+        (prev = []) => prev.map((i: any) => i.id === issueId ? { ...i, ...updatedIssue } : i)
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/board/projects", projectId, "issues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
       toast({
         title: "Success!",
         description: "Issue updated successfully.",
@@ -268,9 +275,9 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
       return await response.json();
     },
     onSuccess: () => {
-      // Invalidate issue query to refetch with updated tasks
       queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/board/projects", projectId, "issues"] });
     },
   });
 
@@ -280,9 +287,9 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
       return await response.json();
     },
     onSuccess: () => {
-      // Invalidate issue query to refetch with updated tasks
       queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/board/projects", projectId, "issues"] });
       toast({
         title: "Success!",
         description: "Task deleted successfully.",
@@ -346,6 +353,7 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
       await queryClient.invalidateQueries({ queryKey: ["/api/issues", issueId] });
       await queryClient.refetchQueries({ queryKey: ["/api/issues", issueId] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "issues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/board/projects", projectId, "issues"] });
       toast({
         title: "Success!",
         description: "Task created successfully.",
@@ -473,7 +481,7 @@ export default function IssueDetailPage(props: IssueDetailPageProps = {}) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLocation(`/member-dashboard/projects/${projectId}`)}
+            onClick={() => setLocation(`/dashboard/projects/${projectId}`)}
             className="p-0 h-auto"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />

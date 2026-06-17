@@ -13,8 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { 
-  ArrowLeft, 
-  LogOut, 
+  ArrowLeft,
+  LogOut,
   Plus,
   Users,
   DollarSign,
@@ -35,12 +35,17 @@ import {
   Trash2,
   Search,
   Briefcase,
-  Upload
+  Upload,
+  BookOpen
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import MembersDashboard from "./MembersDashboard";
 import FinancesPage from "./finances/FinancesPage";
+import { TutorialManagement } from "@/components/founder/tutorials/TutorialManagement";
+import BillingSection from "./members/BillingSection";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 type AffiliateWithStats = {
   id: string;
@@ -96,6 +101,11 @@ type Client = {
   fullName: string | null;
   tier?: string;
   offerLink?: string | null;
+  googleDriveLink?: string | null;
+  msaFilePath?: string | null;
+  msaOriginalName?: string | null;
+  sowFilePath?: string | null;
+  sowOriginalName?: string | null;
   createdAt: string;
   passwordHash?: string;
 };
@@ -120,15 +130,28 @@ const createClientSchema = z.object({
   fullName: z.string().optional(),
 });
 
-export default function FounderDashboard() {
+interface FounderDashboardProps {
+  /** When true, render only the requested section body (no sidebar / login gate). */
+  embedded?: boolean;
+  /** The section to render in embedded mode. */
+  section?: string | null;
+}
+
+export default function FounderDashboard({ embedded = false, section: sectionProp = null }: FounderDashboardProps = {}) {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
+  const { isAdmin: actorIsAdmin } = usePermissions();
   const [isLoginView, setIsLoginView] = useState(true);
-  
+
   // Get section from URL params
   const urlParams = new URLSearchParams(window.location.search);
   const urlSection = urlParams.get("section");
-  const [activeSection, setActiveSection] = useState<string | null>(urlSection || null);
+  const [activeSection, setActiveSection] = useState<string | null>(embedded ? sectionProp : (urlSection || null));
+
+  // In embedded mode, the parent shell drives which section is shown.
+  useEffect(() => {
+    if (embedded && sectionProp) setActiveSection(sectionProp);
+  }, [embedded, sectionProp]);
   const [searchTerm, setSearchTerm] = useState("");
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
   const [createUserDialogContext, setCreateUserDialogContext] = useState<"members" | "user-management" | "clients" | null>(null);
@@ -144,6 +167,7 @@ export default function FounderDashboard() {
   // Members section state (must be at top level for hooks)
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberDetailDialogOpen, setMemberDetailDialogOpen] = useState(false);
+  const [memberDetailTab, setMemberDetailTab] = useState<"details" | "billing" | "edit">("details");
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   
   // Update section when URL changes
@@ -265,6 +289,14 @@ export default function FounderDashboard() {
     retry: false,
   });
 
+  // Auto-bypass login view if server session is already active
+  useEffect(() => {
+    if (founderSession?.isFounder) {
+      setIsLoginView(false);
+      setActiveSection((prev) => prev ?? "affiliates");
+    }
+  }, [founderSession]);
+
   const { data: affiliates, isLoading: affiliatesLoading } = useQuery<
     AffiliateWithStats[]
   >({
@@ -340,6 +372,72 @@ export default function FounderDashboard() {
   const [deleteConfirmAccount, setDeleteConfirmAccount] = useState<{ clientId: string; accountId: string; accountName: string } | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [accountForm, setAccountForm] = useState({ username: "", password: "", accountName: "", email: "", emailPassword: "" });
+  const [googleDriveLinkInput, setGoogleDriveLinkInput] = useState("");
+  const [contractUploading, setContractUploading] = useState<"msa" | "sow" | null>(null);
+
+  const uploadContractMutation = useMutation({
+    mutationFn: async ({ clientId, type, file }: { clientId: string; type: "msa" | "sow"; file: File }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`/api/clients/${clientId}/contracts/${type}`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to upload contract");
+      }
+      return await response.json();
+    },
+    onSuccess: (_, { type }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/clients", selectedClientId] });
+      setContractUploading(null);
+      toast({ title: "Uploaded", description: `${type.toUpperCase()} uploaded successfully.` });
+    },
+    onError: (error: any) => {
+      setContractUploading(null);
+      toast({ title: "Error", description: error.message || "Failed to upload contract", variant: "destructive" });
+    },
+  });
+
+  const deleteContractMutation = useMutation({
+    mutationFn: async ({ clientId, type }: { clientId: string; type: "msa" | "sow" }) => {
+      const response = await apiRequest("DELETE", `/api/clients/${clientId}/contracts/${type}`);
+      return await response.json();
+    },
+    onSuccess: (_, { type }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/clients", selectedClientId] });
+      toast({ title: "Removed", description: `${type.toUpperCase()} removed.` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to remove contract", variant: "destructive" });
+    },
+  });
+
+  const updateGoogleDriveLinkMutation = useMutation({
+    mutationFn: async (data: { clientId: string; googleDriveLink: string }) => {
+      const response = await apiRequest("PATCH", `/api/founder/clients/${data.clientId}`, {
+        googleDriveLink: data.googleDriveLink,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/clients", selectedClientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients/list"] });
+      toast({
+        title: "Saved",
+        description: "Google Drive link updated for this client.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update Google Drive link",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Fetch accounts for selected client (must be at top level)
   const { data: accounts, refetch: refetchAccounts } = useQuery<any[]>({
@@ -362,6 +460,10 @@ export default function FounderDashboard() {
     },
     enabled: !!selectedClientId && !!founderSession,
   });
+
+  useEffect(() => {
+    setGoogleDriveLinkInput(selectedClient?.googleDriveLink || "");
+  }, [selectedClient?.googleDriveLink, selectedClientId]);
 
   // Fetch payment plans for selected client (must be at top level, not inside renderClientsSection)
   const { data: paymentPlans, refetch: refetchPaymentPlans } = useQuery<Array<any>>({
@@ -671,7 +773,7 @@ export default function FounderDashboard() {
     logoutMutation.mutate();
   };
 
-  if (isLoginView || !founderSession) {
+  if (!embedded && (isLoginView || !founderSession)) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="max-w-md w-full">
@@ -736,7 +838,7 @@ export default function FounderDashboard() {
     );
   }
 
-  if (sessionLoading) {
+  if (!embedded && sessionLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -764,6 +866,9 @@ export default function FounderDashboard() {
     }
     if (activeSection === "user-management") {
       return renderUserManagementSection();
+    }
+    if (activeSection === "tutorials") {
+      return <TutorialManagement />;
     }
     // Default to affiliates
     return renderAffiliatesSection();
@@ -1908,6 +2013,163 @@ export default function FounderDashboard() {
           </CardContent>
         </Card>
 
+        {/* Google Drive Link */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <Label className="text-xs text-gray-500 mb-2 block">Google Drive Link</Label>
+            <p className="text-xs text-gray-500">
+              This link appears on the client&apos;s dashboard under Google Drive.
+            </p>
+            <Input
+              type="url"
+              value={googleDriveLinkInput}
+              onChange={(e) => setGoogleDriveLinkInput(e.target.value)}
+              placeholder="https://drive.google.com/..."
+              className="text-sm"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="bg-black text-white hover:bg-gray-900"
+                disabled={updateGoogleDriveLinkMutation.isPending || !selectedClientId}
+                onClick={() => {
+                  if (!selectedClientId) return;
+                  updateGoogleDriveLinkMutation.mutate({
+                    clientId: selectedClientId,
+                    googleDriveLink: googleDriveLinkInput.trim(),
+                  });
+                }}
+              >
+                {updateGoogleDriveLinkMutation.isPending ? "Saving..." : "Save Google Drive Link"}
+              </Button>
+              {googleDriveLinkInput.trim() && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const link = googleDriveLinkInput.trim();
+                    const url =
+                      link.startsWith("http://") || link.startsWith("https://")
+                        ? link
+                        : `https://${link}`;
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  Open Link
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Contracts (MSA / SOW) */}
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Contracts</Label>
+              <p className="text-xs text-gray-500">Upload the MSA and SOW contracts for this client. They'll be able to view and download them from their dashboard.</p>
+            </div>
+
+            {/* MSA */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Master Service Agreement (MSA)</p>
+              {selectedClient?.msaFilePath ? (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="w-5 h-5 text-blue-600 shrink-0" />
+                    <span className="text-sm text-gray-900 truncate">{selectedClient.msaOriginalName || "MSA File"}</span>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => window.open(selectedClient.msaFilePath!, "_blank")}>
+                      View
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={deleteContractMutation.isPending}
+                      onClick={() => selectedClientId && deleteContractMutation.mutate({ clientId: selectedClientId, type: "msa" })}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50/50 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <Upload className="w-6 h-6 text-blue-400 mb-1" />
+                  <span className="text-sm text-blue-600 font-medium">
+                    {contractUploading === "msa" ? "Uploading..." : "Upload MSA"}
+                  </span>
+                  <span className="text-xs text-gray-400 mt-0.5">PDF or Word, up to 20MB</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    disabled={!!contractUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && selectedClientId) {
+                        setContractUploading("msa");
+                        uploadContractMutation.mutate({ clientId: selectedClientId, type: "msa", file });
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* SOW */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Statement of Work (SOW)</p>
+              {selectedClient?.sowFilePath ? (
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="w-5 h-5 text-purple-600 shrink-0" />
+                    <span className="text-sm text-gray-900 truncate">{selectedClient.sowOriginalName || "SOW File"}</span>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => window.open(selectedClient.sowFilePath!, "_blank")}>
+                      View
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={deleteContractMutation.isPending}
+                      onClick={() => selectedClientId && deleteContractMutation.mutate({ clientId: selectedClientId, type: "sow" })}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 cursor-pointer hover:bg-purple-50 transition-colors">
+                  <Upload className="w-6 h-6 text-purple-400 mb-1" />
+                  <span className="text-sm text-purple-600 font-medium">
+                    {contractUploading === "sow" ? "Uploading..." : "Upload SOW"}
+                  </span>
+                  <span className="text-xs text-gray-400 mt-0.5">PDF or Word, up to 20MB</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx"
+                    disabled={!!contractUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && selectedClientId) {
+                        setContractUploading("sow");
+                        uploadContractMutation.mutate({ clientId: selectedClientId, type: "sow", file });
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Next Payment Section */}
         <Card>
           <CardHeader>
@@ -2509,7 +2771,7 @@ export default function FounderDashboard() {
           <Button
             onClick={() => {
               // Navigate to user-management section with query params to open dialog
-              setLocation("/founder?section=user-management&openDialog=create-user&accountType=member");
+              setLocation("/dashboard?section=user-management&openDialog=create-user&accountType=member");
             }}
             className="bg-black text-white hover:bg-gray-900"
           >
@@ -2566,7 +2828,6 @@ export default function FounderDashboard() {
                       <th className="text-left py-3 px-4 font-semibold text-gray-700">Username</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-700">Role</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Points</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-700">Joined</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
                     </tr>
@@ -2578,6 +2839,7 @@ export default function FounderDashboard() {
                         className="border-b hover:bg-gray-50 cursor-pointer"
                         onClick={() => {
                           setSelectedMember(member);
+                          setMemberDetailTab("details");
                           setMemberDetailDialogOpen(true);
                         }}
                       >
@@ -2596,16 +2858,6 @@ export default function FounderDashboard() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-gray-600">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-900">
-                              {allMemberStats?.[member.id]?.currentBalance || 0} pts
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              Earned: {allMemberStats?.[member.id]?.pointsEarned || 0} | Paid: {allMemberStats?.[member.id]?.pointsPaid || 0}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-gray-600">
                           {new Date(member.createdAt).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4">
@@ -2615,6 +2867,7 @@ export default function FounderDashboard() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedMember(member);
+                              setMemberDetailTab("details");
                               setMemberDetailDialogOpen(true);
                             }}
                           >
@@ -2644,77 +2897,104 @@ export default function FounderDashboard() {
               </DialogDescription>
             </DialogHeader>
             {selectedMember && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm text-gray-500">Full Name</Label>
-                    <p className="font-medium">{selectedMember.fullName || "Not set"}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Username</Label>
-                    <p className="font-medium">{selectedMember.username}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Email</Label>
-                    <p className="font-medium">{selectedMember.email}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Role</Label>
-                    <p className="font-medium">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${roleColors[selectedMember.role || "member"]}`}
-                      >
-                        {roleLabels[selectedMember.role || "member"]}
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Member Since</Label>
-                    <p className="font-medium">
-                      {new Date(selectedMember.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Must Change Password</Label>
-                    <p className="font-medium">
-                      {selectedMember.mustChangePassword ? "Yes" : "No"}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Current Balance</Label>
-                    <p className="font-medium text-green-600">
-                      {allMemberStats?.[selectedMember.id]?.currentBalance || 0} pts
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Total Earned</Label>
-                    <p className="font-medium text-blue-600">
-                      {allMemberStats?.[selectedMember.id]?.pointsEarned || 0} pts
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-gray-500">Total Paid</Label>
-                    <p className="font-medium text-purple-600">
-                      {allMemberStats?.[selectedMember.id]?.pointsPaid || 0} pts
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditingUser(selectedMember);
-                      setEditUserDialogOpen(true);
-                      setMemberDetailDialogOpen(false);
-                    }}
+              <div className="space-y-4">
+                {/* Tab switcher */}
+                <div className="flex border-b border-gray-200">
+                  <button
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${memberDetailTab === "details" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                    onClick={() => setMemberDetailTab("details")}
                   >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Member
-                  </Button>
-                  <Button variant="outline" onClick={() => setMemberDetailDialogOpen(false)}>
-                    Close
-                  </Button>
-                </DialogFooter>
+                    Details
+                  </button>
+                  <button
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${memberDetailTab === "billing" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                    onClick={() => setMemberDetailTab("billing")}
+                  >
+                    Billing Info
+                  </button>
+                  <button
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${memberDetailTab === "edit" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                    onClick={() => setMemberDetailTab("edit")}
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                {memberDetailTab === "details" && (
+                  <><div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm text-gray-500">Full Name</Label>
+                      <p className="font-medium">{selectedMember.fullName || "Not set"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500">Username</Label>
+                      <p className="font-medium">{selectedMember.username}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500">Email</Label>
+                      <p className="font-medium">{selectedMember.email}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500">Role</Label>
+                      <p className="font-medium">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${roleColors[selectedMember.role || "member"]}`}
+                        >
+                          {roleLabels[selectedMember.role || "member"]}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500">Member Since</Label>
+                      <p className="font-medium">
+                        {new Date(selectedMember.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-500">Must Change Password</Label>
+                      <p className="font-medium">
+                        {selectedMember.mustChangePassword ? "Yes" : "No"}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Financial data (points, payments) is available in the <span className="font-medium text-gray-600">Finances → Members Financial Summary</span> section.
+                  </p></>
+                )}
+
+                {memberDetailTab === "billing" && (
+                  <BillingSection memberId={selectedMember.id} />
+                )}
+
+                {memberDetailTab === "edit" && (
+                  <EditUserDialogContent
+                    user={{ ...selectedMember, userType: "member", type: "member" }}
+                    onClose={() => setMemberDetailTab("details")}
+                    onSuccess={() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/members/list"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/members/list-public"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/members/all-stats"] });
+                      // Close the whole dialog so a reopen shows the fresh data
+                      setMemberDetailDialogOpen(false);
+                      setMemberDetailTab("details");
+                    }}
+                  />
+                )}
+
+                {memberDetailTab !== "edit" && (
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setMemberDetailTab("edit")}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Member
+                    </Button>
+                    <Button variant="outline" onClick={() => setMemberDetailDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </DialogFooter>
+                )}
               </div>
             )}
           </DialogContent>
@@ -2822,6 +3102,7 @@ export default function FounderDashboard() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Type</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -2829,7 +3110,7 @@ export default function FounderDashboard() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                         {searchTerm ? "No users found matching your search." : "No users yet. Create your first user account."}
                       </td>
                     </tr>
@@ -2864,6 +3145,13 @@ export default function FounderDashboard() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-600">
                               {(user as any).role || "-"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-600">
+                              {(user as any).createdAt || (user as any).clientSince
+                                ? new Date((user as any).createdAt || (user as any).clientSince).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+                                : "-"}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -3352,8 +3640,26 @@ export default function FounderDashboard() {
     const [newPassword, setNewPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const userType = user.userType || user.type || "unknown";
+    const isMember = userType === "member";
+    const isFounderRow = (user.role || "").toLowerCase() === "founder";
+    // Editable profile fields
+    const [fullName, setFullName] = useState(user.fullName || "");
+    const [email, setEmail] = useState(user.email || "");
+    const [role, setRole] = useState((user.role || "member").toLowerCase());
     // Get password from stored passwords
     const currentPassword = (user as any).plainPassword || userPasswords[user.id] || (userType === "affiliate" ? affiliatePasswords[user.id] : null) || null;
+
+    // Assignable roles — managers cannot grant admin; founder is never assignable here.
+    const roleOptions = (actorIsAdmin
+      ? ["admin", "manager", "editor", "clipper", "member"]
+      : ["manager", "editor", "clipper", "member"]);
+
+    const updateMemberMutation = useMutation({
+      mutationFn: async (data: { fullName?: string; email?: string; role?: string }) => {
+        const response = await apiRequest("PATCH", `/api/founder/members/${user.id}`, data);
+        return await response.json();
+      },
+    });
 
     const updatePasswordMutation = useMutation({
       mutationFn: async (password: string) => {
@@ -3385,17 +3691,36 @@ export default function FounderDashboard() {
       },
     });
 
-    const handleUpdatePassword = () => {
-      if (!newPassword || newPassword.length < 8) {
-        toast({
-          title: "Error",
-          description: "Password must be at least 8 characters",
-          variant: "destructive",
-        });
-        return;
+    const handleSave = async () => {
+      try {
+        // 1. Save profile/role changes (members only)
+        if (isMember && !isFounderRow) {
+          const changes: { fullName?: string; email?: string; role?: string } = {};
+          if (fullName !== (user.fullName || "")) changes.fullName = fullName;
+          if (email !== (user.email || "")) changes.email = email;
+          if (role !== (user.role || "member").toLowerCase()) changes.role = role;
+          if (Object.keys(changes).length > 0) {
+            await updateMemberMutation.mutateAsync(changes);
+          }
+        }
+        // 2. Save password if provided
+        if (newPassword) {
+          if (newPassword.length < 8) {
+            toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
+            return;
+          }
+          await updatePasswordMutation.mutateAsync(newPassword);
+        } else {
+          onSuccess();
+          onClose();
+          toast({ title: "Saved", description: "Member updated successfully." });
+        }
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Failed to update member", variant: "destructive" });
       }
-      updatePasswordMutation.mutate(newPassword);
     };
+
+    const saving = updateMemberMutation.isPending || updatePasswordMutation.isPending;
 
     return (
       <div className="space-y-4 py-4">
@@ -3404,9 +3729,49 @@ export default function FounderDashboard() {
           <Input value={user.username} disabled className="bg-gray-50" />
         </div>
         <div>
-          <Label>Email</Label>
-          <Input value={user.email} disabled className="bg-gray-50" />
+          <Label>Full Name</Label>
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Full name"
+            disabled={!isMember || isFounderRow}
+            className={(!isMember || isFounderRow) ? "bg-gray-50" : ""}
+          />
         </div>
+        <div>
+          <Label>Email</Label>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            disabled={!isMember || isFounderRow}
+            className={(!isMember || isFounderRow) ? "bg-gray-50" : ""}
+          />
+        </div>
+        {isMember && !isFounderRow && (
+          <div>
+            <Label>Role</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                {roleOptions.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!actorIsAdmin && (
+              <p className="text-xs text-gray-500 mt-1">Only a founder/admin can assign the Admin role.</p>
+            )}
+          </div>
+        )}
+        {isFounderRow && (
+          <p className="text-xs text-amber-600">The founder account's profile and role cannot be changed here.</p>
+        )}
         <div>
           <Label>Current Password</Label>
           <div className="flex items-center gap-2">
@@ -3425,11 +3790,6 @@ export default function FounderDashboard() {
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </Button>
           </div>
-          {!currentPassword && (
-            <p className="text-xs text-gray-500 mt-1">
-              Password not available. Set a new password below.
-            </p>
-          )}
         </div>
         <div>
           <Label>New Password</Label>
@@ -3448,11 +3808,11 @@ export default function FounderDashboard() {
             Cancel
           </Button>
           <Button
-            onClick={handleUpdatePassword}
-            disabled={!newPassword || newPassword.length < 8 || updatePasswordMutation.isPending}
+            onClick={handleSave}
+            disabled={saving}
             className="bg-black text-white hover:bg-gray-900"
           >
-            {updatePasswordMutation.isPending ? "Updating..." : "Update Password"}
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </div>
@@ -3467,7 +3827,13 @@ export default function FounderDashboard() {
     { id: "members", label: "Members", icon: Briefcase },
     { id: "bookings-clients", label: "Bookings & Clients", icon: Calendar },
     { id: "user-management", label: "User Management", icon: UserPlus },
+    { id: "tutorials", label: "Tutorials & Guides", icon: BookOpen },
   ];
+
+  // Embedded mode: parent shell owns auth + sidebar; render only the section body.
+  if (embedded) {
+    return <div className="w-full">{renderContent()}</div>;
+  }
 
   // If members dashboard is active, render it full screen (it has its own sidebar)
   if (activeSection === "members-dashboard") {
@@ -3520,6 +3886,7 @@ export default function FounderDashboard() {
               <p className="text-xs text-gray-500 truncate">Full Access</p>
             </div>
           </div>
+          <ThemeToggle variant="full" />
           <Button
             onClick={handleLogout}
             variant="outline"

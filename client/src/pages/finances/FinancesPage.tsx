@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Calendar, Edit, Trash2, Users, UserCheck, ExternalLink } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Calendar, Edit, Trash2, Users, UserCheck, ExternalLink, ChevronDown, ChevronRight, CreditCard, Award } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -88,12 +88,21 @@ type MemberFinancialData = {
   id: string;
   username: string;
   fullName: string | null;
+  role?: string;
   currentBalance: number;
   currentBalanceUSD: number;
   totalEarned: number;
   totalEarnedUSD: number;
   totalPaid: number;
   totalPaidUSD: number;
+};
+
+type MemberTransaction = {
+  id: string;
+  type: string;
+  points: number;
+  description: string;
+  createdAt: string;
 };
 
 type AffiliateFinancialData = {
@@ -109,6 +118,9 @@ type MemberFinancialSummary = {
   totalUSDPaid: number;
   totalCurrentOwed: number;
   totalCurrentOwedUSD: number;
+  totalPointsEarned: number;
+  totalEarnedUSD: number;
+  pointsToUsdRate: number;
   members: MemberFinancialData[];
 };
 
@@ -121,10 +133,22 @@ type AffiliateFinancialSummary = {
 function MemberAffiliateFinancialSummary() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+
+  // Affiliate payment state
+  const [affiliatePayDialogOpen, setAffiliatePayDialogOpen] = useState(false);
   const [selectedAffiliate, setSelectedAffiliate] = useState<AffiliateFinancialData | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [payFullBalance, setPayFullBalance] = useState(false);
+  const [affiliatePayAmount, setAffiliatePayAmount] = useState("");
+  const [affiliatePayFull, setAffiliatePayFull] = useState(false);
+
+  // Member payment state
+  const [memberPayDialogOpen, setMemberPayDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<MemberFinancialData | null>(null);
+  const [memberPayPoints, setMemberPayPoints] = useState("");
+  const [memberPayFull, setMemberPayFull] = useState(false);
+  const [memberPayNote, setMemberPayNote] = useState("");
+
+  // Expanded member rows (for transaction history)
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
 
   const { data: memberSummary, isLoading: memberLoading } = useQuery<MemberFinancialSummary>({
     queryKey: ["/api/founder/finances/members"],
@@ -133,176 +157,196 @@ function MemberAffiliateFinancialSummary() {
   const { data: affiliateSummary, isLoading: affiliateLoading, error: affiliateError } = useQuery<AffiliateFinancialSummary>({
     queryKey: ["/api/founder/finances/affiliates"],
     queryFn: async () => {
-      const res = await fetch("/api/founder/finances/affiliates", {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
-      }
-      return await res.json();
+      const res = await fetch("/api/founder/finances/affiliates", { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
+      return res.json();
     },
     retry: false,
   });
 
-  // queryClient is imported from lib/queryClient
+  // Fetch transactions for expanded member
+  const { data: expandedMemberTxs, isLoading: txLoading } = useQuery<MemberTransaction[]>({
+    queryKey: ["/api/founder/members", expandedMemberId, "transactions"],
+    queryFn: async () => {
+      const res = await fetch(`/api/founder/members/${expandedMemberId}/transactions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      return res.json();
+    },
+    enabled: !!expandedMemberId,
+  });
 
-  const handleAffiliateClick = (username: string) => {
-    // Navigate to founder dashboard affiliates section
-    setLocation(`/founder-dashboard?section=affiliates&affiliate=${encodeURIComponent(username)}`);
-  };
+  const rate = memberSummary?.pointsToUsdRate ?? 0.05208333;
 
-  const handlePayClick = (e: React.MouseEvent, affiliate: AffiliateFinancialData) => {
-    e.stopPropagation(); // Prevent row click
-    setSelectedAffiliate(affiliate);
-    setPaymentAmount("");
-    setPayFullBalance(false);
-    setPaymentDialogOpen(true);
-  };
+  const formatPoints = (pts: number) => pts.toLocaleString("en-US");
+  const formatUSD = (usd: number) => `$${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const ptsToUSD = (pts: number) => formatUSD(pts * rate);
 
-  const paymentMutation = useMutation({
+  // Affiliate payment mutation
+  const affiliatePayMutation = useMutation({
     mutationFn: async (data: { affiliateId: string; amount?: string; payFullBalance: boolean }) => {
-      // Verify founder session before making payment request
-      const sessionCheck = await fetch("/api/founder/session", {
-        credentials: "include",
+      const sessionCheck = await fetch("/api/founder/session", { credentials: "include" });
+      if (!sessionCheck.ok) throw new Error("Founder session expired. Please log in again.");
+      const response = await apiRequest("POST", `/api/founder/affiliates/${data.affiliateId}/pay`, {
+        amount: data.amount,
+        payFullBalance: data.payFullBalance,
       });
-      if (!sessionCheck.ok) {
-        throw new Error("Founder session expired. Please log in again.");
-      }
-
-      const response = await apiRequest(
-        "POST",
-        `/api/founder/affiliates/${data.affiliateId}/pay`,
-        {
-          amount: data.amount,
-          payFullBalance: data.payFullBalance,
-        }
-      );
-      const paymentData = await response.json();
-      
-      // Expense record is now created automatically on the backend
-      
-      return paymentData;
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/affiliates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/expenses/summary"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/affiliates", selectedAffiliate?.username, "commissions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/affiliates", selectedAffiliate?.username, "transactions"] });
-      setPaymentDialogOpen(false);
+      setAffiliatePayDialogOpen(false);
       toast({
         title: "Payment Processed!",
-        description: `Successfully paid $${(data.transaction.amount / 100).toFixed(2)} to ${selectedAffiliate?.username}. New balance: $${data.newBalance.toFixed(2)}`,
+        description: `Paid $${(data.transaction.amount / 100).toFixed(2)} to ${selectedAffiliate?.username}.`,
       });
     },
     onError: (error: any) => {
-      const errorMessage = error.message || "Failed to process payment";
-      let description = errorMessage;
-      
-      // Check if it's an authentication error
-      if (errorMessage.includes("401") || errorMessage.includes("authentication") || errorMessage.includes("Founder authentication")) {
-        description = "Your session has expired. Please refresh the page and log in again.";
-      }
-      
-      toast({
-        title: "Payment Failed",
-        description: description,
-        variant: "destructive",
-      });
+      toast({ title: "Payment Failed", description: error.message || "Failed to process payment", variant: "destructive" });
     },
   });
 
-  const handlePaymentSubmit = () => {
-    if (!selectedAffiliate) return;
-    
-    if (!payFullBalance && (!paymentAmount || parseFloat(paymentAmount) <= 0)) {
+  // Member payment mutation
+  const memberPayMutation = useMutation({
+    mutationFn: async ({ memberId, points, note }: { memberId: string; points: number; note: string }) => {
+      const response = await apiRequest("POST", `/api/founder/members/${memberId}/pay`, { points, note });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/founder/finances/members"] });
+      if (expandedMemberId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/founder/members", expandedMemberId, "transactions"] });
+      }
+      setMemberPayDialogOpen(false);
+      setMemberPayPoints("");
+      setMemberPayNote("");
+      setMemberPayFull(false);
       toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid payment amount",
-        variant: "destructive",
+        title: "Payment Recorded!",
+        description: `Marked ${memberPayFull ? selectedMember?.currentBalance : memberPayPoints} pts paid to ${selectedMember?.fullName || selectedMember?.username}. New balance: ${data.newBalance} pts (${formatUSD(data.newBalance * rate)})`,
       });
+    },
+    onError: (error: any) => {
+      toast({ title: "Payment Failed", description: error.message || "Failed to record payment", variant: "destructive" });
+    },
+  });
+
+  const handleMemberPay = () => {
+    if (!selectedMember) return;
+    const points = memberPayFull ? selectedMember.currentBalance : Math.round(parseFloat(memberPayPoints));
+    if (!points || points <= 0) {
+      toast({ title: "Invalid Amount", description: "Enter a valid points amount", variant: "destructive" });
       return;
     }
-
-    paymentMutation.mutate({
-      affiliateId: selectedAffiliate.id,
-      amount: paymentAmount,
-      payFullBalance,
-    });
-  };
-
-  const formatPoints = (points: number) => {
-    return points.toLocaleString('en-US');
-  };
-
-  const formatUSD = (usd: number) => {
-    return `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    memberPayMutation.mutate({ memberId: selectedMember.id, points, note: memberPayNote });
   };
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Points Paid</CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {memberLoading ? "..." : formatPoints(memberSummary?.totalPointsPaid || 0)} pts
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {memberLoading ? "..." : formatUSD(memberSummary?.totalUSDPaid || 0)} USD
-            </p>
-          </CardContent>
-        </Card>
+      {/* ── Summary Cards ── */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <Users className="w-4 h-4" /> Members Overview
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">All-Time Earned</CardTitle>
+              <Award className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {memberLoading ? "..." : formatPoints(memberSummary?.totalPointsEarned || 0)} pts
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {memberLoading ? "..." : formatUSD(memberSummary?.totalEarnedUSD || 0)}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Owed</CardTitle>
-            <TrendingDown className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {memberLoading ? "..." : formatPoints(memberSummary?.totalCurrentOwed || 0)} pts
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {memberLoading ? "..." : formatUSD(memberSummary?.totalCurrentOwedUSD || 0)} USD
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Currently Owed</CardTitle>
+              <TrendingDown className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">
+                {memberLoading ? "..." : formatPoints(memberSummary?.totalCurrentOwed || 0)} pts
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {memberLoading ? "..." : formatUSD(memberSummary?.totalCurrentOwedUSD || 0)}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Affiliate Commission Owed</CardTitle>
-            <DollarSign className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {affiliateLoading ? "..." : formatUSD(affiliateSummary?.totalCommissionOwed || 0)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {affiliateLoading ? "..." : `${affiliateSummary?.affiliates.length || 0} affiliates`}
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Paid Out</CardTitle>
+              <CreditCard className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {memberLoading ? "..." : formatPoints(memberSummary?.totalPointsPaid || 0)} pts
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {memberLoading ? "..." : formatUSD(memberSummary?.totalUSDPaid || 0)}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Affiliate Commission Paid</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {affiliateLoading ? "..." : formatUSD(affiliateSummary?.totalCommissionPaid || 0)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Total paid to affiliates</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Exchange Rate</CardTitle>
+              <DollarSign className="h-4 w-4 text-gray-600" />
+            </CardHeader>
+            <CardContent>
+              <div
+                className="text-2xl font-bold text-gray-700 tabular-nums break-all"
+                title={memberLoading ? undefined : `$${rate} per point (exact)`}
+              >
+                {memberLoading ? "..." : `$${rate}`}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">per point</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Members Table */}
+      {/* ── Affiliate Cards ── */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <UserCheck className="w-4 h-4" /> Affiliates Overview
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Commission Owed</CardTitle>
+              <TrendingDown className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">
+                {affiliateLoading ? "..." : formatUSD(affiliateSummary?.totalCommissionOwed || 0)}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">{affiliateSummary?.affiliates.length || 0} affiliates</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Commission Paid</CardTitle>
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {affiliateLoading ? "..." : formatUSD(affiliateSummary?.totalCommissionPaid || 0)}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Total paid to affiliates</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ── Members Financial Summary Table ── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -310,48 +354,137 @@ function MemberAffiliateFinancialSummary() {
             Members Financial Summary
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {memberLoading ? (
             <div className="text-center py-8 text-gray-500">Loading member data...</div>
           ) : memberSummary && memberSummary.members.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b">
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left py-3 px-4 font-semibold w-6"></th>
                     <th className="text-left py-3 px-4 font-semibold">Member</th>
-                    <th className="text-right py-3 px-4 font-semibold">Current Owed (Points)</th>
-                    <th className="text-right py-3 px-4 font-semibold">Current Owed (USD)</th>
-                    <th className="text-right py-3 px-4 font-semibold">Lifetime Earned (Points)</th>
-                    <th className="text-right py-3 px-4 font-semibold">Lifetime Earned (USD)</th>
-                    <th className="text-right py-3 px-4 font-semibold">Total Paid (Points)</th>
-                    <th className="text-right py-3 px-4 font-semibold">Total Paid (USD)</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-500">Role</th>
+                    <th className="text-right py-3 px-4 font-semibold text-orange-700">Owed (pts)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-orange-700">Owed (USD)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-blue-700">All-Time Earned (pts)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-blue-700">All-Time Earned (USD)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-green-700">Total Paid (pts)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-green-700">Total Paid (USD)</th>
+                    <th className="text-center py-3 px-4 font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {memberSummary.members.map((member) => (
-                    <tr key={member.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium">
-                        {member.fullName || member.username}
-                      </td>
-                      <td className="py-3 px-4 text-right text-orange-600 font-semibold">
-                        {formatPoints(member.currentBalance)} pts
-                      </td>
-                      <td className="py-3 px-4 text-right text-orange-600">
-                        {formatUSD(member.currentBalanceUSD)}
-                      </td>
-                      <td className="py-3 px-4 text-right text-blue-600 font-semibold">
-                        {formatPoints(member.totalEarned)} pts
-                      </td>
-                      <td className="py-3 px-4 text-right text-blue-600">
-                        {formatUSD(member.totalEarnedUSD)}
-                      </td>
-                      <td className="py-3 px-4 text-right text-green-600 font-semibold">
-                        {formatPoints(member.totalPaid)} pts
-                      </td>
-                      <td className="py-3 px-4 text-right text-green-600">
-                        {formatUSD(member.totalPaidUSD)}
-                      </td>
-                    </tr>
+                    <React.Fragment key={member.id}>
+                      <tr
+                        className="border-b hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setExpandedMemberId(expandedMemberId === member.id ? null : member.id)}
+                      >
+                        <td className="py-3 px-4 text-gray-400">
+                          {expandedMemberId === member.id
+                            ? <ChevronDown className="w-4 h-4" />
+                            : <ChevronRight className="w-4 h-4" />}
+                        </td>
+                        <td className="py-3 px-4 font-medium">
+                          <div>{member.fullName || member.username}</div>
+                          {member.fullName && <div className="text-xs text-gray-400">@{member.username}</div>}
+                        </td>
+                        <td className="py-3 px-4 text-gray-500 capitalize">{member.role || "member"}</td>
+                        <td className="py-3 px-4 text-right font-semibold text-orange-600">
+                          {formatPoints(member.currentBalance)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-orange-500">
+                          {ptsToUSD(member.currentBalance)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-semibold text-blue-600">
+                          {formatPoints(member.totalEarned)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-blue-500">
+                          {formatUSD(member.totalEarnedUSD)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-semibold text-green-600">
+                          {formatPoints(member.totalPaid)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-green-500">
+                          {formatUSD(member.totalPaidUSD)}
+                        </td>
+                        <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          {member.currentBalance > 0 && (
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => {
+                                setSelectedMember(member);
+                                setMemberPayPoints("");
+                                setMemberPayFull(false);
+                                setMemberPayNote("");
+                                setMemberPayDialogOpen(true);
+                              }}
+                            >
+                              Pay
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* Expanded transaction history */}
+                      {expandedMemberId === member.id && (
+                        <tr key={`${member.id}-txs`} className="bg-gray-50">
+                          <td colSpan={10} className="px-8 py-4">
+                            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Transaction History</p>
+                            {txLoading ? (
+                              <p className="text-sm text-gray-400">Loading...</p>
+                            ) : expandedMemberTxs && expandedMemberTxs.length > 0 ? (
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b">
+                                    <th className="text-left py-1 px-2">Date</th>
+                                    <th className="text-left py-1 px-2">Type</th>
+                                    <th className="text-left py-1 px-2">Description</th>
+                                    <th className="text-right py-1 px-2">Points</th>
+                                    <th className="text-right py-1 px-2">USD</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {expandedMemberTxs.map((tx) => (
+                                    <tr key={tx.id} className="border-b border-gray-200">
+                                      <td className="py-1 px-2 text-gray-500">
+                                        {new Date(tx.createdAt).toLocaleDateString()}
+                                      </td>
+                                      <td className="py-1 px-2">
+                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                          tx.type === "earned" ? "bg-blue-100 text-blue-700" :
+                                          tx.type === "paid" ? "bg-green-100 text-green-700" :
+                                          tx.type === "bonus" ? "bg-purple-100 text-purple-700" :
+                                          tx.type === "deducted" ? "bg-orange-100 text-orange-700" :
+                                          "bg-red-100 text-red-700"
+                                        }`}>
+                                          {tx.type === "deducted" ? "Deducted" : tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+                                        </span>
+                                      </td>
+                                      <td className="py-1 px-2 text-gray-600">{tx.description}</td>
+                                      <td className={`py-1 px-2 text-right font-medium ${
+                                        tx.type === "paid" || tx.type === "penalty" || tx.type === "deducted" ? "text-red-600" : "text-blue-600"
+                                      }`}>
+                                        {tx.type === "paid" || tx.type === "deducted" || tx.type === "penalty" ? "-" : "+"}{formatPoints(tx.points)}
+                                      </td>
+                                      <td className={`py-1 px-2 text-right ${
+                                        tx.type === "paid" || tx.type === "penalty" || tx.type === "deducted" ? "text-red-500" : "text-blue-500"
+                                      }`}>
+                                        {ptsToUSD(tx.points)}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p className="text-sm text-gray-400">No transactions yet.</p>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -362,7 +495,7 @@ function MemberAffiliateFinancialSummary() {
         </CardContent>
       </Card>
 
-      {/* Affiliates Table */}
+      {/* ── Affiliates Table ── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -381,23 +514,20 @@ function MemberAffiliateFinancialSummary() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b">
+                  <tr className="border-b bg-gray-50">
                     <th className="text-left py-3 px-4 font-semibold">Affiliate</th>
                     <th className="text-left py-3 px-4 font-semibold">Email</th>
                     <th className="text-right py-3 px-4 font-semibold">Conversions</th>
-                    <th className="text-right py-3 px-4 font-semibold">Commission Owed (USD)</th>
-                    <th className="text-center py-3 px-4 font-semibold">Actions</th>
+                    <th className="text-right py-3 px-4 font-semibold text-purple-700">Commission Owed</th>
+                    <th className="text-center py-3 px-4 font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {affiliateSummary.affiliates.map((affiliate) => (
-                    <tr 
-                      key={affiliate.id} 
-                      className="border-b hover:bg-gray-50 transition-colors"
-                    >
-                      <td 
+                    <tr key={affiliate.id} className="border-b hover:bg-gray-50 transition-colors">
+                      <td
                         className="py-3 px-4 font-medium flex items-center gap-2 cursor-pointer"
-                        onClick={() => handleAffiliateClick(affiliate.username)}
+                        onClick={() => setLocation(`/dashboard?section=affiliates&affiliate=${encodeURIComponent(affiliate.username)}`)}
                       >
                         {affiliate.username}
                         <ExternalLink className="h-3 w-3 text-gray-400" />
@@ -411,8 +541,14 @@ function MemberAffiliateFinancialSummary() {
                         {affiliate.totalCommission > 0 && (
                           <Button
                             size="sm"
-                            onClick={(e) => handlePayClick(e, affiliate)}
                             className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAffiliate(affiliate);
+                              setAffiliatePayAmount("");
+                              setAffiliatePayFull(false);
+                              setAffiliatePayDialogOpen(true);
+                            }}
                           >
                             Pay
                           </Button>
@@ -429,14 +565,96 @@ function MemberAffiliateFinancialSummary() {
         </CardContent>
       </Card>
 
-      {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+      {/* ── Pay Member Dialog ── */}
+      <Dialog open={memberPayDialogOpen} onOpenChange={setMemberPayDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pay Member</DialogTitle>
+            <DialogDescription>
+              Record a payment to {selectedMember?.fullName || selectedMember?.username}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-orange-50 rounded-lg text-center">
+                <p className="text-xs text-gray-500 mb-1">Currently Owed</p>
+                <p className="font-bold text-orange-600">{formatPoints(selectedMember?.currentBalance || 0)} pts</p>
+                <p className="text-xs text-gray-500">{ptsToUSD(selectedMember?.currentBalance || 0)}</p>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg text-center">
+                <p className="text-xs text-gray-500 mb-1">All-Time Earned</p>
+                <p className="font-bold text-blue-600">{formatPoints(selectedMember?.totalEarned || 0)} pts</p>
+                <p className="text-xs text-gray-500">{formatUSD(selectedMember?.totalEarnedUSD || 0)}</p>
+              </div>
+              <div className="p-3 bg-green-50 rounded-lg text-center">
+                <p className="text-xs text-gray-500 mb-1">Previously Paid</p>
+                <p className="font-bold text-green-600">{formatPoints(selectedMember?.totalPaid || 0)} pts</p>
+                <p className="text-xs text-gray-500">{formatUSD(selectedMember?.totalPaidUSD || 0)}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="memberPayFull"
+                checked={memberPayFull}
+                onChange={(e) => { setMemberPayFull(e.target.checked); if (e.target.checked) setMemberPayPoints(""); }}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="memberPayFull" className="cursor-pointer">
+                Pay full balance ({formatPoints(selectedMember?.currentBalance || 0)} pts — {ptsToUSD(selectedMember?.currentBalance || 0)})
+              </Label>
+            </div>
+
+            {!memberPayFull && (
+              <div className="space-y-1">
+                <Label htmlFor="memberPayPoints">Points to Pay</Label>
+                <Input
+                  id="memberPayPoints"
+                  type="number"
+                  min="1"
+                  max={selectedMember?.currentBalance || 0}
+                  value={memberPayPoints}
+                  onChange={(e) => setMemberPayPoints(e.target.value)}
+                  placeholder="Enter points amount"
+                />
+                {memberPayPoints && !isNaN(parseFloat(memberPayPoints)) && (
+                  <p className="text-xs text-gray-500">≈ {ptsToUSD(parseFloat(memberPayPoints))}</p>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label htmlFor="memberPayNote">Note (optional)</Label>
+              <Input
+                id="memberPayNote"
+                value={memberPayNote}
+                onChange={(e) => setMemberPayNote(e.target.value)}
+                placeholder="e.g. Weekly payout"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMemberPayDialogOpen(false)} disabled={memberPayMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleMemberPay}
+              disabled={memberPayMutation.isPending || (!memberPayFull && (!memberPayPoints || parseFloat(memberPayPoints) <= 0))}
+            >
+              {memberPayMutation.isPending ? "Recording..." : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Pay Affiliate Dialog ── */}
+      <Dialog open={affiliatePayDialogOpen} onOpenChange={setAffiliatePayDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Pay Affiliate Commission</DialogTitle>
-            <DialogDescription>
-              Pay commission to {selectedAffiliate?.username}
-            </DialogDescription>
+            <DialogDescription>Pay commission to {selectedAffiliate?.username}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="p-4 bg-purple-50 rounded-lg">
@@ -445,61 +663,48 @@ function MemberAffiliateFinancialSummary() {
                 {selectedAffiliate ? formatUSD(selectedAffiliate.totalCommission) : "$0.00"}
               </div>
             </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="payFullBalance"
-                  checked={payFullBalance}
-                  onChange={(e) => {
-                    setPayFullBalance(e.target.checked);
-                    if (e.target.checked) {
-                      setPaymentAmount("");
-                    }
-                  }}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="payFullBalance" className="cursor-pointer">
-                  Pay Full Balance (${selectedAffiliate?.totalCommission.toFixed(2) || "0.00"})
-                </Label>
-              </div>
-
-              {!payFullBalance && (
-                <div>
-                  <Label htmlFor="paymentAmount">Payment Amount (USD)</Label>
-                  <Input
-                    id="paymentAmount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={selectedAffiliate?.totalCommission || 0}
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    className="mt-1"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Maximum: ${selectedAffiliate?.totalCommission.toFixed(2) || "0.00"}
-                  </p>
-                </div>
-              )}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="affiliatePayFull"
+                checked={affiliatePayFull}
+                onChange={(e) => { setAffiliatePayFull(e.target.checked); if (e.target.checked) setAffiliatePayAmount(""); }}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="affiliatePayFull" className="cursor-pointer">
+                Pay full balance (${selectedAffiliate?.totalCommission.toFixed(2) || "0.00"})
+              </Label>
             </div>
+            {!affiliatePayFull && (
+              <div>
+                <Label htmlFor="affiliatePayAmount">Payment Amount (USD)</Label>
+                <Input
+                  id="affiliatePayAmount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={selectedAffiliate?.totalCommission || 0}
+                  value={affiliatePayAmount}
+                  onChange={(e) => setAffiliatePayAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="mt-1"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPaymentDialogOpen(false)}
-              disabled={paymentMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setAffiliatePayDialogOpen(false)} disabled={affiliatePayMutation.isPending}>
               Cancel
             </Button>
             <Button
-              onClick={handlePaymentSubmit}
-              disabled={paymentMutation.isPending || (!payFullBalance && (!paymentAmount || parseFloat(paymentAmount) <= 0))}
               className="bg-green-600 hover:bg-green-700"
+              onClick={() => {
+                if (!selectedAffiliate) return;
+                affiliatePayMutation.mutate({ affiliateId: selectedAffiliate.id, amount: affiliatePayAmount, payFullBalance: affiliatePayFull });
+              }}
+              disabled={affiliatePayMutation.isPending || (!affiliatePayFull && (!affiliatePayAmount || parseFloat(affiliatePayAmount) <= 0))}
             >
-              {paymentMutation.isPending ? "Processing..." : payFullBalance ? "Pay Full Balance" : "Pay Amount"}
+              {affiliatePayMutation.isPending ? "Processing..." : affiliatePayFull ? "Pay Full Balance" : "Pay Amount"}
             </Button>
           </DialogFooter>
         </DialogContent>

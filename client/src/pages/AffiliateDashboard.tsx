@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import type { Affiliate, Referral } from "@shared/schema";
 import { CountrySelect } from "@/components/CountrySelect";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const registerSchema = z.object({
   username: z
@@ -681,6 +682,7 @@ export default function AffiliateDashboard() {
               </span>
             </button>
           </Link>
+          <ThemeToggle />
           <Button
             variant="ghost"
             onClick={handleLogout}

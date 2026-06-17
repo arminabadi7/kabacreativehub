@@ -19,7 +19,8 @@ type Member = {
   fullName: string | null;
   profilePicture: string | null;
   role: string;
-  memberSince: string;
+  memberSince?: string;
+  createdAt?: string;
 };
 
 export default function ProfileSection({ member }: { member: Member }) {
@@ -157,6 +158,17 @@ export default function ProfileSection({ member }: { member: Member }) {
             <div>
               <Label className="text-sm font-medium text-gray-700">Username</Label>
               <Input value={member.username} readOnly className="bg-white mt-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Member Since</Label>
+              <Input
+                value={(() => {
+                  const d = member.createdAt || member.memberSince;
+                  return d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+                })()}
+                readOnly
+                className="bg-white mt-1"
+              />
             </div>
             {isEditing && (
               <div className="flex gap-2 pt-2">

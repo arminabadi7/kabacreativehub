@@ -55,6 +55,18 @@ export const insertMemberSchema = createInsertSchema(members).omit({
 export type InsertMember = z.infer<typeof insertMemberSchema>;
 export type Member = typeof members.$inferSelect;
 
+// Member Billing Info
+export const memberBilling = pgTable("member_billing", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull().unique(),
+  cardNumber: text("card_number"),
+  shebah: text("shebah"),
+  fullNameOnCard: text("full_name_on_card"),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type MemberBilling = typeof memberBilling.$inferSelect;
+
 // Clients
 export const clients = pgTable("clients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -67,6 +79,7 @@ export const clients = pgTable("clients", {
   phoneNumber: text("phone_number"),
   instagramUsername: text("instagram_username"),
   offerLink: text("offer_link"), // Client's offer/promotion link
+  googleDriveLink: text("google_drive_link"), // Google Drive folder/link (set by founder)
   totalSpent: integer("total_spent").default(0), // in cents
   clientSince: timestamp("client_since").notNull().default(sql`now()`),
   monthlyPaymentDate: integer("monthly_payment_date"), // Day of month (1-31)
@@ -74,6 +87,10 @@ export const clients = pgTable("clients", {
   nextPaymentAmount: integer("next_payment_amount"), // Next payment amount in cents
   nextPaymentNote: text("next_payment_note"), // Optional note for next payment
   contractFilePath: text("contract_file_path"),
+  msaFilePath: text("msa_file_path"),       // Master Service Agreement
+  msaOriginalName: text("msa_original_name"),
+  sowFilePath: text("sow_file_path"),       // Statement of Work
+  sowOriginalName: text("sow_original_name"),
   teamId: varchar("team_id"), // Team assignment
   mustChangePassword: boolean("must_change_password").default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -395,6 +412,9 @@ export const issues = pgTable("issues", {
   videoUrl: text("video_url"),
   videoDuration: integer("video_duration"), // in seconds
   tasks: jsonb("tasks"), // Tasks stored as JSON array directly with the issue
+  captions: jsonb("captions"), // Generated/edited captions: { source, tone, variations: [{caption, hashtags}] }
+  assigneeId: varchar("assignee_id"), // Member assigned to the issue
+  creatorId: varchar("creator_id"), // Member who created the issue (for own-issue edit rules)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -591,6 +611,55 @@ export const recurringSubscriptions = pgTable("recurring_subscriptions", {
 });
 
 export type RecurringSubscription = typeof recurringSubscriptions.$inferSelect;
+
+// Tutorial Videos (admin-managed onboarding content)
+export const tutorialVideos = pgTable("tutorial_videos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  videoUrl: text("video_url").notNull(),         // YouTube / Vimeo / Loom URL
+  thumbnailUrl: text("thumbnail_url"),            // Custom thumbnail image URL
+  durationSeconds: integer("duration_seconds"),   // Display only (e.g. 273 → "4:33")
+  order: integer("order").notNull().default(0),   // Drag-to-reorder position
+  isPublished: boolean("is_published").notNull().default(false),
+  isArchived: boolean("is_archived").notNull().default(false),
+  targetTiers: text("target_tiers"),              // JSON: ["Growth","Domination","Empire"] or null = all
+  targetClientIds: text("target_client_ids"),     // JSON: ["id1","id2"] or null = all
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export type TutorialVideo = typeof tutorialVideos.$inferSelect;
+
+export const insertTutorialVideoSchema = createInsertSchema(tutorialVideos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(1, "Title is required"),
+  videoUrl: z.string().url("Must be a valid URL"),
+  durationSeconds: z.number().int().positive().optional(),
+  order: z.number().int().min(0).optional(),
+  targetTiers: z.string().optional(),
+  targetClientIds: z.string().optional(),
+});
+
+export type InsertTutorialVideo = z.infer<typeof insertTutorialVideoSchema>;
+
+// Per-client progress tracking
+export const tutorialProgress = pgTable("tutorial_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").notNull(),
+  videoId: varchar("video_id").notNull(),
+  watchPositionSeconds: integer("watch_position_seconds").default(0), // Resume point
+  watchPercentage: integer("watch_percentage").default(0),            // 0–100 high watermark
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  lastWatchedAt: timestamp("last_watched_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type TutorialProgress = typeof tutorialProgress.$inferSelect;
 
 // Unified Login Schema
 export const unifiedLoginSchema = z.object({

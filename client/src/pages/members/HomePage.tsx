@@ -108,7 +108,7 @@ export default function HomePage() {
       name: "Clipping Area",
       description: "Review and approve video clips",
       icon: Scissors,
-      path: "/member-dashboard?section=clipping-area",
+      path: "/dashboard?section=clipping-area",
       color: "text-green-600",
       bgColor: "bg-green-50",
     },
@@ -117,7 +117,7 @@ export default function HomePage() {
       name: "Projects",
       description: "Manage all projects and issues",
       icon: Folder,
-      path: "/member-dashboard?section=projects",
+      path: "/dashboard?section=projects",
       color: "text-blue-600",
       bgColor: "bg-blue-50",
     },
@@ -126,7 +126,7 @@ export default function HomePage() {
       name: "Board",
       description: "Kanban board for your work",
       icon: BarChart3,
-      path: "/member-dashboard?section=board",
+      path: "/dashboard?section=board",
       color: "text-purple-600",
       bgColor: "bg-purple-50",
     },
@@ -135,7 +135,7 @@ export default function HomePage() {
       name: "My Issues",
       description: "All issues and tasks assigned to you",
       icon: FileText,
-      path: "/member-dashboard?section=my-issues",
+      path: "/dashboard?section=my-issues",
       color: "text-orange-600",
       bgColor: "bg-orange-50",
     },
@@ -144,7 +144,7 @@ export default function HomePage() {
       name: "Workspace",
       description: "Workspace overview and resources",
       icon: Briefcase,
-      path: "/member-dashboard?section=workspace",
+      path: "/dashboard?section=workspace",
       color: "text-indigo-600",
       bgColor: "bg-indigo-50",
     },
@@ -153,7 +153,7 @@ export default function HomePage() {
       name: "Teams",
       description: "View teams and members",
       icon: Users,
-      path: "/member-dashboard?section=teams",
+      path: "/dashboard?section=teams",
       color: "text-cyan-600",
       bgColor: "bg-cyan-50",
     },
@@ -270,7 +270,7 @@ export default function HomePage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setLocation("/member-dashboard?section=my-issues")}
+                  onClick={() => setLocation("/dashboard?section=my-issues")}
                 >
                   View All
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -285,7 +285,7 @@ export default function HomePage() {
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
                     onClick={() => {
                       if (issue.projectId) {
-                        setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+                        setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
                       }
                     }}
                   >
@@ -315,7 +315,7 @@ export default function HomePage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setLocation("/member-dashboard?section=my-issues")}
+                  onClick={() => setLocation("/dashboard?section=my-issues")}
                 >
                   View All
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -333,7 +333,7 @@ export default function HomePage() {
                         // Try to find the issue to get projectId
                         const relatedIssue = assignedIssues?.find(i => i.id === task.issueId);
                         if (relatedIssue?.projectId) {
-                          setLocation(`/member-dashboard/projects/${relatedIssue.projectId}/issues/${task.issueId}`);
+                          setLocation(`/dashboard/projects/${relatedIssue.projectId}/issues/${task.issueId}`);
                         }
                       }
                     }}
@@ -371,7 +371,7 @@ export default function HomePage() {
             <Button
               variant="outline"
               className="w-full justify-start"
-              onClick={() => setLocation("/member-dashboard?section=my-issues")}
+              onClick={() => setLocation("/dashboard?section=my-issues")}
             >
               <FileText className="w-4 h-4 mr-2" />
               My Issues
@@ -379,7 +379,7 @@ export default function HomePage() {
             <Button
               variant="outline"
               className="w-full justify-start"
-              onClick={() => setLocation("/member-dashboard?section=board")}
+              onClick={() => setLocation("/dashboard?section=board")}
             >
               <BarChart3 className="w-4 h-4 mr-2" />
               Board
@@ -387,7 +387,7 @@ export default function HomePage() {
             <Button
               variant="outline"
               className="w-full justify-start"
-              onClick={() => setLocation("/member-dashboard?section=projects")}
+              onClick={() => setLocation("/dashboard?section=projects")}
             >
               <Folder className="w-4 h-4 mr-2" />
               Projects
@@ -395,7 +395,7 @@ export default function HomePage() {
             <Button
               variant="outline"
               className="w-full justify-start"
-              onClick={() => setLocation("/member-dashboard?section=workspace")}
+              onClick={() => setLocation("/dashboard?section=workspace")}
             >
               <Briefcase className="w-4 h-4 mr-2" />
               Workspace

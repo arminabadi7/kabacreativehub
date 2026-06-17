@@ -10,6 +10,37 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
+// Configure multer for contract uploads (MSA / SOW)
+const contractStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads', 'contracts');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const clientId = (req.params as any).clientId || 'unknown';
+    const type = (req.params as any).type || 'contract'; // 'msa' or 'sow'
+    cb(null, `${type}-${clientId}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const contractUpload = multer({
+  storage: contractStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and Word documents are allowed'));
+    }
+  }
+});
+
 // Configure multer for profile photo uploads
 const profilePhotoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -73,10 +104,13 @@ import {
   type InsertClient,
   type InsertAffiliate
 } from "@shared/schema";
-import { referrals, affiliateTransactions, bookings, affiliates, tasks, clips, issues } from "@shared/schema";
+import { referrals, affiliateTransactions, bookings, affiliates, tasks, clips, issues, memberBilling, memberStats, transactions, workspaceCurrency } from "@shared/schema";
+import { hasPermission as sharedHasPermission, permissionsForRole, isAdminRole, PERMISSIONS, type Permission } from "@shared/permissions";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { registerTutorialRoutes } from "./tutorial-routes";
+import { registerBoardRoutes } from "./board-routes";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -145,10 +179,75 @@ function requireOwnership(req: Request, res: Response, next: NextFunction) {
 }
 
 function requireFounderAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.session?.isFounder) {
-    return res.status(401).json({ error: "Founder authentication required" });
+  // Allow the env-password founder bypass...
+  if (req.session?.isFounder) {
+    return next();
   }
-  next();
+  // ...or a real member account with a founder/admin role.
+  if (req.session?.role && isAdminRole(req.session.role)) {
+    return next();
+  }
+  // Fall back to a DB role check when the session role isn't populated yet.
+  if (req.session?.memberId) {
+    storage.getMember(req.session.memberId).then((member) => {
+      if (member && isAdminRole(member.role)) {
+        return next();
+      }
+      return res.status(401).json({ error: "Founder authentication required" });
+    }).catch(() => res.status(401).json({ error: "Founder authentication required" }));
+    return;
+  }
+  return res.status(401).json({ error: "Founder authentication required" });
+}
+
+// ── Actor resolution + issue/task edit rules (Phase 4) ───────────────────────
+interface Actor { memberId: string | null; role: string | null; isFounder: boolean; }
+
+async function resolveActor(req: Request): Promise<Actor | null> {
+  if (req.session?.memberId) {
+    const m = await storage.getMember(req.session.memberId);
+    if (m) return { memberId: m.id, role: m.role, isFounder: isAdminRole(m.role) || !!req.session?.isFounder };
+  }
+  if (req.session?.isFounder) {
+    return { memberId: null, role: "founder", isFounder: true };
+  }
+  return null;
+}
+
+function actorCan(actor: Actor, permission: Permission | string): boolean {
+  return sharedHasPermission(actor.role, permission, actor.isFounder);
+}
+
+/** Full edit rights over an issue (its fields, status, structural task changes). */
+function canEditIssueRow(actor: Actor, issueRow: { creator_id?: string | null; creatorId?: string | null }): boolean {
+  if (actorCan(actor, PERMISSIONS.EDIT_ANY_ISSUE)) return true;
+  const creator = (issueRow as any).creator_id ?? (issueRow as any).creatorId ?? null;
+  if (actorCan(actor, PERMISSIONS.EDIT_OWN_ISSUE) && creator && actor.memberId && creator === actor.memberId) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Determine task edit rights:
+ *   "full"     → may change any task field
+ *   "checkbox" → may only toggle isCompleted (assigned, but not creator)
+ *   "none"     → denied
+ */
+function taskEditMode(
+  actor: Actor,
+  issueRow: { creator_id?: string | null; creatorId?: string | null },
+  task: { createdBy?: string | null; assignedTo?: string | null } | null,
+): "full" | "checkbox" | "none" {
+  if (actorCan(actor, PERMISSIONS.EDIT_ANY_ISSUE)) return "full";
+  const creator = (issueRow as any).creator_id ?? (issueRow as any).creatorId ?? null;
+  const isIssueCreator = !!creator && !!actor.memberId && creator === actor.memberId;
+  const isTaskCreator = !!task?.createdBy && !!actor.memberId && task.createdBy === actor.memberId;
+  if (actorCan(actor, PERMISSIONS.EDIT_OWN_ISSUE) && (isIssueCreator || isTaskCreator)) return "full";
+  if (actorCan(actor, PERMISSIONS.TOGGLE_ASSIGNED_TASK) && task?.assignedTo && actor.memberId && task.assignedTo === actor.memberId) {
+    return "checkbox";
+  }
+  return "none";
 }
 
 // Permission middleware functions
@@ -218,30 +317,8 @@ function requirePermission(permission: string) {
 }
 
 function canAccessPermission(role: string, permission: string): boolean {
-  const permissions: Record<string, string[]> = {
-    founder: ["*"], // All permissions
-    admin: ["*"], // All permissions
-    manager: [
-      "view_clipping", "validate_clips", "access_settings", "view_admin",
-      "create_projects", "edit_projects", "delete_projects",
-      "create_templates", "edit_templates", "delete_templates",
-    ],
-    editor: [
-      "view_clipping", "access_settings",
-      "create_projects", "edit_projects",
-      "create_templates", "edit_templates",
-    ],
-    clipper: [
-      "edit_clipping", "access_settings",
-      "create_projects", "edit_projects",
-    ],
-    member: [
-      "view_clipping",
-    ],
-  };
-  
-  const rolePermissions = permissions[role] || [];
-  return rolePermissions.includes("*") || rolePermissions.includes(permission);
+  // Delegates to the shared single-source-of-truth matrix.
+  return sharedHasPermission(role, permission as Permission, false);
 }
 
 function canAccessClipping(user: { role?: string; isFounder?: boolean }): boolean {
@@ -397,12 +474,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Try to find user in clients table
+      // Try to find user in clients table (case-insensitive)
       const [clientByUsername] = await db.select().from(clients)
-        .where(eq(clients.username, emailOrUsername))
+        .where(sql`lower(${clients.username}) = lower(${emailOrUsername})`)
         .limit(1);
       const [clientByEmail] = await db.select().from(clients)
-        .where(eq(clients.email, emailOrUsername))
+        .where(sql`lower(${clients.email}) = lower(${emailOrUsername})`)
         .limit(1);
       const client = clientByUsername || clientByEmail;
       
@@ -497,6 +574,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Unified "who am I" for the merged dashboard — returns role + resolved permissions.
+  // Works for both real member accounts (session.memberId) and the founder
+  // env-password backup login (session.isFounder).
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      const isFounder = !!req.session?.isFounder;
+
+      if (req.session?.memberId) {
+        const member = await storage.getMember(req.session.memberId);
+        if (member) {
+          const founderBypass = isFounder; // both may be true if founder logged into their real account
+          const { passwordHash: _ph, plainPassword: _pp, ...safe } = member as any;
+          return res.json({
+            ...safe,
+            isFounder: founderBypass || (member.role || "").toLowerCase() === "founder",
+            permissions: permissionsForRole(member.role, founderBypass),
+          });
+        }
+      }
+
+      if (isFounder) {
+        // Env-password backup login with no member record
+        return res.json({
+          id: "founder",
+          username: "founder",
+          fullName: "Founder",
+          email: null,
+          role: "founder",
+          isFounder: true,
+          permissions: permissionsForRole("founder", true),
+        });
+      }
+
+      return res.status(401).json({ error: "Not authenticated" });
+    } catch (error) {
+      console.error("Error in /api/auth/me:", error);
+      return res.status(500).json({ error: "Failed to resolve session" });
+    }
+  });
+
+  // AI caption remixer — turns one caption into 10 reworded variations with
+  // swapped hashtags. Proxies to the Anthropic API server-side so the key is
+  // never exposed to the browser.
+  app.post("/api/ai/caption-remix", async (req, res) => {
+    try {
+      // Any authenticated staff member (or founder) can use it.
+      if (!req.session?.memberId && !req.session?.isFounder) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({
+          error: "Caption remixer is not configured. Add ANTHROPIC_API_KEY to the server environment to enable it.",
+        });
+      }
+
+      const caption = String(req.body?.caption || "").trim();
+      const tone = String(req.body?.tone || "keep");
+      const issueId = req.body?.issueId ? String(req.body.issueId) : null;
+      if (!caption) {
+        return res.status(400).json({ error: "Caption is required" });
+      }
+
+      const TONE_LABELS: Record<string, string> = {
+        keep: "Keep each variation's tone close to the original.",
+        casual: "Shift the tone to be more casual.",
+        professional: "Shift the tone to be more polished.",
+        punchy: "Shift the tone to be punchier.",
+        playful: "Shift the tone to be playful.",
+      };
+      const toneNote = TONE_LABELS[tone] || TONE_LABELS.keep;
+
+      const systemPrompt =
+        "You are a social media copywriter who rewrites captions into multiple distinct variations. " +
+        "You always respond with ONLY a valid JSON array — no markdown fences, no preamble, no trailing commentary.";
+
+      const userPrompt = `Reword the caption below into 10 distinct variations.
+
+Rules:
+- Keep the core message and intent of the original.
+- Make each variation meaningfully different in phrasing — not just synonym swaps.
+- ${toneNote}
+- For each variation, replace any hashtags in the original with a fresh set of similar, relevant hashtags (same topic/niche, different exact tags). If the original had no hashtags, suggest 3-5 relevant ones.
+- Return each hashtag WITHOUT the # symbol.
+
+Original caption:
+"""${caption}"""
+
+Respond with ONLY a valid JSON array of exactly 10 objects. Each object must have:
+{ "caption": "the reworded caption text WITHOUT hashtags", "hashtags": ["tag1", "tag2", ...] }`;
+
+      const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 2000,
+          system: [
+            { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+          ],
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+      });
+
+      if (!anthropicRes.ok) {
+        const detail = await anthropicRes.text().catch(() => "");
+        console.error(`[CaptionRemix] Anthropic API ${anthropicRes.status}:`, detail.slice(0, 500));
+        return res.status(502).json({ error: `AI request failed (${anthropicRes.status})` });
+      }
+
+      const data: any = await anthropicRes.json();
+      const text: string = (data.content || [])
+        .map((b: any) => (b.type === "text" ? b.text : ""))
+        .join("")
+        .replace(/```json|```/g, "")
+        .trim();
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        // Fall back: pull the first JSON array out of the text
+        const match = text.match(/\[[\s\S]*\]/);
+        parsed = match ? JSON.parse(match[0]) : null;
+      }
+      if (!Array.isArray(parsed)) {
+        return res.status(502).json({ error: "AI returned an unexpected format. Try again." });
+      }
+
+      // Normalize each entry
+      const variations = parsed
+        .filter((v: any) => v && typeof v.caption === "string")
+        .map((v: any) => ({
+          caption: v.caption,
+          hashtags: Array.isArray(v.hashtags)
+            ? v.hashtags.map((h: any) => String(h).replace(/^#/, "").trim()).filter(Boolean)
+            : [],
+        }));
+
+      const captionsPayload = { source: caption, tone, variations, updatedAt: new Date().toISOString() };
+
+      // Persist onto the issue so the captions survive close/logout/regenerate.
+      if (issueId) {
+        try {
+          await db.update(issues).set({ captions: captionsPayload as any }).where(eq(issues.id, issueId));
+        } catch (persistErr) {
+          console.error("[CaptionRemix] Failed to persist captions:", persistErr);
+        }
+      }
+
+      return res.json(captionsPayload);
+    } catch (error: any) {
+      console.error("Error in /api/ai/caption-remix:", error);
+      return res.status(500).json({ error: "Failed to generate captions" });
+    }
+  });
+
+  // Save manually-edited captions for an issue (without regenerating).
+  app.put("/api/issues/:issueId/captions", async (req, res) => {
+    try {
+      if (!req.session?.memberId && !req.session?.isFounder) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const { issueId } = req.params;
+      const { source, tone, variations } = req.body || {};
+      if (!Array.isArray(variations)) {
+        return res.status(400).json({ error: "variations array is required" });
+      }
+      const cleaned = variations
+        .filter((v: any) => v && typeof v.caption === "string")
+        .map((v: any) => ({
+          caption: String(v.caption),
+          hashtags: Array.isArray(v.hashtags)
+            ? v.hashtags.map((h: any) => String(h).replace(/^#/, "").trim()).filter(Boolean)
+            : [],
+        }));
+      const payload = {
+        source: typeof source === "string" ? source : "",
+        tone: typeof tone === "string" ? tone : "keep",
+        variations: cleaned,
+        updatedAt: new Date().toISOString(),
+      };
+      const [updated] = await db.update(issues).set({ captions: payload as any }).where(eq(issues.id, issueId)).returning();
+      if (!updated) return res.status(404).json({ error: "Issue not found" });
+      return res.json(payload);
+    } catch (error: any) {
+      console.error("Error saving captions:", error);
+      return res.status(500).json({ error: "Failed to save captions" });
+    }
+  });
+
   app.post("/api/founder/login", async (req, res) => {
     try {
       const { password } = req.body;
@@ -526,11 +799,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/founder/session", (req, res) => {
-    if (!req.session?.isFounder) {
-      return res.status(401).json({ error: "Not authenticated" });
+  app.get("/api/founder/session", async (req, res) => {
+    // Env-password founder bypass
+    if (req.session?.isFounder) {
+      return res.json({ isFounder: true });
     }
-    return res.json({ isFounder: true });
+    // Real founder/admin-role member account
+    if (req.session?.memberId) {
+      const member = await storage.getMember(req.session.memberId);
+      if (member && isAdminRole(member.role)) {
+        return res.json({ isFounder: true, role: member.role, memberId: member.id });
+      }
+    }
+    return res.status(401).json({ error: "Not authenticated" });
   });
 
   app.get("/api/founder/affiliates", requireFounderAuth, async (req, res) => {
@@ -1673,6 +1954,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Founder Finances - Affiliates
+  // Members Financial Summary
+  app.get("/api/founder/finances/members", requireFounderAuth, async (req, res) => {
+    try {
+      const POINTS_TO_USD = 0.05208333;
+
+      // Get conversion rate from workspace currency if set
+      const [currencyRow] = await db.select().from(workspaceCurrency).limit(1);
+      const rate = currencyRow ? parseFloat(currencyRow.pointsToUsdRate) : POINTS_TO_USD;
+
+      const allMembers = await storage.getAllMembers();
+      const memberData = await Promise.all(
+        allMembers.map(async (member) => {
+          const stats = await storage.getMemberStats(member.id) || { pointsEarned: 0, pointsPaid: 0, currentBalance: 0 };
+          return {
+            id: member.id,
+            username: member.username,
+            fullName: member.fullName,
+            role: member.role,
+            currentBalance: stats.currentBalance || 0,
+            currentBalanceUSD: (stats.currentBalance || 0) * rate,
+            totalEarned: stats.pointsEarned || 0,
+            totalEarnedUSD: (stats.pointsEarned || 0) * rate,
+            totalPaid: stats.pointsPaid || 0,
+            totalPaidUSD: (stats.pointsPaid || 0) * rate,
+          };
+        })
+      );
+
+      const totals = memberData.reduce((acc, m) => ({
+        totalCurrentOwed: acc.totalCurrentOwed + m.currentBalance,
+        totalCurrentOwedUSD: acc.totalCurrentOwedUSD + m.currentBalanceUSD,
+        totalPointsPaid: acc.totalPointsPaid + m.totalPaid,
+        totalUSDPaid: acc.totalUSDPaid + m.totalPaidUSD,
+        totalPointsEarned: acc.totalPointsEarned + m.totalEarned,
+        totalEarnedUSD: acc.totalEarnedUSD + m.totalEarnedUSD,
+      }), { totalCurrentOwed: 0, totalCurrentOwedUSD: 0, totalPointsPaid: 0, totalUSDPaid: 0, totalPointsEarned: 0, totalEarnedUSD: 0 });
+
+      return res.json({ ...totals, members: memberData, pointsToUsdRate: rate });
+    } catch (error) {
+      console.error("Error fetching member finances:", error);
+      return res.status(500).json({ error: "Failed to fetch member financial data" });
+    }
+  });
+
+  // Pay a member (mark points as paid)
+  app.post("/api/founder/members/:memberId/pay", requireFounderAuth, async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const { points, note } = req.body;
+
+      if (!points || isNaN(Number(points)) || Number(points) <= 0) {
+        return res.status(400).json({ error: "Valid points amount required" });
+      }
+
+      const pointsNum = Math.round(Number(points));
+      const stats = await storage.getMemberStats(memberId) || { pointsEarned: 0, pointsPaid: 0, currentBalance: 0 };
+      const newBalance = Math.max(0, (stats.currentBalance || 0) - pointsNum);
+      const newPaid = (stats.pointsPaid || 0) + pointsNum;
+
+      await storage.updateMemberStats(memberId, { pointsPaid: newPaid, currentBalance: newBalance });
+      await storage.createTransaction({
+        memberId,
+        type: "paid",
+        points: pointsNum,
+        description: note || `Payment of ${pointsNum} points`,
+      });
+
+      const [currencyRow] = await db.select().from(workspaceCurrency).limit(1);
+      const rate = currencyRow ? parseFloat(currencyRow.pointsToUsdRate) : 0.05208333;
+
+      return res.json({ success: true, newBalance, newPaid, usdAmount: pointsNum * rate });
+    } catch (error) {
+      console.error("Error processing member payment:", error);
+      return res.status(500).json({ error: "Failed to process payment" });
+    }
+  });
+
+  // Get transactions for a member (founder view)
+  app.get("/api/founder/members/:memberId/transactions", requireFounderAuth, async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const txs = await storage.getMemberTransactions(memberId);
+      return res.json(txs);
+    } catch (error) {
+      console.error("Error fetching member transactions:", error);
+      return res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
   app.get("/api/founder/finances/affiliates", requireFounderAuth, async (req, res) => {
     try {
       let allAffiliates;
@@ -2061,7 +2431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // IMPORTANT: This route must be registered BEFORE other /api/members/:memberId routes
   // to ensure Express matches it correctly
   // Note: requirePermission already handles founder access
-  app.patch("/api/members/:memberId/team", requirePermission("access_settings"), async (req, res) => {
+  app.patch("/api/members/:memberId/team", requirePermission("manage_teams"), async (req, res) => {
     try {
       console.log(`[Routes] PATCH /api/members/:memberId/team: Request received for memberId: ${req.params.memberId}`);
       const { memberId } = req.params;
@@ -2553,6 +2923,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Member Billing Info - GET
+  app.get("/api/members/:memberId/billing", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      // Allow the member themselves or a founder to view billing
+      if (!req.session?.memberId && !req.session?.isFounder) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      if (req.session?.memberId !== memberId && !req.session?.isFounder) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const [billing] = await db.select().from(memberBilling).where(eq(memberBilling.memberId, memberId));
+      if (!billing) {
+        // Return empty billing info if none exists yet
+        return res.json({ id: null, cardNumber: null, shebah: null, fullNameOnCard: null });
+      }
+      return res.json({
+        id: billing.id,
+        cardNumber: billing.cardNumber,
+        shebah: billing.shebah,
+        fullNameOnCard: billing.fullNameOnCard,
+      });
+    } catch (error) {
+      console.error("Error fetching member billing:", error);
+      return res.status(500).json({ error: "Failed to fetch billing information" });
+    }
+  });
+
+  // Member Billing Info - PUT (upsert)
+  app.put("/api/members/:memberId/billing", async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      // Allow the member themselves or a founder to update billing
+      if (!req.session?.memberId && !req.session?.isFounder) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      if (req.session?.memberId !== memberId && !req.session?.isFounder) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const { cardNumber, shebah, fullNameOnCard } = req.body;
+      const [existing] = await db.select().from(memberBilling).where(eq(memberBilling.memberId, memberId));
+      if (existing) {
+        const [updated] = await db
+          .update(memberBilling)
+          .set({
+            cardNumber: cardNumber ?? existing.cardNumber,
+            shebah: shebah ?? existing.shebah,
+            fullNameOnCard: fullNameOnCard ?? existing.fullNameOnCard,
+            updatedAt: new Date(),
+          })
+          .where(eq(memberBilling.memberId, memberId))
+          .returning();
+        return res.json({ id: updated.id, cardNumber: updated.cardNumber, shebah: updated.shebah, fullNameOnCard: updated.fullNameOnCard });
+      } else {
+        const [created] = await db
+          .insert(memberBilling)
+          .values({ memberId, cardNumber, shebah, fullNameOnCard })
+          .returning();
+        return res.json({ id: created.id, cardNumber: created.cardNumber, shebah: created.shebah, fullNameOnCard: created.fullNameOnCard });
+      }
+    } catch (error) {
+      console.error("Error updating member billing:", error);
+      return res.status(500).json({ error: "Failed to update billing information" });
+    }
+  });
+
   // Change Password
   app.post("/api/members/change-password", async (req, res) => {
     try {
@@ -2694,7 +3130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/issues", requirePermission("create_projects"), async (req, res) => {
+  app.post("/api/issues", requirePermission("create_issues"), async (req, res) => {
     try {
       console.log(`[Routes] POST /api/issues called`);
       console.log(`[Routes] Request body tasks count: ${req.body.tasks?.length || 0}`);
@@ -2807,12 +3243,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Stamp the creator (for own-issue edit rules). Founder env-bypass has no memberId.
+      const creatorId = req.session?.memberId || null;
+      issueData.creatorId = creatorId;
+      if (Array.isArray(issueData.tasks)) {
+        issueData.tasks = issueData.tasks.map((t: any) => ({
+          ...t,
+          createdBy: t.createdBy ?? creatorId,
+        }));
+      }
+
       console.log(`[Routes] Final issue data tasks count: ${issueData.tasks?.length || 0}`);
       console.log(`[Routes] Final issue data:`, JSON.stringify({
         ...issueData,
         tasks: issueData.tasks?.map((t: any) => ({ name: t.name, points: t.points, assignedTo: t.assignedTo }))
       }, null, 2));
-      
+
       const issue = await storage.createIssue(issueData);
       
       console.log(`[Routes] Created issue ${issue.id}`);
@@ -2848,54 +3294,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const memberIdStr = memberId.replace(/'/g, "''");
-      const result = await db.execute(sql.raw(`
-        SELECT 
-          t.id,
-          t.name,
-          t.title,
-          t.description,
-          t.status,
-          t.points,
-          t.priority,
-          t.assigned_to as "assignedTo",
-          t.member_id as "memberId",
-          t.issue_id as "issueId",
-          t.is_completed as "isCompleted",
-          t.completed_at as "completedAt",
-          t.created_at as "createdAt",
-          i.title as "issueTitle",
-          i.project_id as "projectId",
-          p.name as "projectName"
-        FROM tasks t
-        LEFT JOIN issues i ON t.issue_id = i.id
-        LEFT JOIN projects p ON i.project_id = p.id
-        WHERE (t.member_id = '${memberIdStr}' OR t.assigned_to = '${memberIdStr}')
-        ORDER BY t.created_at DESC
-      `));
+      // Expand the tasks JSON array inside each issue and return only tasks
+      // where assignedTo matches the current member.
+      const result = await db.execute(sql`
+        SELECT
+          task->>'id'          AS id,
+          task->>'name'        AS name,
+          task->>'priority'    AS priority,
+          (task->>'points')::int AS points,
+          (task->>'isCompleted')::boolean AS "isCompleted",
+          task->>'assignedTo'  AS "assignedTo",
+          i.id                 AS "issueId",
+          i.title              AS "issueTitle",
+          i.project_id         AS "projectId",
+          p.name               AS "projectName",
+          i.created_at         AS "createdAt"
+        FROM issues i
+        INNER JOIN projects p ON i.project_id = p.id
+        CROSS JOIN LATERAL jsonb_array_elements(
+          CASE
+            WHEN jsonb_typeof(i.tasks) = 'array' THEN i.tasks
+            WHEN jsonb_typeof(i.tasks) = 'string' THEN (i.tasks#>>'{}')::jsonb
+            ELSE '[]'::jsonb
+          END
+        ) AS task
+        WHERE task->>'assignedTo' = ${memberId}
+        ORDER BY i.created_at DESC
+      `);
 
       const tasks = result.rows.map((row: any) => ({
         id: row.id,
-        name: row.name || row.title,
-        description: row.description,
-        status: row.status,
+        name: row.name,
+        description: null,
+        status: row.isCompleted ? "completed" : "pending",
         points: row.points || 0,
-        priority: row.priority,
+        priority: row.priority || "no_priority",
         assignedTo: row.assignedTo,
-        memberId: row.memberId,
+        memberId: memberId,
         issueId: row.issueId,
-        isCompleted: row.isCompleted || row.status === "completed",
-        completedAt: row.completedAt,
+        isCompleted: row.isCompleted || false,
+        completedAt: null,
         createdAt: row.createdAt,
-        issue: row.issueId ? {
-          id: row.issueId,
-          title: row.issueTitle,
-          projectId: row.projectId,
-        } : null,
-        project: row.projectId ? {
-          id: row.projectId,
-          name: row.projectName,
-        } : null,
+        issue: { id: row.issueId, title: row.issueTitle, projectId: row.projectId },
+        project: { id: row.projectId, name: row.projectName },
       }));
 
       return res.json(tasks);
@@ -2969,32 +3410,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      // Get all issues where the member has tasks assigned
-      const memberIdStr = memberId.replace(/'/g, "''");
-      const result = await db.execute(sql.raw(`
-        SELECT DISTINCT 
+      // Return issues where the member is:
+      //   1. Directly assigned to the issue (assignee_id)
+      //   2. Assigned to at least one task in the issue's tasks JSON array
+      const result = await db.execute(sql`
+        SELECT DISTINCT
           i.id,
           i.title,
           i.description,
           i.status,
           i."order",
-          i.video_url as "videoUrl",
-          i.video_duration as "videoDuration",
-          i.project_id as "projectId",
-          i.created_at as "createdAt",
-          p.name as "projectName",
-          p.client_id as "clientId",
-          c.username as "clientUsername",
-          c.full_name as "clientFullName"
+          i.video_url       AS "videoUrl",
+          i.video_duration  AS "videoDuration",
+          i.project_id      AS "projectId",
+          i.created_at      AS "createdAt",
+          p.name            AS "projectName",
+          p.client_id       AS "clientId",
+          c.username        AS "clientUsername",
+          c.full_name       AS "clientFullName"
         FROM issues i
-        INNER JOIN tasks t ON t.issue_id = i.id
         INNER JOIN projects p ON i.project_id = p.id
-        LEFT JOIN clients c ON p.client_id = c.id
-        WHERE (t.member_id = '${memberIdStr}' OR t.assigned_to = '${memberIdStr}')
+        LEFT JOIN  clients  c ON p.client_id  = c.id
+        WHERE
+          i.assignee_id = ${memberId}
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(
+              CASE
+                WHEN jsonb_typeof(i.tasks) = 'array' THEN i.tasks
+                WHEN jsonb_typeof(i.tasks) = 'string' THEN (i.tasks#>>'{}')::jsonb
+                ELSE '[]'::jsonb
+              END
+            ) AS task
+            WHERE task->>'assignedTo' = ${memberId}
+          )
         ORDER BY i.created_at DESC
-      `));
+      `);
 
-      const issues = result.rows.map((row: any) => ({
+      const issueList = result.rows.map((row: any) => ({
         id: row.id,
         title: row.title,
         description: row.description,
@@ -3004,19 +3457,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         videoDuration: row.videoDuration,
         projectId: row.projectId,
         createdAt: row.createdAt,
-        project: {
-          id: row.projectId,
-          name: row.projectName,
-          clientId: row.clientId,
-        },
-        client: row.clientId ? {
-          id: row.clientId,
-          username: row.clientUsername,
-          fullName: row.clientFullName,
-        } : null,
+        project: { id: row.projectId, name: row.projectName, clientId: row.clientId },
+        client: row.clientId
+          ? { id: row.clientId, username: row.clientUsername, fullName: row.clientFullName }
+          : null,
       }));
 
-      return res.json(issues);
+      return res.json(issueList);
     } catch (error: any) {
       console.error("Error fetching member issues:", error);
       return res.status(500).json({ error: "Failed to fetch member issues" });
@@ -3106,9 +3553,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/issues/:issueId", requirePermission("edit_projects"), async (req, res) => {
+  app.patch("/api/issues/:issueId", async (req, res) => {
     try {
       const { issueId } = req.params;
+      const actor = await resolveActor(req);
+      if (!actor) return res.status(401).json({ error: "Authentication required" });
+
+      // Load the issue to check ownership
+      const [issueRow] = await db.select().from(issues).where(eq(issues.id, issueId));
+      if (!issueRow) return res.status(404).json({ error: "Issue not found" });
+
+      if (!canEditIssueRow(actor, issueRow as any)) {
+        return res.status(403).json({ error: "You can only edit issues you created" });
+      }
+
       const updated = await storage.updateIssue(issueId, req.body);
       if (!updated) {
         return res.status(404).json({ error: "Issue not found" });
@@ -3130,19 +3588,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { issueId } = req.params;
       const { name, points, priority, assignedTo, order } = req.body;
-      
+
       console.log(`[POST /api/issues/:issueId/tasks] Creating task for issue ${issueId}:`, { name, points, priority, assignedTo, order });
       console.log(`[POST /api/issues/:issueId/tasks] Request body:`, req.body);
-      
+
       if (!name || !name.trim()) {
         return res.status(400).json({ error: "Task name is required" });
       }
-      
+
+      // ── Phase 4 enforcement: only those who can edit the issue may add tasks ──
+      const actor = await resolveActor(req);
+      if (!actor) return res.status(401).json({ error: "Authentication required" });
+      const [issueRow] = await db.select().from(issues).where(eq(issues.id, issueId));
+      if (!issueRow) return res.status(404).json({ error: "Issue not found" });
+      if (!canEditIssueRow(actor, issueRow as any)) {
+        return res.status(403).json({ error: "You can only add tasks to issues you created" });
+      }
+
       const task = await storage.createIssueTask(issueId, {
         name: name.trim(),
         points: points || 0,
         priority: priority || "no_priority",
         assignedTo: assignedTo || null,
+        createdBy: actor.memberId,
         order: order || 0,
       });
       
@@ -3285,10 +3753,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oldTask = currentTasks[taskIndex];
       const wasCompleted = oldTask.isCompleted || false;
       const willBeCompleted = updates.isCompleted !== undefined ? updates.isCompleted : wasCompleted;
-      
+
       console.log(`[Routes] Task update - Task ID: ${taskId}, Was completed: ${wasCompleted}, Will be completed: ${willBeCompleted}`);
       console.log(`[Routes] Task assigned to: ${oldTask.assignedTo}, Points: ${oldTask.points}`);
-      
+
+      // ── Phase 4 enforcement: who may change what on this task ──
+      const actor = await resolveActor(req);
+      if (!actor) return res.status(401).json({ error: "Authentication required" });
+      const mode = taskEditMode(actor, issue as any, oldTask);
+      if (mode === "none") {
+        return res.status(403).json({ error: "You don't have permission to edit this task" });
+      }
+      if (mode === "checkbox") {
+        // Assigned-but-not-creator: only the completion checkbox may change.
+        const changedKeys = Object.keys(updates).filter((k) => k !== "isCompleted");
+        if (changedKeys.length > 0) {
+          return res.status(403).json({ error: "You can only mark this task complete/incomplete" });
+        }
+      }
+
       // Update task fields
       if (updates.name !== undefined) {
         currentTasks[taskIndex].name = updates.name;
@@ -3314,7 +3797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update issue with modified tasks array
       await db.update(issues)
-        .set({ tasks: JSON.stringify(currentTasks) })
+        .set({ tasks: currentTasks as any })
         .where(eq(issues.id, issueId));
       
       const updatedTask = currentTasks[taskIndex];
@@ -3400,7 +3883,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the task update if points awarding fails - log it but continue
         }
       }
-      
+
+      // Deduct points when task is unchecked (was completed, now being marked incomplete)
+      if (wasCompleted && !willBeCompleted && updatedTask.assignedTo && updatedTask.points && updatedTask.points > 0) {
+        try {
+          const issueTitle = issue.title || `Issue ${issueId}`;
+
+          // Create a visible "deducted" transaction so it shows in history
+          await storage.createTransaction({
+            memberId: updatedTask.assignedTo,
+            type: "deducted",
+            points: updatedTask.points,
+            description: `Task unchecked: "${updatedTask.name}" (Issue: ${issueTitle})`,
+          });
+
+          // Update member stats: deduct from pointsEarned and currentBalance
+          const currentStats = await storage.getMemberStats(updatedTask.assignedTo);
+          const newPointsEarned = Math.max(0, (currentStats?.pointsEarned || 0) - updatedTask.points);
+          const newBalance = Math.max(0, (currentStats?.currentBalance || 0) - updatedTask.points);
+
+          await storage.updateMemberStats(updatedTask.assignedTo, {
+            pointsEarned: newPointsEarned,
+            currentBalance: newBalance,
+          });
+
+          console.log(`[Routes] ✓ Deducted ${updatedTask.points} pts from member ${updatedTask.assignedTo} (task unchecked)`);
+        } catch (deductError: any) {
+          console.error(`[Routes] Error deducting points:`, deductError);
+          // Don't fail the task update if deduction fails
+        }
+      }
+
       return res.json({
         id: updatedTask.id,
         name: updatedTask.name,
@@ -3417,16 +3930,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/issues/:issueId/tasks/:taskId", requirePermission("create_projects"), async (req, res) => {
+  app.delete("/api/issues/:issueId/tasks/:taskId", async (req, res) => {
     try {
       const { issueId, taskId } = req.params;
-      
+
+      const actor = await resolveActor(req);
+      if (!actor) return res.status(401).json({ error: "Authentication required" });
+
       // Get the current issue to access its tasks JSON column
       const [issue] = await db.select().from(issues).where(eq(issues.id, issueId));
       if (!issue) {
         return res.status(404).json({ error: "Issue not found" });
       }
-      
+
+      // Deleting a task is a structural change → requires full issue-edit rights
+      if (!canEditIssueRow(actor, issue as any)) {
+        return res.status(403).json({ error: "You can only modify tasks on issues you created" });
+      }
+
       // Parse existing tasks from JSON column
       let currentTasks: any[] = [];
       try {
@@ -3440,7 +3961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error(`[Routes] Error parsing tasks JSON:`, parseError?.message);
         return res.status(500).json({ error: "Failed to parse tasks" });
       }
-      
+
       // Find and remove the task
       const taskIndex = currentTasks.findIndex((t: any) => t.id === taskId);
       if (taskIndex === -1) {
@@ -3452,7 +3973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update issue with modified tasks array
       await db.update(issues)
-        .set({ tasks: JSON.stringify(currentTasks) })
+        .set({ tasks: currentTasks as any })
         .where(eq(issues.id, issueId));
       
       return res.json({ success: true });
@@ -3563,7 +4084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clips", requirePermission("edit_clipping"), async (req, res) => {
+  app.post("/api/clips", requirePermission("add_clips"), async (req, res) => {
     try {
       // Validate required fields
       if (!req.body.projectId) {
@@ -3651,7 +4172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/clips/:clipId", requirePermission("edit_clipping"), async (req, res) => {
+  app.patch("/api/clips/:clipId", requirePermission("add_clips"), async (req, res) => {
     try {
       const { clipId } = req.params;
       const updates: any = { ...req.body };
@@ -3982,7 +4503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/teams", requirePermission("create_templates"), async (req, res) => {
+  app.post("/api/teams", requirePermission("manage_teams"), async (req, res) => {
     try {
       const team = await storage.createTeam(req.body);
       return res.json(team);
@@ -3992,7 +4513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/teams/:teamId", requirePermission("create_templates"), async (req, res) => {
+  app.patch("/api/teams/:teamId", requirePermission("manage_teams"), async (req, res) => {
     try {
       const { teamId } = req.params;
       const updated = await storage.updateTeam(teamId, req.body);
@@ -4006,7 +4527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/teams/:teamId", requirePermission("create_templates"), async (req, res) => {
+  app.delete("/api/teams/:teamId", requirePermission("manage_teams"), async (req, res) => {
     try {
       const { teamId } = req.params;
       await storage.deleteTeam(teamId);
@@ -4018,7 +4539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Assign project to team
-  app.patch("/api/projects/:projectId/team", requirePermission("access_settings"), async (req, res) => {
+  app.patch("/api/projects/:projectId/team", requirePermission("manage_teams"), async (req, res) => {
     try {
       const { projectId } = req.params;
       const { teamId } = req.body; // teamId can be null to unassign
@@ -4279,7 +4800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Assign client to team
-  app.patch("/api/clients/:clientId/team", requirePermission("access_settings"), async (req, res) => {
+  app.patch("/api/clients/:clientId/team", requirePermission("manage_teams"), async (req, res) => {
     try {
       const { clientId } = req.params;
       const { teamId } = req.body; // teamId can be null to unassign
@@ -4608,6 +5129,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update client next payment information
+  app.patch("/api/founder/clients/:clientId", requireFounderAuth, async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const { googleDriveLink } = req.body;
+
+      const updates: Record<string, unknown> = {};
+      if (googleDriveLink !== undefined) {
+        updates.googleDriveLink =
+          typeof googleDriveLink === "string" && googleDriveLink.trim() === ""
+            ? null
+            : googleDriveLink;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      const updated = await storage.updateClient(clientId, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      const { passwordHash: _, ...clientWithoutPassword } = updated;
+      return res.json(clientWithoutPassword);
+    } catch (error) {
+      console.error("Error updating client:", error);
+      return res.status(500).json({ error: "Failed to update client" });
+    }
+  });
+
   app.put("/api/founder/clients/:clientId/next-payment", requireFounderAuth, async (req, res) => {
     try {
       const { clientId } = req.params;
@@ -5256,6 +5807,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contract upload (MSA / SOW) — founder only
+  app.post("/api/clients/:clientId/contracts/:type", requireFounderAuth, contractUpload.single("file"), async (req, res) => {
+    try {
+      const { clientId, type } = req.params;
+      if (type !== "msa" && type !== "sow") {
+        return res.status(400).json({ error: "type must be 'msa' or 'sow'" });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      const filePath = `/uploads/contracts/${req.file.filename}`;
+      const originalName = req.file.originalname;
+
+      if (type === "msa") {
+        await db.update(clients)
+          .set({ msaFilePath: filePath, msaOriginalName: originalName } as any)
+          .where(eq(clients.id, clientId));
+      } else {
+        await db.update(clients)
+          .set({ sowFilePath: filePath, sowOriginalName: originalName } as any)
+          .where(eq(clients.id, clientId));
+      }
+      return res.json({ filePath, originalName });
+    } catch (error: any) {
+      console.error("Error uploading contract:", error);
+      if (req.file) {
+        try { fs.unlinkSync(req.file.path); } catch {}
+      }
+      return res.status(500).json({ error: error.message || "Failed to upload contract" });
+    }
+  });
+
+  // Delete a contract (MSA or SOW) — founder only
+  app.delete("/api/clients/:clientId/contracts/:type", requireFounderAuth, async (req, res) => {
+    try {
+      const { clientId, type } = req.params;
+      if (type !== "msa" && type !== "sow") {
+        return res.status(400).json({ error: "type must be 'msa' or 'sow'" });
+      }
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId));
+      if (!client) return res.status(404).json({ error: "Client not found" });
+
+      const existingPath = type === "msa" ? (client as any).msaFilePath : (client as any).sowFilePath;
+      if (existingPath) {
+        const fullPath = path.join(process.cwd(), existingPath);
+        try { if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath); } catch {}
+      }
+      if (type === "msa") {
+        await db.update(clients).set({ msaFilePath: null, msaOriginalName: null } as any).where(eq(clients.id, clientId));
+      } else {
+        await db.update(clients).set({ sowFilePath: null, sowOriginalName: null } as any).where(eq(clients.id, clientId));
+      }
+      return res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting contract:", error);
+      return res.status(500).json({ error: "Failed to delete contract" });
+    }
+  });
+
+  // Get contracts for a client — accessible by the client themselves or founder/members
+  app.get("/api/clients/:clientId/contracts", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      // Auth: must be the client, a member, or founder
+      const isOwner = req.session?.clientId === clientId;
+      const isMember = !!req.session?.memberId;
+      const isFounder = !!req.session?.isFounder;
+      if (!isOwner && !isMember && !isFounder) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId));
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      return res.json({
+        msa: (client as any).msaFilePath ? { filePath: (client as any).msaFilePath, originalName: (client as any).msaOriginalName } : null,
+        sow: (client as any).sowFilePath ? { filePath: (client as any).sowFilePath, originalName: (client as any).sowOriginalName } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching contracts:", error);
+      return res.status(500).json({ error: "Failed to fetch contracts" });
+    }
+  });
+
+  // Get contracts for the currently logged-in client
+  app.get("/api/clients/my-contracts", async (req, res) => {
+    try {
+      const clientId = req.session?.clientId;
+      if (!clientId) return res.status(401).json({ error: "Authentication required" });
+      const [client] = await db.select().from(clients).where(eq(clients.id, clientId));
+      if (!client) return res.status(404).json({ error: "Client not found" });
+      return res.json({
+        msa: (client as any).msaFilePath ? { filePath: (client as any).msaFilePath, originalName: (client as any).msaOriginalName } : null,
+        sow: (client as any).sowFilePath ? { filePath: (client as any).sowFilePath, originalName: (client as any).sowOriginalName } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching my contracts:", error);
+      return res.status(500).json({ error: "Failed to fetch contracts" });
+    }
+  });
+
   // Invoices
   app.get("/api/founder/invoices", requireFounderAuth, async (req, res) => {
     try {
@@ -5358,6 +6008,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update a member's profile (full name, email) and role.
+  // Requires manage_members (founder/admin/manager). Role escalation is guarded:
+  // only founder/admin may grant the "admin" role; "founder" is never assignable here.
+  app.patch("/api/founder/members/:memberId", requirePermission("manage_members"), async (req, res) => {
+    try {
+      const { memberId } = req.params;
+      const { fullName, email, role } = req.body;
+
+      const member = await storage.getMember(memberId);
+      if (!member) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (fullName !== undefined) updates.fullName = fullName;
+      if (email !== undefined) {
+        if (typeof email !== "string" || !email.includes("@")) {
+          return res.status(400).json({ error: "Invalid email" });
+        }
+        updates.email = email;
+      }
+
+      if (role !== undefined) {
+        const assignable = ["admin", "manager", "editor", "clipper", "member"];
+        const newRole = String(role).toLowerCase();
+        if (!assignable.includes(newRole)) {
+          return res.status(400).json({ error: "Invalid role" });
+        }
+        // Privilege guard: only founder/admin may grant the admin role.
+        const actor = await resolveActor(req);
+        const actorIsAdminOrFounder = !!actor && (actor.isFounder || isAdminRole(actor.role));
+        if (newRole === "admin" && !actorIsAdminOrFounder) {
+          return res.status(403).json({ error: "Only a founder or admin can assign the admin role" });
+        }
+        // Never allow demoting/altering the founder account's role through this endpoint.
+        if ((member.role || "").toLowerCase() === "founder") {
+          return res.status(403).json({ error: "The founder account's role cannot be changed" });
+        }
+        updates.role = newRole;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No changes provided" });
+      }
+
+      const updated = await storage.updateMember(memberId, updates);
+      const { passwordHash: _ph, plainPassword: _pp, ...safe } = (updated || {}) as any;
+      return res.json(safe);
+    } catch (error: any) {
+      console.error("Error updating member:", error);
+      return res.status(500).json({ error: "Failed to update member" });
+    }
+  });
+
   // Log all registered routes for debugging
   console.log("[Routes] All routes registered. Checking for /api/members/list-public...");
   const routes = (app as any)._router?.stack || [];
@@ -5380,6 +6084,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("[Routes] This route must be registered before /api/members/:memberId routes");
   }
   
+  // Register tutorial/onboarding routes
+  registerTutorialRoutes(app);
+  registerBoardRoutes(app);
+
   const httpServer = createServer(app);
 
   return httpServer;

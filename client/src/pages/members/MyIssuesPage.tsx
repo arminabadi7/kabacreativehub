@@ -151,7 +151,7 @@ export default function MyIssuesPage() {
   }, {} as Record<string, Issue[]>);
 
   const handleIssueClick = (issue: Issue) => {
-    setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+    setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
   };
 
   if (isLoading) {
@@ -369,7 +369,7 @@ export default function MyIssuesPage() {
                       className="cursor-pointer hover:bg-gray-50"
                       onClick={() => {
                         if (task.issue?.projectId && task.issueId) {
-                          setLocation(`/member-dashboard/projects/${task.issue.projectId}/issues/${task.issueId}`);
+                          setLocation(`/dashboard/projects/${task.issue.projectId}/issues/${task.issueId}`);
                         }
                       }}
                     >
@@ -421,7 +421,7 @@ export default function MyIssuesPage() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setLocation(`/member-dashboard/projects/${task.issue!.projectId}/issues/${task.issueId}`);
+                              setLocation(`/dashboard/projects/${task.issue!.projectId}/issues/${task.issueId}`);
                             }}
                           >
                             View Issue

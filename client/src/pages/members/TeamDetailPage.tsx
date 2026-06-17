@@ -351,8 +351,8 @@ export default function TeamDetailPage({ teamId, onBackToTeams }: TeamDetailPage
             if (onBackToTeams) {
               onBackToTeams();
             } else {
-              console.log("[TeamDetailPage] No callback, navigating to /member-dashboard");
-              setLocation("/member-dashboard");
+              console.log("[TeamDetailPage] No callback, navigating to /dashboard");
+              setLocation("/dashboard");
             }
           }}
           className="mb-4"
@@ -700,7 +700,7 @@ export default function TeamDetailPage({ teamId, onBackToTeams }: TeamDetailPage
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setLocation(`/member-dashboard?section=projects&project=${project.id}`)}
+                              onClick={() => setLocation(`/dashboard?section=projects&project=${project.id}`)}
                             >
                               View
                             </Button>
@@ -750,7 +750,7 @@ export default function TeamDetailPage({ teamId, onBackToTeams }: TeamDetailPage
                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
                         onClick={() => {
                           if (issue.projectId) {
-                            setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+                            setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
                           }
                         }}
                       >
@@ -773,7 +773,7 @@ export default function TeamDetailPage({ teamId, onBackToTeams }: TeamDetailPage
                           onClick={(e) => {
                             e.stopPropagation();
                             if (issue.projectId) {
-                              setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+                              setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
                             }
                           }}
                         >

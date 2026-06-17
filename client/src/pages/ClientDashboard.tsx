@@ -7,11 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, LogOut, Edit, Save, X, Instagram, Youtube, Facebook, Twitter, Calendar, DollarSign } from "lucide-react";
+import { Eye, EyeOff, LogOut, Edit, Save, X, Instagram, Youtube, Facebook, Twitter, Calendar, DollarSign, FolderOpen, ExternalLink, BookOpen, FileText, Download } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { GettingStartedSection } from "@/components/tutorials/GettingStartedSection";
+import { GuidesTabContent } from "@/components/tutorials/GuidesTabContent";
 
 type Client = {
   id: string;
@@ -22,6 +25,7 @@ type Client = {
   phoneNumber: string | null;
   instagramUsername: string | null;
   offerLink: string | null;
+  googleDriveLink: string | null;
   createdAt: string;
   totalSpent: number;
   clientSince: string;
@@ -118,6 +122,16 @@ export default function ClientDashboard() {
     queryFn: async () => {
       const res = await fetch("/api/clients/my-payment-plans", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch payment plans");
+      return res.json();
+    },
+    enabled: !!client?.id,
+  });
+
+  const { data: contracts } = useQuery<{ msa: { filePath: string; originalName: string } | null; sow: { filePath: string; originalName: string } | null }>({
+    queryKey: ["/api/clients/my-contracts"],
+    queryFn: async () => {
+      const res = await fetch("/api/clients/my-contracts", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch contracts");
       return res.json();
     },
     enabled: !!client?.id,
@@ -237,92 +251,75 @@ export default function ClientDashboard() {
                 <p className="text-sm text-gray-600">Client Dashboard</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => logoutMutation.mutate()}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button
+                variant="outline"
+                onClick={() => logoutMutation.mutate()}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Getting Started — shown above tabs, disappears when all tutorials complete */}
+        <GettingStartedSection clientId={client.id} />
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="social-accounts">Social Media Accounts</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="contracts" className="flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" />
+              Contracts
+            </TabsTrigger>
+            <TabsTrigger value="guides" className="flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5" />
+              Guides
+            </TabsTrigger>
           </TabsList>
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-6">
-            {/* Next Payment Card */}
-            {nextPaymentInfo && (
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-blue-600" />
-                    Next Payment
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-gray-500">Next Payment Date</Label>
-                      <div className="text-lg font-semibold text-gray-900 mt-1">
-                        {nextPaymentInfo.nextPaymentDate
-                          ? new Date(nextPaymentInfo.nextPaymentDate).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })
-                          : "Not scheduled"}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">Amount Due</Label>
-                      <div className="text-lg font-semibold text-green-600 mt-1 flex items-center gap-1">
-                        <DollarSign className="w-5 h-5" />
-                        {nextPaymentInfo.amount > 0
-                          ? (nextPaymentInfo.amount / 100).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : "N/A"}
-                      </div>
-                      {nextPaymentInfo.tier && nextPaymentInfo.standardAmount && nextPaymentInfo.standardAmount > nextPaymentInfo.amount && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          <span className="line-through">
-                            ${(nextPaymentInfo.standardAmount / 100).toLocaleString("en-US", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          <span className="text-green-600 ml-2">
-                            {((nextPaymentInfo.standardAmount - nextPaymentInfo.amount) / nextPaymentInfo.standardAmount * 100).toFixed(1)}% discount
-                          </span>
-                        </div>
-                      )}
-                    </div>
+            <Card className="border-emerald-200 bg-emerald-50/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FolderOpen className="w-5 h-5 text-emerald-700" />
+                  Google Drive
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {client.googleDriveLink ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Input value={client.googleDriveLink} readOnly className="bg-white flex-1" />
+                    <Button
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => {
+                        const link = client.googleDriveLink!;
+                        const url =
+                          link.startsWith("http://") || link.startsWith("https://")
+                            ? link
+                            : `https://${link}`;
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open Google Drive
+                    </Button>
                   </div>
-                  {nextPaymentInfo.tier && (
-                    <div className="mt-4 pt-4 border-t border-blue-200">
-                      <p className="text-sm text-gray-600">
-                        <span className="font-medium">Tier:</span> {nextPaymentInfo.tier}
-                      </p>
-                    </div>
-                  )}
-                  {nextPaymentInfo.nextPaymentNote && (
-                    <div className="mt-4 pt-4 border-t border-blue-200">
-                      <Label className="text-xs text-gray-500">Note</Label>
-                      <p className="text-sm text-gray-700 mt-1">{nextPaymentInfo.nextPaymentNote}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    Your Google Drive link has not been set yet. Contact your account manager.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -822,6 +819,91 @@ export default function ClientDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Contracts Tab */}
+          <TabsContent value="contracts" className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Your Contracts</h2>
+              <p className="text-sm text-gray-500">Documents shared with you by KabaContent.</p>
+            </div>
+
+            {/* MSA Card */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  Master Service Agreement (MSA)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {contracts?.msa ? (
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-8 h-8 text-blue-600 shrink-0" />
+                      <div>
+                        <p className="font-medium text-gray-900">{contracts.msa.originalName}</p>
+                        <p className="text-xs text-gray-500">Master Service Agreement</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                      onClick={() => window.open(contracts.msa!.filePath, "_blank")}
+                    >
+                      <Download className="w-4 h-4" />
+                      View / Download
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-gray-500">
+                    <FileText className="w-8 h-8 text-gray-300 shrink-0" />
+                    <p className="text-sm">No MSA has been uploaded yet.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* SOW Card */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="w-5 h-5 text-purple-600" />
+                  Statement of Work (SOW)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {contracts?.sow ? (
+                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-8 h-8 text-purple-600 shrink-0" />
+                      <div>
+                        <p className="font-medium text-gray-900">{contracts.sow.originalName}</p>
+                        <p className="text-xs text-gray-500">Statement of Work</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5"
+                      onClick={() => window.open(contracts.sow!.filePath, "_blank")}
+                    >
+                      <Download className="w-4 h-4" />
+                      View / Download
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-gray-500">
+                    <FileText className="w-8 h-8 text-gray-300 shrink-0" />
+                    <p className="text-sm">No SOW has been uploaded yet.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Guides Tab */}
+          <TabsContent value="guides">
+            <GuidesTabContent />
           </TabsContent>
         </Tabs>
       </div>

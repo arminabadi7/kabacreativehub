@@ -112,9 +112,12 @@ app.use((req, res, next) => {
   const migrations = [
     { path: "../fix-social-media-table", name: "social media accounts" },
     { path: "../add-offer-link-column", name: "offer link" },
+    { path: "../add-google-drive-link-column", name: "google drive link" },
     { path: "../add-income-currency-column", name: "income currency" },
     { path: "../add-next-payment-columns", name: "next payment" },
     { path: "../add-payment-plans-tables", name: "payment plans" },
+    { path: "../add-tutorial-tables", name: "tutorial tables" },
+    { path: "../add-board-schema", name: "board schema (project_statuses + issue fields)" },
   ];
 
   for (const migration of migrations) {
@@ -138,6 +141,15 @@ app.use((req, res, next) => {
     await seedInitialData();
   } catch (error: any) {
     console.error("⚠️  Database seeding failed. Server will start but some features may not work.");
+    console.error("Error:", error.message || error);
+  }
+
+  try {
+    // Ensure a real founder member account exists (env-password bypass stays as backup)
+    const { ensureFounderAccount } = await import("./seedFounder");
+    await ensureFounderAccount();
+  } catch (error: any) {
+    console.error("⚠️  Founder account seeding failed. Env-password login still works.");
     console.error("Error:", error.message || error);
   }
 

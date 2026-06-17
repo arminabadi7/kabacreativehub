@@ -46,7 +46,7 @@ export default function PaymentsSection() {
   const totalEarned = transactions
     .filter(t => t.type === "earned" || t.type === "bonus")
     .reduce((sum, t) => sum + t.points, 0);
-  
+
   const totalPaid = transactions
     .filter(t => t.type === "paid")
     .reduce((sum, t) => sum + Math.abs(t.points), 0);
@@ -55,7 +55,11 @@ export default function PaymentsSection() {
     .filter(t => t.type === "penalty")
     .reduce((sum, t) => sum + Math.abs(t.points), 0);
 
-  const currentBalance = totalEarned - totalPaid - totalPenalties;
+  const totalDeducted = transactions
+    .filter(t => t.type === "deducted")
+    .reduce((sum, t) => sum + Math.abs(t.points), 0);
+
+  const currentBalance = totalEarned - totalPaid - totalPenalties - totalDeducted;
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -67,6 +71,8 @@ export default function PaymentsSection() {
         return "bg-purple-100 text-purple-800";
       case "penalty":
         return "bg-red-100 text-red-800";
+      case "deducted":
+        return "bg-orange-100 text-orange-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -79,6 +85,7 @@ export default function PaymentsSection() {
         return <TrendingUp className="w-4 h-4" />;
       case "paid":
       case "penalty":
+      case "deducted":
         return <TrendingDown className="w-4 h-4" />;
       default:
         return <Circle className="w-4 h-4" />;
@@ -193,8 +200,10 @@ export default function PaymentsSection() {
                 <TableBody>
                   {transactions.map((transaction) => {
                     const isPositive = transaction.type === "earned" || transaction.type === "bonus";
-                    const pointsDisplay = isPositive ? transaction.points : -Math.abs(transaction.points);
-                    
+                    const isPaid = transaction.type === "paid";
+                    const prefix = isPaid ? "" : isPositive ? "+" : "-";
+                    const colorClass = isPaid ? "text-blue-600" : isPositive ? "text-green-600" : "text-red-600";
+
                     return (
                       <TableRow key={transaction.id}>
                         <TableCell>
@@ -217,11 +226,11 @@ export default function PaymentsSection() {
                         <TableCell className="max-w-md">
                           <p className="truncate">{transaction.description}</p>
                         </TableCell>
-                        <TableCell className={`text-right font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
-                          {isPositive ? "+" : "-"}{formatPoints(Math.abs(transaction.points))} pts
+                        <TableCell className={`text-right font-medium ${colorClass}`}>
+                          {prefix}{formatPoints(Math.abs(transaction.points))} pts
                         </TableCell>
-                        <TableCell className={`text-right font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
-                          {isPositive ? "+" : "-"}{formatCurrency(Math.abs(transaction.points))}
+                        <TableCell className={`text-right font-medium ${colorClass}`}>
+                          {prefix}{formatCurrency(Math.abs(transaction.points))}
                         </TableCell>
                       </TableRow>
                     );

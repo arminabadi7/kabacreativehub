@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type Team = {
   id: string;
@@ -59,6 +60,8 @@ type TeamStatistics = {
 
 export default function TeamsPage() {
   const { toast } = useToast();
+  const { can } = usePermissions();
+  const canManageTeams = can("manage_teams");
   const [, setLocation] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -158,7 +161,7 @@ export default function TeamsPage() {
       });
       // Automatically navigate to the team detail page
       if (team?.id) {
-        setLocation(`/member-dashboard/teams/${team.id}`);
+        setLocation(`/dashboard/teams/${team.id}`);
       }
     },
     onError: (error: any) => {
@@ -397,12 +400,14 @@ export default function TeamsPage() {
           <p className="text-muted-foreground">Manage teams, assign members, clients, and projects, and track team performance</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-black text-white hover:bg-gray-900">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Team
-            </Button>
-          </DialogTrigger>
+          {canManageTeams && (
+            <DialogTrigger asChild>
+              <Button className="bg-black text-white hover:bg-gray-900">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Team
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Team</DialogTitle>
@@ -565,7 +570,7 @@ export default function TeamsPage() {
                   if (target.closest('button') || target.closest('[role="combobox"]') || target.closest('[role="listbox"]')) {
                     return;
                   }
-                  setLocation(`/member-dashboard/teams/${team.id}`);
+                  setLocation(`/dashboard/teams/${team.id}`);
                 }}
               >
                 <CardHeader>
@@ -576,30 +581,32 @@ export default function TeamsPage() {
                         <p className="text-sm text-muted-foreground mt-1">{team.description}</p>
                       )}
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEdit(team);
-                        }}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTeamId(team.id);
-                        }}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    {canManageTeams && (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(team);
+                          }}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTeamId(team.id);
+                          }}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>

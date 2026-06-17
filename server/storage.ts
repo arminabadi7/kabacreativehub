@@ -160,6 +160,7 @@ export interface IStorage {
   updateMemberStats(memberId: string, updates: any): Promise<any>;
   getMemberTransactions(memberId: string, filters?: any): Promise<any[]>;
   createTransaction(transaction: any): Promise<any>;
+  deleteTransaction(transactionId: string): Promise<void>;
   
   // Social Media Accounts
   getSocialMediaAccountsByClient(clientId: string): Promise<any[]>;
@@ -1138,6 +1139,7 @@ export class DatabaseStorage implements IStorage {
               points: taskData.points || 0,
               priority: taskData.priority || "no_priority",
               assignedTo: taskData.assignedTo || taskData.assigned_to || null,
+              createdBy: taskData.createdBy ?? issueFields.creatorId ?? null,
               order: taskData.order !== undefined ? taskData.order : tasksToStore.length,
               isCompleted: false,
               createdAt: new Date().toISOString(),
@@ -1207,6 +1209,7 @@ export class DatabaseStorage implements IStorage {
       const name = String(taskData.name).trim();
       const priority = String(taskData.priority || "no_priority");
       const assignedTo = taskData.assignedTo || null;
+      const createdBy = taskData.createdBy || null;
       const points = parseInt(String(taskData.points || 0));
       const order = parseInt(String(taskData.order || 0));
       
@@ -1244,6 +1247,7 @@ export class DatabaseStorage implements IStorage {
         points: points,
         priority: priority,
         assignedTo: assignedTo,
+        createdBy: createdBy,
         order: order !== undefined ? order : currentTasks.length,
         isCompleted: false,
         createdAt: new Date().toISOString(),
@@ -1859,6 +1863,10 @@ export class DatabaseStorage implements IStorage {
   async createTransaction(transactionData: any): Promise<any> {
     const [transaction] = await db.insert(transactions).values(transactionData).returning();
     return transaction;
+  }
+
+  async deleteTransaction(transactionId: string): Promise<void> {
+    await db.delete(transactions).where(eq(transactions.id, transactionId));
   }
 
   // Social Media Accounts

@@ -116,24 +116,34 @@ export default function TransactionsSection({ memberId }: { memberId: string }) 
                 transactions.map((transaction) => {
                   const isEarned = transaction.type === "earned";
                   const isPaid = transaction.type === "paid";
+                  const isDeducted = transaction.type === "deducted";
+                  const isBonus = transaction.type === "bonus";
+                  const isPenalty = transaction.type === "penalty";
+                  const isNegative = isDeducted || isPenalty;
+                  const typeLabel = isEarned ? "Earned" : isPaid ? "Paid" : isDeducted ? "Deducted" : isBonus ? "Bonus" : isPenalty ? "Penalty" : transaction.type;
+                  const badgeClass = isEarned
+                    ? "bg-green-100 text-green-800"
+                    : isPaid
+                    ? "bg-blue-100 text-blue-800"
+                    : isDeducted
+                    ? "bg-orange-100 text-orange-800"
+                    : isBonus
+                    ? "bg-purple-100 text-purple-800"
+                    : isPenalty
+                    ? "bg-red-100 text-red-800"
+                    : "bg-gray-100 text-gray-800";
+                  const amountClass = isEarned || isBonus ? "text-green-600" : isPaid ? "text-blue-600" : isNegative ? "text-red-600" : "";
+                  const prefix = isPaid ? "" : isNegative ? "-" : "+";
                   return (
                     <tr key={transaction.id} className="border-t hover:bg-gray-50">
                       <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          isEarned 
-                            ? "bg-green-100 text-green-800" 
-                            : isPaid 
-                            ? "bg-blue-100 text-blue-800" 
-                            : "bg-gray-100 text-gray-800"
-                        }`}>
-                          {isEarned ? "Earned" : isPaid ? "Paid" : transaction.type}
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badgeClass}`}>
+                          {typeLabel}
                         </span>
                       </td>
                       <td className="py-3 px-4">{transaction.description}</td>
-                      <td className={`py-3 px-4 font-medium ${
-                        isEarned ? "text-green-600" : isPaid ? "text-blue-600" : ""
-                      }`}>
-                        {isEarned ? "+" : isPaid ? "-" : ""}{transaction.points} pts
+                      <td className={`py-3 px-4 font-medium ${amountClass}`}>
+                        {prefix}{transaction.points} pts
                       </td>
                       <td className="py-3 px-4 text-muted-foreground">{formatDate(transaction.createdAt)}</td>
                     </tr>

@@ -201,7 +201,7 @@ export default function IssueCard({
       return;
     }
     if (issue.projectId) {
-      setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+      setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
     }
   };
 

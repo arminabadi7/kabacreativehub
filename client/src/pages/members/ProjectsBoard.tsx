@@ -109,6 +109,11 @@ export default function ProjectsBoard({ allowCreateProject = false }: ProjectsBo
   const [newProjectClientId, setNewProjectClientId] = useState<string>("");
   const [newProjectTeamId, setNewProjectTeamId] = useState<string>("");
   const [newProjectFileLink, setNewProjectFileLink] = useState("");
+  const [isEditProjectDialogOpen, setIsEditProjectDialogOpen] = useState(false);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectClientId, setEditProjectClientId] = useState("");
+  const [editProjectFileLink, setEditProjectFileLink] = useState("");
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
   const [statusLabelEdit, setStatusLabelEdit] = useState<string>("");
   const [isCreateIssueDialogOpen, setIsCreateIssueDialogOpen] = useState(false);
@@ -685,6 +690,43 @@ export default function ProjectsBoard({ allowCreateProject = false }: ProjectsBo
     },
   });
 
+  const editProjectMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string; clientId: string; fileLink?: string }) => {
+      const response = await apiRequest("PATCH", `/api/projects/${selectedProject}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setIsEditProjectDialogOpen(false);
+      toast({ title: "Saved", description: "Project updated successfully." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update project", variant: "destructive" });
+    },
+  });
+
+  const openEditProjectDialog = () => {
+    if (!selectedProjectData) return;
+    setEditProjectName(selectedProjectData.name);
+    setEditProjectDescription(selectedProjectData.description || "");
+    setEditProjectClientId(selectedProjectData.clientId || "");
+    setEditProjectFileLink(selectedProjectData.fileLink || "");
+    setIsEditProjectDialogOpen(true);
+  };
+
+  const handleEditProject = () => {
+    if (!editProjectName.trim() || !editProjectClientId) {
+      toast({ title: "Error", description: "Project name and client are required.", variant: "destructive" });
+      return;
+    }
+    editProjectMutation.mutate({
+      name: editProjectName.trim(),
+      description: editProjectDescription.trim() || undefined,
+      clientId: editProjectClientId,
+      fileLink: editProjectFileLink.trim() || undefined,
+    });
+  };
+
   const handleCreateProject = () => {
     if (!newProjectName.trim() || !newProjectClientId) {
       toast({
@@ -849,7 +891,17 @@ export default function ProjectsBoard({ allowCreateProject = false }: ProjectsBo
                 onClick={() => setSelectedProject(project.id)}
               >
                 <CardContent className="p-6">
-                  <h3 className="text-xl font-semibold mb-2">{project.name}</h3>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="text-xl font-semibold">{project.name}</h3>
+                    {project.clientId && (() => {
+                      const linked = clients?.find(c => c.id === project.clientId);
+                      return linked ? (
+                        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                          {linked.fullName || linked.username}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   {project.description && (
                     <p className="text-sm text-gray-600 mb-2">{project.description}</p>
                   )}
@@ -958,6 +1010,76 @@ export default function ProjectsBoard({ allowCreateProject = false }: ProjectsBo
 
   return (
     <div className="bg-white min-h-screen">
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditProjectDialogOpen} onOpenChange={setIsEditProjectDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update project details and client link.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="edit-project-name">Project Name *</Label>
+              <Input
+                id="edit-project-name"
+                value={editProjectName}
+                onChange={(e) => setEditProjectName(e.target.value)}
+                placeholder="Enter project name"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-project-client">Linked Client *</Label>
+              <Select value={editProjectClientId} onValueChange={setEditProjectClientId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients?.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.fullName || client.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-project-description">Description</Label>
+              <Textarea
+                id="edit-project-description"
+                value={editProjectDescription}
+                onChange={(e) => setEditProjectDescription(e.target.value)}
+                placeholder="Enter project description (optional)"
+                rows={3}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-project-file-link">File Link / Location</Label>
+              <Input
+                id="edit-project-file-link"
+                value={editProjectFileLink}
+                onChange={(e) => setEditProjectFileLink(e.target.value)}
+                placeholder="/Projects/ClientName/Episode_01 (optional)"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditProjectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditProject}
+              disabled={editProjectMutation.isPending}
+              className="bg-black text-white hover:bg-gray-900"
+            >
+              {editProjectMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Top Header Bar */}
       <div className="border-b border-gray-200 bg-white sticky top-0 z-10">
         <div className="px-6 py-3 flex items-center justify-between">
@@ -976,8 +1098,26 @@ export default function ProjectsBoard({ allowCreateProject = false }: ProjectsBo
               <span className="font-semibold text-gray-900">Content Operation</span>
               <ChevronDown className="w-4 h-4 text-gray-500" />
             </div>
-            <div className="text-sm text-gray-600">
-              Projects <span className="text-gray-400">/</span> {selectedProjectData?.name || "Project"}
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              Projects <span className="text-gray-400">/</span>
+              <span className="font-medium text-gray-900">{selectedProjectData?.name || "Project"}</span>
+              {selectedProjectData?.clientId && (() => {
+                const linked = clients?.find(c => c.id === selectedProjectData.clientId);
+                return linked ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                    {linked.fullName || linked.username}
+                  </span>
+                ) : null;
+              })()}
+              {allowCreateProject && (
+                <button
+                  onClick={openEditProjectDialog}
+                  className="ml-1 p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                  title="Edit project"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -1575,7 +1715,7 @@ function IssueCard({
       return;
     }
     if (issue.projectId) {
-      setLocation(`/member-dashboard/projects/${issue.projectId}/issues/${issue.id}`);
+      setLocation(`/dashboard/projects/${issue.projectId}/issues/${issue.id}`);
     }
   };
 

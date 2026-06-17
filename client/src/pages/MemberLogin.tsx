@@ -42,9 +42,9 @@ export default function MemberLogin() {
       });
       // Redirect based on user type
       if (data.userType === "client") {
-        setLocation("/client-dashboard");
+        setLocation("/client");
       } else {
-        setLocation("/member-dashboard");
+        setLocation("/dashboard");
       }
     },
     onError: (error: any) => {
